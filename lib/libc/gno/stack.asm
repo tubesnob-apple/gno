@@ -7,7 +7,7 @@
 
 	keep	stack
 
-	mcopy	:obj:gno:lib:libc:gno:stack.mac
+	mcopy	stack.mac
 	case	on
 
 * This test function goes into "stack.ROOT", which is not used

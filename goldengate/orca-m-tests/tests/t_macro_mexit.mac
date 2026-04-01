@@ -1,0 +1,1 @@
+         MACRO         COND_PHA &FLAG         NOP         AIF  &FLAG<>0,.DONE         PHA.DONE    ANOP         MEND

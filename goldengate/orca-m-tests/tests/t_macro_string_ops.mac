@@ -1,0 +1,1 @@
+         MACRO         LOAD_REG &REG,&VAL         LCLC   &R&R       AMID   &REG,1,1         AIF    "&R"<>"A",.TRYX         LDA    #&VAL         AGO    .DONE.TRYX         AIF    "&R"<>"X",.TRYY         LDX    #&VAL         AGO    .DONE.TRYY         LDY    #&VAL.DONE    ANOP         MEND

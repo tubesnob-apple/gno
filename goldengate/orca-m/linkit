@@ -1,0 +1,16 @@
+echo copy -c z.endp 13
+copy -c z.endp 13
+
+echo set auxtype $DB01
+set auxtype $DB01
+
+* echo link +l +s obj/asm obj/file keep=16/Asm65816
+* link +l +s obj/asm obj/file keep=16/Asm65816 >linkmap
+
+echo link obj/asm obj/file keep=16/Asm65816
+link obj/asm obj/file keep=16/Asm65816
+
+rename 16/asm65816 16/Asm65816
+
+echo delete -c 13/z.endp
+delete -c 13/z.endp

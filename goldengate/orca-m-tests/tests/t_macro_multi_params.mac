@@ -1,0 +1,1 @@
+         MACRO         SETREGS &XVAL,&AVAL         LDX     #&XVAL         LDA     #&AVAL         MEND

@@ -1,0 +1,1 @@
+         MACRO         INIT_COUNT         GBLA   &COUNT&COUNT   SETA   0         MEND         MACRO         BUMP_LDA&COUNT   SETA   &COUNT+1         LDA    #&COUNT         MEND

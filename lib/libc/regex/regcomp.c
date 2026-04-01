@@ -43,6 +43,9 @@
 segment "regex_3___";
 #endif
 
+/* Original build used -DPOSIX_MISTAKE; iix has no -D flag */
+#define POSIX_MISTAKE
+
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)regcomp.c	8.5 (Berkeley) 3/20/94";
 #endif /* LIBC_SCCS and not lint */

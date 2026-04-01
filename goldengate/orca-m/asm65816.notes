@@ -1,0 +1,66 @@
+ASM65816 2.1.0
+Copyright 1996, Byte Works Inc.
+
+-- Change List --------------------------------------------------------------
+
+2.1.0       1.	Bugs squashed.  See bug notes, below.
+
+	     2. The assembler supports the extended character set.  See
+		"Extended Characters," below.
+
+2.0.2       1.	Bugs squashed.  See bug notes, below.
+
+2.0.1       1.	Bugs squashed.  See bug notes, below.
+
+-- Assembler changes introduced in C 2.1.0 ----------------------------------
+
+Extended Characters
+-------------------
+
+Bear with me.  This is an ASCII file, and it describes non-ASCII material.
+
+Beginning with version 2.1, the PRIZM desktop editor supports the full Apple extended character set.  A file called FontTest on the samples disk shows the complete character set, and also contains a table that shows how to type each character from a U.S. English keyboard.
+
+ORCA/M supports the use of extended characters in strings, comments and labels.
+
+Any character you can type from PRIZM (or for that matter, any character with an ordinal value in [1..12, 14..255]) can appear in a DC S, character constant  or comment.  The ordinal value of the character matches the values shown in FontTest, as well as several official Apple publications.  Keep in mind that many output devices, includMng Apple's text console driver, do not support all of these characters.  ORCA/M will properly send extended characters to whatever output device you choose, but what happens when the output device tries to handle the character varies from device to device.
+
+Many of the characters in the extended character set are used in languages other than English, and are now allowed in label names.  There are two ways to think about which characters will work in a label.
+
+The simple way is to remember that all characters that look like a graphically modified ASCII alphabetic character or a Greek alphabetic character are allowed in labels.  For example, an a with two dots above it is now legal in a label.
+
+The more exact, and naturally more complicated way to think about which characters are allowed in a label is to list all of them.  Since this is an ASCII file, I'll list the ordinal values--you can cross reference the values in FontTest.  The ordinal values of the extended characters that are allowed in labels are [$80..$9F, $A7, $AE, $AF, $B4..$B9, $BB..$BF, $C4, $C6, $CB..$CF, $D8, $DE, $DF].
+
+The non-breaking space, sometimes called the sticky space (ordinal value $CA), is allowed in commennts, strings and character constants, but not elsewhere.  
+
+--- Bugs in Asm65816 2.0.2 that were fixed in Asm65816 2.1.0 ------------------
+
+1.  Segements that were longer than 64K on disk had the high word of the segment length trashed, causing the linker and utilities that work on object files to choke on the object file.
+
+(Jawaid Bazyar)
+
+--- Bugs in Asm65816 2.0.1 that were fixed in Asm65816 2.0.2 ------------------
+
+1.  The code to create the macro hash table trashed one byte of memory the assembler did not own.
+
+(Nathan Mates)
+
+--- Bugs in Asm65816 2.0.0 that were fixed in Asm65816 2.0.1 ------------------
+
+1.  The macro files now use &SYSCNT and &SYSNAME rather than &syscnt and &sysname.  This prevents errors when the case on directive is used.
+
+(Soenke Behrens, Bryan Pietrzak)
+
+2.  The GetMouse macro has a single parameter, now.
+
+(Johnathan Salz)
+
+3.  The COPY command placed the copied file name in an unpredictable location.
+
+(Jay Krell, Jawaid Bazyar)
+
+4.  The byte past the end of a symbol table buffer was occasionally wipped out.
+
+5.  Apple's M16.HyperXCMD did not end in a return.
+
+(Jack Burke)

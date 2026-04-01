@@ -749,14 +749,14 @@ pread (int fd, void *buf, size_t bytecount, off_t offset) {
 	GetMarkGS(&posDCB);
 	if (_toolErr)
 	{
-		errno = _mapErr(_toolErr)
+		errno = _mapErr(_toolErr);
 		return -1L;
 	}
 
 	SetMarkGS(&setPosDCB);
 	if (_toolErr)
 	{
-		errno = _mapErr(_toolErr)
+		errno = _mapErr(_toolErr);
 		return -1L;
 	}
 
@@ -784,14 +784,14 @@ pwrite (int fd, const void *buf, size_t bytecount, off_t offset)
 	GetMarkGS(&posDCB);
 	if (_toolErr)
 	{
-		errno = _mapErr(_toolErr)
+		errno = _mapErr(_toolErr);
 		return -1L;
 	}
 
 	GetEOFGS(&eofDCB);
 	if (_toolErr)
 	{
-		errno = _mapErr(_toolErr)
+		errno = _mapErr(_toolErr);
 		return -1L;
 	}
 
@@ -800,7 +800,7 @@ pwrite (int fd, const void *buf, size_t bytecount, off_t offset)
 		SetEOFGS(&setPosDCB);
 		if (_toolErr)
 		{
-			errno = _mapErr(_toolErr)
+			errno = _mapErr(_toolErr);
 			return -1L;
 		}
 	}
@@ -808,7 +808,7 @@ pwrite (int fd, const void *buf, size_t bytecount, off_t offset)
 	SetMarkGS(&setPosDCB);
 	if (_toolErr)
 	{
-		errno = _mapErr(_toolErr)
+		errno = _mapErr(_toolErr);
 		return -1L;
 	}
 

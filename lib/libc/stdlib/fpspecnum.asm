@@ -14,7 +14,7 @@
 *
 
 dummy	start
-	copy :lang:orca:libraries:ainclude:e16.sane ; Apple-supplied SANE EQUs
+	copy E16.SANE
 	end
 
 ****************************************************************

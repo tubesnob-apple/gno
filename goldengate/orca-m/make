@@ -1,0 +1,46 @@
+unset exit
+
+Newer 16/Asm65816 Asm.rez
+if {Status} != 0
+   set exit on
+   echo compile asm.rez keep=16/Asm65816
+   compile asm.rez keep=16/Asm65816
+   unset exit
+end
+
+if {#} == 0
+
+   unset exit
+   unset asm
+
+   set list        asm.asm fasmb.asm feval.asm fkeep.asm fmcro.asm forml.asm
+   set list {list} fpas1.asm fsntx.asm asm.mac directPage
+   Newer obj/asm.a {list}
+   if {Status} != 0
+      set asm asm
+   end
+
+   Newer obj/file.a file.asm file.mac directPage
+   if {Status} != 0
+      set file file
+   end
+
+   set exit on
+
+   for i in {asm} {file}
+      echo assemble +t +e {i}.asm
+      assemble +t +e {i}.asm
+   end
+
+else
+
+   set exit on
+
+   for i
+      echo assemble +t +e {i}.asm
+      assemble +t +e {i}.asm
+   end
+
+end
+
+linkit

@@ -1,0 +1,22 @@
+/*--------------------------------------------------------------*/
+/*                                                              */
+/*  Resources for Asm65816					*/
+/*                                                              */
+/*--------------------------------------------------------------*/
+
+#include "types.rez"
+
+/*- Finder Interface -------------------------------------------*/
+
+resource rVersion(1) {
+   {
+      2,				/* Major revision */
+      1,				/* Minor revision */
+      0,				/* Bug version */
+      release,				/* Release stage */
+      0,				/* Non-final release # */
+      },
+   verUS,				/* Region code */
+   "Asm65816",				/* Short version number */
+   "Copyright 1996, Byte Works, Inc."	/* Long version number */
+   };

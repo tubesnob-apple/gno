@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GNO/ME Build Project — Knowledge Base</title>
+<style>
+  :root {
+    --bg: #1a1a2e; --surface: #16213e; --surface2: #0f3460;
+    --accent: #e94560; --accent2: #53d8fb; --text: #eaeaea;
+    --text2: #a8b2d8; --border: #2a2a4a; --success: #64ffda;
+    --warn: #ffd700; --code-bg: #0d1117;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background: var(--bg); color: var(--text); line-height: 1.6; }
+  a { color: var(--accent2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Nav */
+  nav { background: var(--surface); border-bottom: 1px solid var(--border);
+        padding: 0 2rem; position: sticky; top: 0; z-index: 100;
+        display: flex; align-items: center; gap: 2rem; height: 56px; }
+  nav .logo { font-weight: 700; font-size: 1.1rem; color: var(--accent2);
+              white-space: nowrap; }
+  nav a { color: var(--text2); font-size: 0.9rem; }
+  nav a:hover { color: var(--text); }
+
+  /* Layout */
+  .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+  /* Hero */
+  .hero { background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+          border: 1px solid var(--border); border-radius: 12px;
+          padding: 3rem 2rem; margin-bottom: 2rem; text-align: center; }
+  .hero h1 { font-size: 2.5rem; font-weight: 800; color: var(--accent2);
+             margin-bottom: 0.5rem; }
+  .hero .subtitle { font-size: 1.1rem; color: var(--text2); margin-bottom: 1.5rem; }
+  .hero .tags { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+  .tag { background: var(--surface2); border: 1px solid var(--border);
+         color: var(--accent2); padding: 0.25rem 0.75rem; border-radius: 20px;
+         font-size: 0.8rem; font-family: monospace; }
+
+  /* Section */
+  section { margin-bottom: 2.5rem; }
+  h2 { font-size: 1.5rem; color: var(--accent2); border-bottom: 2px solid var(--border);
+       padding-bottom: 0.5rem; margin-bottom: 1.5rem; display: flex;
+       align-items: center; gap: 0.5rem; }
+  h2 .icon { font-size: 1.2rem; }
+  h3 { font-size: 1.1rem; color: var(--text); margin: 1rem 0 0.5rem; }
+
+  /* Cards */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+               gap: 1rem; }
+  .card { background: var(--surface); border: 1px solid var(--border);
+          border-radius: 8px; padding: 1.25rem; }
+  .card h3 { color: var(--accent2); margin-top: 0; font-size: 1rem; }
+  .card p { color: var(--text2); font-size: 0.9rem; margin-top: 0.5rem; }
+  .card .meta { font-size: 0.8rem; color: #666; margin-top: 0.75rem;
+                font-family: monospace; }
+
+  /* Status badges */
+  .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px;
+           font-size: 0.75rem; font-weight: 600; margin-right: 0.25rem; }
+  .badge-ok    { background: #1a3a2a; color: var(--success); }
+  .badge-warn  { background: #3a3010; color: var(--warn); }
+  .badge-fail  { background: #3a1020; color: var(--accent); }
+  .badge-skip  { background: #2a2a2a; color: #888; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th { text-align: left; color: var(--text2); font-weight: 600;
+       padding: 0.5rem 0.75rem; border-bottom: 2px solid var(--border); }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { font-family: monospace; color: var(--accent2); white-space: nowrap; }
+  td code { font-family: monospace; background: var(--code-bg);
+            padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85rem; }
+
+  /* Code blocks */
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
+        padding: 1rem; overflow-x: auto; font-size: 0.85rem; margin: 0.75rem 0; }
+  code { font-family: 'SF Mono', 'Fira Code', monospace; }
+  p > code { background: var(--code-bg); padding: 0.1rem 0.35rem; border-radius: 3px;
+             font-size: 0.85rem; color: var(--accent2); }
+
+  /* Phase list */
+  .phase-list { list-style: none; }
+  .phase-list li { display: flex; gap: 1rem; padding: 0.75rem 0;
+                   border-bottom: 1px solid var(--border); }
+  .phase-list li:last-child { border-bottom: none; }
+  .phase-num { background: var(--surface2); color: var(--accent2); font-weight: 700;
+               width: 2rem; height: 2rem; border-radius: 50%; display: flex;
+               align-items: center; justify-content: center; flex-shrink: 0;
+               font-size: 0.9rem; }
+  .phase-body h4 { color: var(--text); margin-bottom: 0.25rem; }
+  .phase-body p  { color: var(--text2); font-size: 0.85rem; }
+
+  /* Todo list */
+  .todo-list { list-style: none; }
+  .todo-list li { padding: 0.4rem 0; color: var(--text2); font-size: 0.9rem;
+                  display: flex; align-items: flex-start; gap: 0.5rem; }
+  .todo-list li::before { content: '☐'; color: var(--accent); flex-shrink: 0; margin-top: 0.1rem; }
+  .todo-list li.done::before { content: '✓'; color: var(--success); }
+
+  /* Archive table row hover */
+  tbody tr:hover td { background: rgba(255,255,255,0.03); }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    nav { gap: 1rem; padding: 0 1rem; }
+    nav a:not(.logo) { display: none; }
+    .hero h1 { font-size: 1.8rem; }
+    .container { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">🍎 GNO/ME Build</span>
+  <a href="#overview">Overview</a>
+  <a href="#toolchain">Toolchain</a>
+  <a href="#build">Build Plan</a>
+  <a href="#archives">Archives</a>
+  <a href="#docs">Docs</a>
+  <a href="#todo">TODO</a>
+</nav>
+
+<div class="container">
+
+<!-- HERO -->
+<div class="hero">
+  <h1>GNO/ME Build Project</h1>
+  <p class="subtitle">Cross-compiling a complete Unix-like OS for the Apple IIgs on macOS using GoldenGate + ORCA/C 2.2.0</p>
+  <div class="tags">
+    <span class="tag">Apple IIgs</span>
+    <span class="tag">65816 CPU</span>
+    <span class="tag">GNO/ME v2.0.6</span>
+    <span class="tag">ORCA/C 2.2.0</span>
+    <span class="tag">GoldenGate</span>
+    <span class="tag">GNU Make</span>
+    <span class="tag">ksherlock fork</span>
+  </div>
+</div>
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <h2><span class="icon">🗺</span> Project Overview</h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>What is GNO/ME?</h3>
+      <p>GNO/ME (GNO Multitasking Environment) is a complete Unix-like operating system for the Apple IIgs, originally written by Devin Reade (~1997–1999). It includes a real kernel, POSIX libc, ~100 utilities, and networking — all native 65816 code.</p>
+      <p class="meta">Repo: github.com/ksherlock/gno</p>
+    </div>
+    <div class="card">
+      <h3>Goal</h3>
+      <p>Build GNO/ME from source on macOS using the GoldenGate cross-compilation environment, producing a distributable <code>.shk</code> (ShrinkIt) archive or ProDOS disk image runnable on real Apple IIgs hardware.</p>
+      <p class="meta">The build process does not need to run on the IIgs itself.</p>
+    </div>
+    <div class="card">
+      <h3>What's in the Repo</h3>
+      <p>634 C files, 88 assembly files, 101 Rez resource files, 131 Makefiles. Includes: kernel, libc (20 subdirs), 10+ libraries (curses, termcap, crypt, netdb…), ~100 utilities, shell (gsh), and full man page set.</p>
+      <p class="meta">Languages: C (~65%), 65816 Assembly (~20%), Rez resources (~15%)</p>
+    </div>
+    <div class="card">
+      <h3>Apple IIgs Architecture</h3>
+      <p>The IIgs uses a 65816 processor (16-bit extension of the 6502) running at ~2.8 MHz with up to 8MB RAM. GS/OS is the native operating system. GNO/ME runs as a GS/OS application that provides a Unix-like multitasking environment on top of GS/OS.</p>
+      <p class="meta">CPU: WDC 65C816 @ 2.8 MHz · RAM: 256KB–8MB · ProDOS/HFS storage</p>
+    </div>
+    <div class="card">
+      <h3>Build Approach</h3>
+      <p>The original build system uses <code>dmake</code> with GNO namespace paths — neither available in GoldenGate. Instead we use <strong>GNU make + iix</strong>, the same pattern proven in the tubesnob-applespi project. All new build scripts live in <code>goldengate/</code>.</p>
+      <p class="meta">Reference: /Users/smentzer/source/tubesnob-applespi</p>
+    </div>
+    <div class="card">
+      <h3>Distribution Format</h3>
+      <p>GNO/ME was originally distributed as ~16 ShrinkIt <code>.shk</code> archives plus a boot disk. For this build, the <code>/dist</code> hierarchy (from build <code>release</code> targets) will be archived using <code>nulib2</code> on macOS. Alternatively, a ProDOS <code>.po</code>/<code>.2mg</code> disk image using <code>cadius</code>.</p>
+      <p class="meta">Install: <code>brew install nulib2 cadius</code></p>
+    </div>
+  </div>
+</section>
+
+<!-- TOOLCHAIN -->
+<section id="toolchain">
+  <h2><span class="icon">🔧</span> Toolchain Status</h2>
+
+  <h3>Available Tools</h3>
+  <table>
+    <thead><tr><th>Tool</th><th>Command</th><th>Version</th><th>Status</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>ORCA/C Compiler</td><td><code>iix compile</code></td><td>2.2.0</td><td><span class="badge badge-ok">WORKING</span></td><td>Modern update by S. Heumann &amp; K. Sherlock. C17 support.</td></tr>
+      <tr><td>ORCA/M Assembler</td><td><code>iix assemble</code></td><td>—</td><td><span class="badge badge-ok">WORKING</span></td><td>65816 assembler</td></tr>
+      <tr><td>Linker</td><td><code>iix link</code></td><td>2.1.0</td><td><span class="badge badge-ok">WORKING</span></td><td>Produces 65816 S16/EXE files</td></tr>
+      <tr><td>MakeLib (librarian)</td><td><code>iix makelib</code></td><td>2.0</td><td><span class="badge badge-ok">WORKING</span></td><td>Creates ORCA library archives</td></tr>
+      <tr><td>chtyp</td><td><code>iix /bin/chtyp</code></td><td>—</td><td><span class="badge badge-ok">WORKING</span></td><td>Sets ProDOS file types on macOS files</td></tr>
+      <tr><td>GNU Make</td><td><code>make</code></td><td>macOS native</td><td><span class="badge badge-ok">WORKING</span></td><td>Build driver (replaces dmake)</td></tr>
+      <tr><td>dmake</td><td>—</td><td>—</td><td><span class="badge badge-fail">MISSING</span></td><td>Not in GoldenGate. Not needed — using GNU make instead.</td></tr>
+      <tr><td>catrez</td><td>—</td><td>—</td><td><span class="badge badge-fail">MISSING</span></td><td>Resource fork tool. Source in <code>usr.orca.bin/catrez/</code>. Must bootstrap.</td></tr>
+      <tr><td>gsh (GNO shell)</td><td>—</td><td>—</td><td><span class="badge badge-fail">VERSION ERR</span></td><td>SysCmnd fails with $1107. Not needed for cross-build.</td></tr>
+      <tr><td>nulib2</td><td><code>nulib2</code></td><td>—</td><td><span class="badge badge-warn">NOT INSTALLED</span></td><td>macOS tool for .shk archives. <code>brew install nulib2</code></td></tr>
+      <tr><td>cadius</td><td><code>cadius</code></td><td>—</td><td><span class="badge badge-warn">NOT INSTALLED</span></td><td>macOS ProDOS disk image tool. <code>brew install cadius</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>GoldenGate Environment</h3>
+  <table>
+    <thead><tr><th>Path / Variable</th><th>macOS Location</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>GoldenGate root</td><td><code>~/Library/GoldenGate/</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
+      <tr><td>iix binary</td><td><code>/usr/local/bin/iix</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
+      <tr><td>ORCA/C compiler</td><td><code>~/Library/GoldenGate/Languages/cc</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
+      <tr><td>Linker</td><td><code>~/Library/GoldenGate/Languages/Linker</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
+      <tr><td>MakeLib</td><td><code>~/Library/GoldenGate/Utilities/MakeLib</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
+      <tr><td>Assembler</td><td><code>~/Library/GoldenGate/Languages/Asm65816</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
+      <tr><td>Prefix 17 (= ORCA utilities)</td><td><code>~/Library/GoldenGate/Utilities/</code></td><td><span class="badge badge-ok">MAPPED</span></td></tr>
+      <tr><td><code>/src</code> namespace</td><td>(not mounted)</td><td><span class="badge badge-fail">NOT WORKING</span></td></tr>
+      <tr><td><code>/obj</code> namespace</td><td>(not mounted)</td><td><span class="badge badge-fail">NOT WORKING</span></td></tr>
+      <tr><td><code>/lang/orca</code> namespace</td><td>(not mounted)</td><td><span class="badge badge-fail">NOT WORKING</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>How iix Compilation Works</h3>
+  <pre><code># Compile a C file → produces foo.a (object), foo.root, foo.sym
+iix compile foo.c
+
+# Compile with explicit output name and flags
+iix compile -o foo.a foo.c
+
+# Assemble a .asm file
+iix assemble foo.asm
+
+# Link objects into executable
+iix link -o foo foo         # (note: no .a suffix on input)
+
+# Create a library from objects
+iix makelib libfoo.o +file1.a +file2.a
+
+# Key flags:
+#   +O  optimize
+#   -P  suppress progress messages
+#   -I  don't generate .sym file
+#   cc=-DFOO  define preprocessor macro</code></pre>
+
+  <h3>Note on /src Namespace</h3>
+  <p>The GNO <code>/etc/namespace</code> file maps <code>/src</code> → <code>:gnosrc:src</code> (a ProDOS volume). This is a GNO runtime concept; <strong>iix does not implement GNO namespace resolution</strong>. All build scripts must use macOS absolute paths. The original <code>paths.mk</code> / <code>prog.mk</code> / <code>lib.mk</code> files are preserved as reference documentation but cannot be used directly.</p>
+</section>
+
+<!-- BUILD PLAN -->
+<section id="build">
+  <h2><span class="icon">🏗</span> Build Plan</h2>
+
+  <p style="color:var(--text2); margin-bottom: 1.5rem;">Sequence from <code>NOTES/devel/doing.builds</code>, adapted for GNU make + iix. Each phase depends on all previous phases completing successfully.</p>
+
+  <ul class="phase-list">
+    <li>
+      <div class="phase-num">0</div>
+      <div class="phase-body">
+        <h4>Environment Setup</h4>
+        <p>Run <code>bash goldengate/setup.sh</code>. Verifies iix, GoldenGate, creates output directories. Install <code>nulib2</code> and/or <code>cadius</code> for final packaging.</p>
+      </div>
+    </li>
+    <li>
+      <div class="phase-num">1</div>
+      <div class="phase-body">
+        <h4>Header Installation</h4>
+        <p>Copy all GNO headers (<code>include/</code>, <code>ainclude/</code>, <code>rinclude/</code>, <code>orcacdefs/</code>) into GoldenGate's <code>~/Library/GoldenGate/usr/include/</code> with correct ProDOS file types set via <code>iix /bin/chtyp</code>. Currently partially done — <code>ainclude/</code> and <code>orcacdefs/</code> need updating.</p>
+      </div>
+    </li>
+    <li>
+      <div class="phase-num">2</div>
+      <div class="phase-body">
+        <h4>ORCALib (65816 assembly runtime)</h4>
+        <p>Source: <code>lib/ORCALib/</code>. Assemble 13 <code>.asm</code> files using <code>iix assemble</code>, archive with <code>iix makelib</code>. Original build script (<code>lib/ORCALib/make</code>) is in ORCA shell syntax — must be converted to GNU Makefile. Output: <code>orcalib</code> (ORCA library archive).</p>
+        <p><strong>Files:</strong> vars.asm cc.asm ctype.asm fcntl.asm orca.asm setjmp.asm signal.asm stdio.asm stdlib.asm string.asm time.asm toolglue.asm assert.asm</p>
+      </div>
+    </li>
+    <li>
+      <div class="phase-num">3</div>
+      <div class="phase-body">
+        <h4>SysFloat + SysFPEFloat</h4>
+        <p>SANE (Standard Apple Numerics Environment) floating point libraries. These may come from the ORCA 2.2.0 distribution rather than being built from source. Check <code>/Volumes/Storage/IIgs/Development/ORCA/Software/ORCAC.220B3.shk</code>.</p>
+      </div>
+    </li>
+    <li>
+      <div class="phase-num">4</div>
+      <div class="phase-body">
+        <h4>lsaneglue</h4>
+        <p>Source: <code>lib/lsaneglue/</code>. Thin glue layer between GNO and SANE. Simple single-directory build.</p>
+      </div>
+    </li>
+    <li>
+      <div class="phase-num">5</div>
+      <div class="phase-body">
+        <h4>libc (most complex — 9 subdirs + top level)</h4>
+        <p>Each subdir must be built independently (dmake can't recurse). Build in order:</p>
+        <pre><code>lib/libc/gen/    lib/libc/gno/    lib/libc/locale/
+lib/libc/stdio/  lib/libc/stdlib/ lib/libc/stdtime/
+lib/libc/string/ lib/libc/sys/
+lib/libc/        ← top level LAST (for resource fork)</code></pre>
+        <p><strong>Special:</strong> <code>stdio/vfprintf.c</code> needs cpp preprocessing workaround. <code>gno/</code> uses macgen. Top level steals <code>assert.o</code> from ORCALib obj tree.</p>
+      </div>
+    </li>
+    <li>
+      <div class="phase-num">6</div>
+      <div class="phase-body">
+        <h4>Support Libraries</h4>
+        <p>In dependency order: <code>libcrypt</code> → <code>libutil</code> → <code>libtermcap</code> → <code>libcurses</code> → <code>liby</code> → <code>netdb</code> → <code>libcontrib</code></p>
+        <p>Skip: <code>libedit</code> and <code>libsim</code> (explicitly "not yet building" in original docs)</p>
+      </div>
+    </li>
+    <li>
+      <div class="phase-num">7</div>
+      <div class="phase-body">
+        <h4>Bootstrap: catrez</h4>
+        <p>Source: <code>usr.orca.bin/catrez/</code>. Build before utilities since all executables need it to attach resource forks. Compile using <code>iix compile</code> + <code>iix link</code> directly.</p>
+      </div>
+    </li>
+    <li>
+      <div class="phase-num">8</div>
+      <div class="phase-body">
+        <h4>Utilities</h4>
+        <p>Sources: <code>bin/</code> (44 utils), <code>usr.bin/</code> (52 utils), <code>usr.orca.bin/</code>, <code>sbin/</code> (5 utils), <code>usr.sbin/</code> (5 daemons). Order within this group doesn't matter.</p>
+        <p><strong>Special cases:</strong> <code>bin/gsh</code> (17 .asm files, links libtermcap.204), <code>sbin/init</code> (BSD make syntax — needs conversion), <code>usr.bin/awk</code> (needs STACK=4096, pre-generated parser files)</p>
+      </div>
+    </li>
+    <li>
+      <div class="phase-num">9</div>
+      <div class="phase-body">
+        <h4>Kernel</h4>
+        <p>Sources: <code>kern/gno/</code> (C + 65816 assembly), <code>kern/drivers/</code>. Original build documentation is incomplete ("need to add text"). Must read <code>kern/gno/Makefile</code> directly. Output: S16 file type (GS/OS system executable).</p>
+      </div>
+    </li>
+    <li>
+      <div class="phase-num">10</div>
+      <div class="phase-body">
+        <h4>Packaging</h4>
+        <p>After all <code>release</code> targets, the <code>/dist</code> tree is the complete installable GNO/ME system. Archive with <code>nulib2</code> into <code>.shk</code> or use <code>cadius</code> to produce a <code>.po</code>/<code>.2mg</code> ProDOS disk image. Skip original <code>fudgeinstall</code> script (requires dead v2.0.4 server).</p>
+      </div>
+    </li>
+  </ul>
+</section>
+
+<!-- ARCHIVES -->
+<section id="archives">
+  <h2><span class="icon">📦</span> Available Archives &amp; Disk Images</h2>
+  <p style="color:var(--text2); margin-bottom: 1rem;">Located at <code>/Volumes/Storage/IIgs/</code></p>
+
+  <h3>GoldenGate</h3>
+  <table>
+    <thead><tr><th>File</th><th>Type</th><th>Relevance</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>GoldenGate-Working-220b3</td>
+        <td>tar archive</td>
+        <td>Working GoldenGate binary install + ORCA/C 2.2.0 beta 3. Same structure as current <code>~/Library/GoldenGate/</code>. Useful as backup/reference.</td>
+      </tr>
+      <tr>
+        <td>GoldenGate-r2.0.4.zip</td>
+        <td>C++ source</td>
+        <td>GoldenGate iix emulator source code (r2.0.4). Useful for understanding how iix handles paths, volumes, tool dispatch. Not a binary distribution.</td>
+      </tr>
+      <tr>
+        <td>Development/GoldenGate/Golden_Gate_2_0_4.pkg</td>
+        <td>macOS pkg</td>
+        <td>GoldenGate 2.0.4 installer package. Older version than current install.</td>
+      </tr>
+      <tr>
+        <td>Development/GoldenGate/GGInstaller-2018-07-28.zip</td>
+        <td>zip</td>
+        <td>Earlier GoldenGate installer.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>ORCA Compiler Suite</h3>
+  <table>
+    <thead><tr><th>File</th><th>Type</th><th>Relevance</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Development/ORCA/Software/ORCAC.220B3.shk</td>
+        <td>ShrinkIt archive</td>
+        <td><strong>High priority.</strong> ORCA/C 2.2.0 beta 3 distribution. Contains ORCALib, SysFloat, SysFPEFloat, compiler tools. May supply pre-built floating point libraries for Phase 3. Needs <code>nulib2</code> to extract.</td>
+      </tr>
+      <tr>
+        <td>Development/ORCA/Software/ORCAC220.shk</td>
+        <td>ShrinkIt archive</td>
+        <td>ORCA/C 2.2.0 final. Same as above, release version.</td>
+      </tr>
+      <tr>
+        <td>Development/ORCA/Software/ORCA-C-220b3.zip</td>
+        <td>zip (source)</td>
+        <td>ORCA/C 2.2.0 beta 3 source code. For understanding compiler behavior, pragma support, C17 extensions.</td>
+      </tr>
+      <tr>
+        <td>Development/ORCA/Software/ORCAC.220B3.2mg</td>
+        <td>ProDOS disk image</td>
+        <td>Bootable ORCA/C 2.2.0 disk. Contains full ORCA install including dmake if it's part of ORCA.</td>
+      </tr>
+      <tr>
+        <td>ORCAC.220B3.2mg</td>
+        <td>ProDOS disk image</td>
+        <td>Another copy of the ORCA 2.2.0 disk image.</td>
+      </tr>
+      <tr>
+        <td>Opus ][ The Software.iso</td>
+        <td>ISO (CD image)</td>
+        <td>ByteWorks software collection. Contains ORCA/C, ORCA/M, ORCA/Pascal, utilities. Best source for complete ORCA toolset including any missing tools.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>ORCA Documentation</h3>
+  <table>
+    <thead><tr><th>File</th><th>Contents</th><th>Build Relevance</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Development/ORCA/Documentation/GS-06 ORCA:C 2.0.pdf</td>
+        <td>ORCA/C 2.0 compiler manual</td>
+        <td><strong>Critical reference.</strong> Compiler flags, #pragma syntax, memory models, calling conventions, inline assembly, segment names.</td>
+      </tr>
+      <tr>
+        <td>Development/ORCA/Documentation/GS-04 ORCA:M 2.0.pdf</td>
+        <td>ORCA/M 2.0 assembler manual</td>
+        <td><strong>Critical reference.</strong> 65816 assembly syntax, macro system, equates, linking object files. Needed for understanding ORCALib .asm files.</td>
+      </tr>
+      <tr>
+        <td>Development/ORCA/Documentation/GS-13 ORCA:Sublib Source.pdf</td>
+        <td>ORCA Sublib source documentation</td>
+        <td>Documents ORCALib internals — directly relevant to Phase 2 build.</td>
+      </tr>
+      <tr>
+        <td>Development/ORCA/Documentation/II-03 ORCA:M Assembler.pdf</td>
+        <td>ORCA/M assembler reference</td>
+        <td>Assembler syntax and directives.</td>
+      </tr>
+      <tr>
+        <td>Development/ORCA/Documentation/GS-10 ORCA:Disassembler.pdf</td>
+        <td>ORCA disassembler</td>
+        <td>Useful for debugging object file output.</td>
+      </tr>
+      <tr>
+        <td>Development/ORCA/Documentation/GS-11 ORCA:Debugger.pdf</td>
+        <td>ORCA debugger manual</td>
+        <td>Useful when debugging compiled binaries under iix.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Disk Images (ProDOS .hdv / .2mg)</h3>
+  <table>
+    <thead><tr><th>File</th><th>Size</th><th>Contents / Relevance</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Disk Images/HDDS/SourceCode.hdv</td>
+        <td>32 MB</td>
+        <td><strong>High priority.</strong> ProDOS volume named <code>/SOURCECODE</code>. Likely contains GNO source code, build artifacts, or pre-built tools. Needs <code>cadius</code> to explore.</td>
+      </tr>
+      <tr>
+        <td>Disk Images/HDDS/Programming.hdv</td>
+        <td>—</td>
+        <td>Programming environment disk. May contain dmake, catrez, or other GNO build tools.</td>
+      </tr>
+      <tr>
+        <td>Disk Images/HDDS/Storage.hdv</td>
+        <td>—</td>
+        <td>General storage disk. May contain GNO binaries or distribution archives.</td>
+      </tr>
+      <tr>
+        <td>Disk Images/HDDS/Utils.hdv</td>
+        <td>—</td>
+        <td>Utilities disk. May contain GNO utilities including build tools.</td>
+      </tr>
+      <tr>
+        <td>Disk Images/HDDS/System604.2mg</td>
+        <td>—</td>
+        <td>GS/OS 6.0.4 system disk. Contains base Apple IIgs OS.</td>
+      </tr>
+      <tr>
+        <td>Disk Images/Asimov.2MG</td>
+        <td>—</td>
+        <td>Asimov collection disk image.</td>
+      </tr>
+      <tr>
+        <td>Disk Images/MICRODRIVE.TURBO.2mg</td>
+        <td>—</td>
+        <td>MicroDrive/Turbo accelerator card firmware/software.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>ShrinkIt Archives (GNO/IIgs)</h3>
+  <table>
+    <thead><tr><th>File</th><th>Relevance</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Archives/ORCAC220.shk</td>
+        <td>ORCA/C 2.2.0 ShrinkIt archive. Alternate packaging of the ORCA distribution.</td>
+      </tr>
+      <tr>
+        <td>Archives/ShrinkItGSv1.1.SHK</td>
+        <td>ShrinkIt GS v1.1 — the GNO/IIgs archiving tool itself. Reference for .shk format.</td>
+      </tr>
+      <tr>
+        <td>Archives/GSHK.1.0.6.sea.gz</td>
+        <td>GShk 1.0.6 — another ShrinkIt implementation for IIgs.</td>
+      </tr>
+      <tr>
+        <td>Archives/Marinetti_3.0_b9.po</td>
+        <td>Marinetti TCP/IP stack for IIgs. GNO's networking may interact with this.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Apple IIgs Documentation</h3>
+  <table>
+    <thead><tr><th>File</th><th>Relevance</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Documentation/AppleIIgsFirmwareReference.pdf</td>
+        <td>Firmware toolbox calls. Needed when working with the GNO kernel's GS/OS interface.</td>
+      </tr>
+      <tr>
+        <td>Documentation/AppleIIgsHardwareReferenceManual.PDF</td>
+        <td>Hardware architecture. Memory map, I/O, DMA, interrupts.</td>
+      </tr>
+      <tr>
+        <td>Documentation/MOS 65816 Programming Manual.pdf</td>
+        <td>65816 CPU instruction set reference. Essential for reading ORCALib/kernel assembly.</td>
+      </tr>
+      <tr>
+        <td>Documentation/Full text of "Apple IIGS Assembly Language Programming".pdf</td>
+        <td>Assembly programming book. Useful for understanding 65816 conventions.</td>
+      </tr>
+      <tr>
+        <td>Documentation/AppleIIgsDebuggerReference.PDF</td>
+        <td>Debugging under GS/OS and GNO.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- DOCS -->
+<section id="docs">
+  <h2><span class="icon">📖</span> Key Repository Documentation</h2>
+  <div class="card-grid">
+    <div class="card">
+      <h3>NOTES/devel/doing.builds</h3>
+      <p><strong>Authoritative build sequence.</strong> Written by Devin Reade. Describes the exact order in which components must be built. This is the primary reference for Phase ordering.</p>
+      <p class="meta">Last updated: 1999</p>
+    </div>
+    <div class="card">
+      <h3>NOTES/status.bin</h3>
+      <p>Per-utility build and test status table. Shows which utilities were compiled (C), tested (T), or still in progress as of the original authors' last work. Use to prioritize what to attempt first.</p>
+    </div>
+    <div class="card">
+      <h3>NOTES/status.lib</h3>
+      <p>Per-function status for libc. Shows which functions were reviewed (R), compiled (C), or tested (T). Useful when debugging libc build failures.</p>
+    </div>
+    <div class="card">
+      <h3>build.tools/dmake.startup</h3>
+      <p>The dmake inference rules file. Defines the full toolchain (CC, LD, AR, SHELL, flags). Essential reference for translating to GNU make. Shows how occ flags map to ORCA behavior.</p>
+    </div>
+    <div class="card">
+      <h3>lib/ORCALib/make</h3>
+      <p>ORCA shell script that builds ORCALib. Written in GNO/ORCA shell syntax. Must be converted to a GNU Makefile. Shows the exact assembly order and makelib invocations.</p>
+    </div>
+    <div class="card">
+      <h3>NOTES/README.src / README.beta</h3>
+      <p>Notes on the source distribution, known issues, and beta status. Important warnings: libc and ORCALib must be compiled together (struct FILE coupling). Notes on broken nroff.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TODO -->
+<section id="todo">
+  <h2><span class="icon">✅</span> TODO List</h2>
+
+  <h3>Immediate (blockers)</h3>
+  <ul class="todo-list">
+    <li>Install <code>nulib2</code> and/or <code>cadius</code> on macOS (<code>brew install nulib2 cadius</code>)</li>
+    <li>Inspect disk images (<code>SourceCode.hdv</code>, <code>Programming.hdv</code>) for pre-built GNO tools (catrez, dmake)</li>
+    <li>Extract ORCA/C 2.2.0 distribution from <code>ORCAC.220B3.shk</code> — get SysFloat/SysFPEFloat</li>
+    <li>Write GNU Makefile for ORCALib build (<code>goldengate/build/orcalib.mk</code>)</li>
+    <li>Bootstrap catrez: write minimal GNU Makefile for <code>usr.orca.bin/catrez/</code></li>
+  </ul>
+
+  <h3>Phase 1–2 Work</h3>
+  <ul class="todo-list">
+    <li>Complete header installation (fill in <code>usr/ainclude/</code>, update <code>orcacdefs/</code>)</li>
+    <li>Convert <code>lib/ORCALib/make</code> ORCA shell script to GNU Makefile</li>
+    <li>Confirm iix assemble flags (+e +t etc.) work correctly</li>
+    <li>Verify <code>iix makelib</code> syntax for ORCALib archive creation</li>
+  </ul>
+
+  <h3>Phase 3–6 Work</h3>
+  <ul class="todo-list">
+    <li>Write GNU Makefiles for each libc subdir</li>
+    <li>Handle <code>vfprintf.c</code> cpp preprocessing workaround</li>
+    <li>Confirm macgen is accessible via iix and handle <code>libc/gno/</code></li>
+    <li>Write GNU Makefiles for all support libraries</li>
+    <li>Write GNU Makefiles for all utilities in bin/, usr.bin/, sbin/, usr.sbin/</li>
+    <li>Handle <code>sbin/init</code> BSD make conversion</li>
+    <li>Handle <code>bin/gsh</code> assembly-heavy build</li>
+  </ul>
+
+  <h3>Phase 7–10 Work</h3>
+  <ul class="todo-list">
+    <li>Document and implement kernel build (<code>kern/gno/</code>)</li>
+    <li>Handle kernel device drivers (<code>kern/drivers/</code>)</li>
+    <li>Write packaging script to produce .shk or disk image from /dist tree</li>
+    <li>Test distribution on real Apple IIgs hardware</li>
+  </ul>
+
+  <h3>Infrastructure</h3>
+  <ul class="todo-list">
+    <li>Write top-level <code>goldengate/build.sh</code> that sequences all phases</li>
+    <li>Add CI/CD-style verification (compile smoke tests)</li>
+    <li>Document GoldenGate iix behavior quirks (cwd reset, object naming)</li>
+  </ul>
+</section>
+
+</div><!-- /container -->
+
+<footer style="background:var(--surface); border-top:1px solid var(--border); padding:1.5rem 2rem; text-align:center; color:var(--text2); font-size:0.85rem; margin-top:3rem;">
+  GNO/ME Build Project · Apple IIgs / 65816 · ksherlock/gno fork · Built with GoldenGate + ORCA/C 2.2.0
+</footer>
+
+</body>
+</html>

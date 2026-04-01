@@ -1,0 +1,1 @@
+         MACRO         MAYBE_LDA &FLAG         AIF  &FLAG=0,.SKIP         LDA  #$AA.SKIP    ANOP         MEND
