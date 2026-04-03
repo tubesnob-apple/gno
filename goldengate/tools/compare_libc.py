@@ -75,8 +75,8 @@ def kind_str(kind):
 
 
 def main():
-    our_file = "/Users/smentzer/source/iigs-official-repos/ksherlock-gno/gno-obj/lib/libc"
-    ref_file = "/Users/smentzer/source/iigs-official-repos/ksherlock-gno/gno/diskImages/extracted/lib/libc"
+    our_file = "/Users/smentzer/source/gno-obj/lib/libc"
+    ref_file = "/Users/smentzer/source/gno/diskImages/extracted/lib/libc"
 
     print("=" * 70)
     print("ORCA OMF Library Comparison")

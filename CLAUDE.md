@@ -2,7 +2,7 @@
 
 ## What This Is
 
-GNO/ME (GNO Multitasking Environment) is a complete Unix-like operating system for the Apple IIgs (65816 processor). This repository is the **ksherlock fork** of Devin Reade's original v2.0.6 work (~1997–1999). It contains:
+GNO/ME (GNO Multitasking Environment) is a complete Unix-like operating system for the Apple IIgs (65816 processor). This repository is **smentzer's own fork** of the ksherlock/gno repository, created from ksherlock's master at commit `30344bf`. The ksherlock fork is no longer maintained. The first commit (`f76e43f`) adds all the GoldenGate cross-build infrastructure. It contains:
 
 - A 65816 kernel (GS/OS-hosted microkernel: processes, signals, TTY, pipes, sockets, ptys)
 - A complete POSIX libc (~20 subdirectories)
@@ -25,7 +25,9 @@ The build does NOT need to run on the IIgs itself. GoldenGate acts as a cross-co
 **Location:** `/usr/local/bin/iix`
 **GoldenGate root:** `~/Library/GoldenGate/`
 
-#### iix compile (ORCA/C 2.2.0)
+#### iix compile (ORCA/C 2.2.2)
+
+The installed compiler is now **ORCA/C 2.2.2**, built from source at `/Users/smentzer/source/iigs-official-repos/byteworksinc-orca-c/` and installed to `~/Library/GoldenGate/Languages/cc`. A 2.2.1 backup is at `cc.bak`.
 
 ```bash
 iix compile foo.c            # standard ORCA SDK (no __GNO__)
@@ -60,7 +62,9 @@ iix --gno compile foo.c      # GNO SDK (__GNO__ defined via defaults.h)
 **CRITICAL — GNO SDK:** Must use `iix --gno compile` for all GNO code. Without `--gno`, `__GNO__` is not defined and GNO-specific code paths (guarded by `#ifdef __GNO__`) are excluded. This causes missing types (`GSStringPtr`, `ResultBufPtr`) and missing errno values.
 
 **Known compiler bugs:**
-- `vfprintf.c` SPLIT_FILE_2 section: ORCA/C 2.2.0 hits internal "compiler error" (same bug as 2.1.1b2). Workaround: preprocess with macOS `clang -E`, strip `#` line directives, compile the flattened result.
+- None currently. All previously known bugs are fixed in 2.2.2:
+  - `vfprintf.c` SPLIT_FILE_2 "too many local labels" (error 58, `maxLabel=3275` limit) — **fixed in 2.2.2**. `vfprintf2.c` now compiles directly without any clang preprocessing workaround.
+  - The four back-end bugs fixed during 2.2.1 build (GenCall table, cgQuad, cnv variant record, cgString isByteSeq) remain fixed.
 
 #### iix assemble (ORCA/M Asm65816 2.1.0)
 
@@ -73,17 +77,33 @@ iix assemble +T foo.asm      # +T = terminal on first error
 ```bash
 xattr -wx com.apple.FinderInfo "70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00" file.a
 ```
+Why: GoldenGate only sets `$B1` for files in `/tmp` (prefix 3:). All other directories get `$B0`, which makelib silently rejects ("not an object module").
 
 **KEEP directive:** Assembler writes output named by `keep` directive in CWD. If no `keep`, uses source filename.
 **MCOPY directive:** Resolves `.mac` files relative to CWD. Must `cd` to source directory before assembling.
 **COPY directive:** Also resolves relative to CWD. For ORCA equate files (e.g., `E16.SANE`), symlink from `~/Library/GoldenGate/Libraries/AINClude/` into the build directory.
 
-**ORCA/M macro rules** (see memory for complete list):
+**ORCA/M macro rules** (determined by testing + reading ORCA/M source: FSntx.asm, FMcro.asm, Asm.asm):
 - `&variable` is expanded even in `*` comment lines → never use `&name` in comments
 - `AIF` requires full boolean expression: `AIF &FLAG<>0,.LABEL` (not bare `AIF &FLAG,.LABEL`)
-- Backward `AGO` (to label above) ALWAYS fails with "ACTR Count Exceeded" in GoldenGate → use recursive macros instead
-- Branch target label lines are consumed but NOT executed → labels must stand alone on their own line
-- `GBLA` re-declaration causes "Duplicate Label" → declare only once
+- Backward `AGO` (to label above) ALWAYS fails with "ACTR Count Exceeded" in GoldenGate → use recursive macros instead:
+  ```
+           MACRO
+           NOPS_N  &N
+           AIF    &N=0,.DONE
+           NOP
+           NOPS_N  &N-1
+  .DONE    ANOP
+           MEND
+  ```
+- Forward `AGO` works correctly in all tested cases
+- Branch target label lines are consumed but NOT executed → labels must stand alone on their own line:
+  ```
+  .TRYX              ← ALONE on this line
+           AIF ...   ← this executes after branch to .TRYX
+  ```
+  NOT: `.TRYX    AIF ...` (AIF would NOT execute when branched to)
+- `GBLA` re-declaration causes "Duplicate Label" → declare only once (in the initializing macro)
 - `&SYSCNT` labels: use `SKIP&SYSCNT` (no `@` prefix — `@SKIP&SYSCNT` causes "Operand Syntax")
 - MCOPY files must have CR (0x0D) line endings, not LF
 
@@ -98,6 +118,11 @@ iix makelib output_lib +file1.a +file2.a ...
 - Adding to an existing library works — call makelib multiple times with the same output file.
 - Cannot combine libraries — only accepts individual `.a` object modules.
 - Requires input files to have ProDOS type `$B1`. Assembly objects need xattr patching (see above).
+- **Batch pattern for large libraries:**
+  ```bash
+  ls *.a | sort | while read f; do echo "+$f"; done | \
+      xargs -n 20 sh -c 'iix makelib /path/to/output "$@"' _
+  ```
 
 #### iix link (Linker 2.1.0)
 
@@ -113,11 +138,24 @@ iix --gno link -o output_binary input_module   # GNO SDK libraries
 | Standard (`iix`) | `Libraries/` | ORCA SDK headers in `Libraries/ORCACDefs/` |
 | GNO (`iix --gno`) | `lib/` | GNO headers in `lib/ORCACDefs/` |
 
-**Header shadowing fix (CRITICAL):**
-ORCA toolbox headers (gsos.h, quickdraw.h, etc.) were copied from `Libraries/ORCACDefs/` into `lib/ORCACDefs/` so `--gno` mode can find them. But 15 standard C headers that exist in BOTH locations must be REMOVED from `lib/ORCACDefs/` to avoid shadowing the GNO versions in `usr/include/`:
-Removed: `ctype.h errno.h fcntl.h limits.h locale.h math.h sane.h setjmp.h signal.h stddef.h stdio.h stdlib.h string.h time.h types.h`
+**Header setup for `--gno` mode:**
+`lib/ORCACDefs/` is managed by `goldengate/install-gno-headers.mk` in this repo. Run it after any change to `include/` or after a fresh GoldenGate install:
+```bash
+make -f goldengate/install-gno-headers.mk
+```
+This copies ORCA toolbox headers from `Libraries/ORCACDefs/` as a base layer, then copies all GNO headers from `include/` on top (GNO wins for all overlapping files), and installs `orcacdefs/defaults.h`. No symlinks. No `usr/include/` dependency — all headers are regular files directly in `lib/ORCACDefs/`.
 
-The GNO `types.h` (from `usr/include/`) is a superset of the ORCA version — it has `#ifdef __GNO__` blocks that define `GSStringPtr`, `ResultBufPtr`, etc.
+**Diagnostic:** If a GNO compilation fails with "undeclared identifier" for a GNO-specific type (e.g., `GSStringPtr`, `ResultBufPtr`), verify `lib/ORCACDefs/` contains the GNO versions of the headers by running `make -f goldengate/install-gno-headers.mk status`.
+
+**GNO defaults.h** — located at `~/Library/GoldenGate/lib/ORCACDefs/defaults.h`:
+```c
+#define __appleiigs__
+#define __GNO__
+#pragma path "/usr/include"
+#pragma path "/HFSinclude"
+#pragma path "/lang/orca/libraries/orcacdefs"
+```
+This is what makes `iix --gno compile` define `__GNO__` and set up include paths.
 
 #### macgen (MacGen 2.0.3)
 
@@ -128,13 +166,35 @@ Generates `.mac` files containing only macros used by the source. Pre-generated 
 
 ORCA macro libraries: `~/Library/GoldenGate/Libraries/ORCAInclude/m16.Tools`, `m16.ORCA`, etc.
 
-### Disk Image / Validation Tools
+### Disk Image / Archive Tools
+
+**Tool selection by format:**
+
+| Format | Tool | Command | Notes |
+|--------|------|---------|-------|
+| `.2mg`, `.po`, `.hdv` (ProDOS) | **cadius** | `cadius EXTRACTVOLUME image.2mg /output/` | **Preferred** for ProDOS. Handles extended/forked files (type $05). Install: `brew install cadius` |
+| `.iso` (hybrid Apple/ISO 9660) | **7z** | `7z x image.iso -o/output/` | Only tool that works on macOS 26.x for hybrid Apple/ISO 9660 images |
+| `.shk` (ShrinkIt) | **nulib2** | `nulib2 -xe archive.shk` | Extracts in CWD; `cd` to destination first |
+| `.zip` | **unzip** | `unzip archive.zip -d /output/` | Standard |
 
 | Tool | Location | Notes |
 |------|----------|-------|
-| AppleCommander | `~/Library/Mobile Documents/com~apple~CloudDocs/NotesAndStuff/IIgs/Apple Commander/AppleCommander-macosx-1.4.0.jar` | Java required; cannot extract ProDOS extended files ($05) |
-| Java | `/opt/homebrew/opt/openjdk/bin/java` | brew-installed; not in default PATH |
-| nulib2 | `/Users/smentzer/source/iigs-official-repos/nulib2/nulib2/` | Source only; `./configure && make` |
+| cadius | `brew install cadius` | **Not yet installed** — install when needed |
+| 7z (p7zip) | `/opt/homebrew/bin/7z` | brew-installed |
+| nulib2 | `/Users/smentzer/source/nulib2/nulib2/nulib2` | Built from source |
+| AppleCommander | `~/Library/Mobile Documents/com~apple~CloudDocs/NotesAndStuff/IIgs/Apple Commander/AppleCommander-macosx-1.4.0.jar` | Java required; **listing only** — use `-ls` or `-l` to view directories |
+| Java (for AppleCommander) | `/opt/homebrew/opt/openjdk/bin/java` | brew-installed; not in default PATH |
+
+**IMPORTANT — AppleCommander limitations:**
+- AppleCommander 1.4.0 can **list** ProDOS images but **fails to extract** binary files with extended/forked storage (type $05) — throws "Unknown ProDOS storage type!" and only extracts text files.
+- Cannot read ISO 9660 images at all (throws DiskUnrecognizedException).
+- Use only for quick directory listings. Use **cadius** for actual extraction.
+
+**IMPORTANT — ISO 9660 hybrid images:**
+- The Opus ][ CD ISOs are hybrid Apple partition map images with both ISO 9660 and classic HFS partitions.
+- `hdiutil attach` fails with "no mountable file systems" — macOS 26.x dropped classic HFS (non-Plus) mount support.
+- `bsdtar` fails with "Invalid location of extent of file".
+- **Use `7z x`** — but note each file appears twice (data fork + resource fork). Resource fork overwrites data fork on extraction. Fine for source/text; may be lossy for binaries. Prefer existing extractions when available.
 
 **Reference disk images:** `diskImages/gno_206/gno.po` (ProDOS, 32MB, 804 entries)
 **Extracted files:** `diskImages/extracted/` — all files from gno.po with `metadata.json`
@@ -147,12 +207,53 @@ ORCA macro libraries: `~/Library/GoldenGate/Libraries/ORCAInclude/m16.Tools`, `m
 | `extracted/kern` | 140,754 | Phase 7 |
 | `extracted/usr/lib/libtermcap` | 40,386 | Phase 5 |
 | `extracted/usr/lib/libcurses` | 80,535 | Phase 5 |
+| `extracted/usr/lib/libnetdb` | 80,506 | Phase 5 |
+| `extracted/usr/lib/libcrypt` | 7,180 | Phase 5 |
+| `extracted/usr/lib/libutil` | 2,146 | Phase 5 |
+| `extracted/usr/lib/liby` | 660 | Phase 5 |
+| `extracted/usr/lib/libcontrib` | 19,889 | Phase 5 |
+
+### GNO Namespace Paths — DO NOT WORK in iix
+
+Original GNO source files contain ProDOS namespace paths like:
+- `mcopy :obj:gno:lib:libc:gno:stack.mac`
+- `copy :lang:orca:libraries:ainclude:e16.sane`
+
+These paths are resolved through the GNO namespace file (`/etc/namespace`) which maps volume prefixes like `:lang:` and `:obj:` to filesystem locations. GoldenGate does NOT support this namespace.
+
+**Fix:** Change all namespace paths to relative paths (`stack.mac`, `E16.SANE`) and ensure the files are available in the working directory (via symlink or copy).
+
+ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libraries/AINClude/`
+
+### 65816 / ORCA/C Type System
+
+| Type | Size on 65816 | Notes |
+|------|---------------|-------|
+| `char` | 8 bits | Params masked with `AND #$00FF` on every use |
+| `int` | **16 bits** | This is the critical one — not 32 bits! |
+| `unsigned` | 16 bits | Same as `unsigned int` |
+| `long` | 32 bits | |
+| `unsigned long` | 32 bits | |
+| `extended` | 80 bits | ORCA/C extension: 80-bit SANE float |
+| pointer | 32 bits | 24-bit address + 8-bit bank byte |
+
+**Critical: Integer Overflow in Shift Expressions**
+`int << 27` is undefined behavior on 65816 (16-bit int, shift width > bit width). Causes duplicate case labels and other silent corruption.
+**Fix:** Cast the left operand: `(unsigned long)9 << 27` or `((sop)9 << OPSHIFT)`
+
+**ORCA/C Extensions:**
+- `segment "name";` — sets the OMF segment name for the following code
+- `pascal` keyword — Pascal calling convention (callee cleans stack)
+- `inline(toolnum, dispatch)` — inline toolbox call
+- `#pragma optimize N` — bitmask: bit 1=const fold, bit 2=dead code, bit 3=?, bit 6=register opt
+- `#pragma databank 1` — used in signal handlers and callbacks
+- `#pragma debug N` — debug level
 
 ### What is NOT Available
 - **dmake** — GNO's native build driver; replaced by GNU make
 - **catrez** — resource fork tool; source in `usr.orca.bin/catrez/`; must be bootstrapped
 - **gsh** — GNO shell; fails with version error in GoldenGate
-- **GNO namespace** — `/src`, `/obj`, `/lang/orca` paths don't resolve in iix
+- **GNO namespace** — `/src`, `/obj`, `/lang/orca` paths don't resolve in iix (see above)
 
 ---
 
@@ -160,9 +261,26 @@ ORCA macro libraries: `~/Library/GoldenGate/Libraries/ORCAInclude/m16.Tools`, `m
 
 ### Completed
 
+#### ORCA/C 2.2.2 ✓
+- Source: `/Users/smentzer/source/iigs-official-repos/byteworksinc-orca-c/`
+- Build: `GNUmakefile` using iix toolchain (Pascal + ORCA/M assembly modules)
+- Installed to: `~/Library/GoldenGate/Languages/cc` (2.2.1 backup at `cc.bak`)
+- **Test suite: 42/42 compile tests + 6/6 runtime tests + 12/12 ORCA/M tests — all pass**
+- Bugs fixed across 2.2.1 and 2.2.2 builds:
+  - Missing `GenCall` entries 78–98 (`~MUL8`, `~SHL8`, `~CDIV8`, etc. for `long long` ops)
+  - Missing `cgQuad`/`cgUQuad` constant handler (global `long long` initializers crashed)
+  - `cnv` variant record incomplete — added `qval`, `eval`, and `ival5` fields
+  - `cgString` missing `isByteSeq` branch — `char[] = "..."` emitted garbage bytes
+  - DAG2.pas: ~25 opcodes missing from case statement (`pc_rev`, `pc_fix`, quad ops, etc.)
+  - `maxLabel` limit (3275) causing "too many local labels" error 58 on `vfprintf.c` SPLIT_FILE_2
+
 #### Phase 2 — ORCALib ✓
-- `goldengate/build/orcalib.mk` — all 13 `.asm` modules → `orcalib` (61,277 bytes)
-- Installed to `~/Library/GoldenGate/lib/ORCALib`
+- Source: `/Users/smentzer/source/iigs-official-repos/byteworksinc-orcalib/` (`unified` branch)
+- Build: `make -f goldengate/Makefile TARGET=gno install` (in orcalib repo)
+- Installed to: `~/Library/GoldenGate/lib/ORCALib` (39,468 bytes, 166 segments)
+- Also installs `assert.A` → `~/Library/GoldenGate/lib/assert.A` (used by libc build)
+- GNO override: `gno/locale.asm` — C-standard `struct lconv` field order matching GNO `locale.h`
+- `lib/ORCALib/` removed from this repo — canonical source is `byteworksinc-orcalib` unified branch
 
 #### Phase 3 — libc ✓
 - **9 subdirectories built:** gen, gno, locale, regex, stdio, stdlib, stdtime, string, sys
@@ -178,22 +296,38 @@ ORCA macro libraries: `~/Library/GoldenGate/Libraries/ORCAInclude/m16.Tools`, `m
 - `lib/libc/sys/syscall.c`: fixed 6 missing semicolons in `pread`/`pwrite`
 - `lib/libc/regex/regcomp.c`: added `#define POSIX_MISTAKE`
 - `lib/libc/regex/regex2.h`: cast shift operands to `(sop)` — `int<<27` overflows 16-bit
-- `lib/libc/stdio/vfprintf1.c` + `vfprintf2.c`: wrapper files for SPLIT_FILE defines
-- `lib/libc/stdio/vfprintf2`: macOS `clang -E` preprocessing workaround
+- `lib/libc/stdio/vfprintf1.c` + `vfprintf2.c`: wrapper files for SPLIT_FILE defines (compile cleanly with ORCA/C 2.2.2 — clang workaround no longer needed)
 
 #### Test Suites ✓
-- **ORCA/C C99/C11**: 27 positive + 4 negative compile tests — all pass
+- **ORCA/C C99/C11** (against 2.2.2): 27 positive + 4 negative + 11 library compile tests = **42/42 pass**
+- **ORCA/C stdlib runtime**: 6 run tests — **6/6 pass**
 - **Stack/ABI**: 6 tests — all pass
-- **Standard library**: 11 compile + 6 runtime — all pass
 - **ORCA/M macros**: 11 positive + 1 negative — all 12 pass
-- Run: `make -f goldengate/orcac-tests/Makefile` and `make -f goldengate/orca-m-tests/Makefile`
+- Run: `make -f goldengate/orcac-tests/Makefile all-stdlib` and `make -f goldengate/orca-m-tests/Makefile`
 
 #### ORCA/M Build from Source ✓
 - `goldengate/orca-m/Makefile` — builds Asm65816 2.1.0 (54,297 bytes)
 
+#### Phase 5 — Support Libraries ✓
+- **8 libraries built:** lsaneglue, libcrypt, libutil, libtermcap, libcurses, liby, libnetdb, libcontrib
+- Makefiles: `goldengate/build/phase5.mk` (top-level) + individual `goldengate/build/<lib>.mk`
+- Output: `gno-obj/lib/lsaneglue`, `gno-obj/usr/lib/lib{crypt,util,termcap,curses,y,netdb,contrib}`
+
+**Source fixes applied during Phase 5 build:**
+- `lib/lsaneglue/saneglue.asm`: changed `copy :lang:orca:...:e16.sane` → `copy E16.SANE` (symlinked)
+- `lib/libcurses/*.c` (all 40 files): prepended `#define _CURSES_PRIVATE` — ORCA/C CLI doesn't support `-D`
+- `lib/netdb/rcmd.c` + `res_send.c`: clang -E preprocessing workaround applied during Phase 5 build (the vfprintf label-count bug is fixed in 2.2.2, but these files may still benefit from preprocessing due to `struct iovec` forward-ref issue — verify when rebuilding Phase 5)
+- `lib/netdb/res_send.c`: uses `struct iovec` from `sys/uio.h` after forward ref in `sys/socket.h` — preprocessing resolves
+- `lib/libcontrib/Makefile` SRCS: errnoGS.c excluded (not in reference build; only copyfile, expandpath, strarray, xalloc)
+
+**Build notes:**
+- lsaneglue: requires `.mac` files generated by `iix macgen` before assembly; generated files committed in `lib/lsaneglue/`
+- libutil: only login.c, logintty.c, logwtmp.c compiled (not hexdump, pty, setproc, logout — not in reference)
+- libcurses: scanw.c excluded (noted as having trouble in original Makefile — `_SRCS`)
+- netdb: iso_addr.c, linkaddr.c, ns_addr.c, ns_ntoa.c, send.c, recv.c excluded (not in original Makefile SRCS)
+
 ### Next Steps (in order)
 - [ ] **Bootstrap catrez**: compile `usr.orca.bin/catrez/` — needed to attach resource forks
-- [ ] **Phase 5 — Support libraries**: lsaneglue → libcrypt → libutil → libtermcap → libcurses → liby → netdb → libcontrib
 - [ ] **Phase 6 — Utilities**: bin/, usr.bin/, usr.orca.bin/, sbin/, usr.sbin/
 - [ ] **Phase 7 — Kernel**: kern/gno/, kern/drivers/
 - [ ] **Phase 8 — Distribution**: nulib2 .shk or cadius disk image
@@ -207,9 +341,18 @@ ORCA macro libraries: `~/Library/GoldenGate/Libraries/ORCAInclude/m16.Tools`, `m
 ## Build Quick Reference
 
 ```bash
-# Build ORCALib
-make -f goldengate/build/orcalib.mk
-make -f goldengate/build/orcalib.mk install
+# Build ORCA/C from source (in byteworksinc-orca-c repo)
+cd /Users/smentzer/source/iigs-official-repos/byteworksinc-orca-c
+make -f GNUmakefile          # compile only
+make -f GNUmakefile install  # compile + install to ~/Library/GoldenGate/Languages/cc
+
+# Build + install GNO ORCALib (in byteworksinc-orcalib repo)
+cd /Users/smentzer/source/iigs-official-repos/byteworksinc-orcalib
+make -f goldengate/Makefile TARGET=gno
+make -f goldengate/Makefile TARGET=gno install  # installs liborca + assert.A
+
+# Install GNO headers to GoldenGate (in this repo)
+make -f goldengate/install-gno-headers.mk
 
 # Build libc (all subdirs + combine)
 make -f goldengate/build/libc.mk
@@ -231,6 +374,17 @@ make -f goldengate/orca-m-tests/Makefile
 
 # Disassemble an OMF object
 python3 goldengate/orcac-tests/tools/omf_dis.py path/to/file.a
+
+# Build Phase 5 — all support libraries
+make -f goldengate/build/phase5.mk
+
+# Build individual Phase 5 library
+make -f goldengate/build/libtermcap.mk
+make -f goldengate/build/libcurses.mk
+make -f goldengate/build/netdb.mk
+
+# Validate Phase 5 sizes vs reference
+make -f goldengate/build/phase5.mk validate
 ```
 
 ---
@@ -239,25 +393,72 @@ python3 goldengate/orcac-tests/tools/omf_dis.py path/to/file.a
 
 See `goldengate/index.html` for a full browsable index.
 
-### On-disk Archive: `/Volumes/Storage/IIgs/`
+### DocTemple — `/Volumes/Storage/IIgs/DocTemple/`
 
-| Path | Contents |
-|------|---------|
-| `Development/ORCA/Documentation/GS-06 ORCA:C 2.0.pdf` | ORCA/C compiler manual |
-| `Development/ORCA/Documentation/GS-04 ORCA:M 2.0.pdf` | ORCA/M assembler manual |
-| `Development/ORCA/Software/ORCAC.220B3.shk` | ORCA/C 2.2.0 beta 3 |
-| `Development/Opus ][/Extracted/Source/Source/ORCA/` | ORCA/M 2.1.0, MacGen, Linker source |
-| `Documentation/*.pdf` | Apple IIgs hardware/firmware references |
+Canonical reference store for all Apple IIgs development materials. Organized by product and version, with `source/` and `dist/` subdirectories.
+
+#### Documentation — `docs/`
+
+| Subfolder | Contents |
+|-----------|---------|
+| `hardware/` | IIgs schematics, hardware refs (3 versions), firmware refs (2), debugger ref, 65816 CPU manual, LocalTalk, ZipGS registers, PEEKS/POKES ref |
+| `orca/` | ORCA/C 2.0, ORCA/M 2.0, disassembler, debugger, sublib source, Merlin→ORCA/M, Prog Ref 6.0/6.0.1, MPW IIgs, floating point libs, shell reference, Utility Pack, Talking Tools |
+| `gsos/` | GS/OS Reference Volume 1, ProDOS 16 Reference Manual |
+| `apw/` | Apple Programmer's Workshop reference, APW C language/assembler references, APW C release notes |
+| `c-programming/` | LTP C, Toolbox C, Small C, IIgs asm programming, IIgs C+asm programming, Morgan Davis Toolbox book |
+| `networking/` | Marinetti TCP/IP stack, Uthernet II manual, W5100/W5500 datasheets |
+| `opus-ii/` | Opus ][ about + overview |
+| `misc/` | SuperScribe II reference |
+
+#### Source Code — by product & version
+
+| Product | Versions | Source |
+|---------|----------|--------|
+| `orca-c/` | 2.1.0, 2.1.1-b3, 2.2.0-b2, 2.2.0-b3 | ORCA/C compiler (Pascal + asm) |
+| `orca-m/` | 2.1.0, 4.1 | ORCA/M assembler; 4.1 has full multi-build (editor, monitor, host, 6502 asm, linker, utilities, libraries) |
+| `orca-linker/` | 2.0.3 | Linker source |
+| `orca-shell/` | 2.0.4, 2.0.5-b2 | Shell source |
+| `orca-editor/` | 2.1.0, 2.2.0-b1 | Editor source |
+| `orca-macgen/` | 2.0.3 | Macro generator source |
+| `orca-makelib/` | 2.0 | Library builder source |
+| `orca-makebin/` | 2.0 | Binary builder source |
+| `orca-dumpobj/` | 2.0.1, 2.0.2.1 | Object dumper source |
+| `orca-debugger/` | 1.1 | Source + dist (.2mg) |
+| `orca-crunch/` | 2.0 | Source compressor |
+| `orca-entab/` | 2.0 | Tab utility |
+| `orca-prizm/` | 2.1.0, 2.1.1-b1 | Resource editor source |
+| `orca-pascal/` | 2.2.0, 2.2.1-b1 | Pascal compiler source |
+| `orcalib/` | beta | Runtime library source |
+| `sysfloat/` | beta | Floating point library source |
+| `sysfpe-float/` | beta | FPE float library source |
+| `applesoft/` | — | AppleSoft BASIC source (.shk) |
+
+#### Binary Distributions
+
+| Product | Location | Contents |
+|---------|----------|---------|
+| `orca-c/2.2.0-b3/dist/` | 4 archives + extracted | ORCA/C compiler + linker + headers + ORCALib |
+| `orca-debugger/1.1/dist/` | .2mg + extracted | ORCA Debugger |
+| `orca-suite/opus-ii/dist/` | 2,070 files | Complete ORCA binary suite from Opus ][ CD |
+| `gno/2.0.0/dist/` | 3 disk images + extracted | GNO/ME base distribution (3-disk set) |
+| `gno/2.0.2+2.0.3-updates/dist/` | .2mg + extracted | Combined GNO updates |
+| `gno/2.0.4-update/dist/` | .2mg + extracted | GNO 2.0.4 patch |
+| `gno/2.0.6/dist/` | .zip → gno.po + full extraction (803 files) | GNO 2.0.6 consolidated |
+| `goldengate/2.0.0/dist/` | .zip → full GoldenGate install tree (1,938 files) | GoldenGate runtime image |
+| `goldengate/installer-2018/dist/` | .zip → .pkg + docs | GoldenGate installer |
+| `goldengate/2.0.2/source/` | .zip | GoldenGate + profuse source |
+| `goldengate/2.0.4/source/` | .zip | GoldenGate source |
 
 ### Local Canonical Repo Clones — `/Users/smentzer/source/iigs-official-repos/`
 
 | Directory | Contents |
 |-----------|---------|
-| `byteworks-orca-c` | ByteWorks ORCA/C compiler source |
-| `byteworks-orcalib` | ByteWorks ORCALib (SysFloat, SysFPEFloat, runtime) |
+| `byteworksinc-orca-c` | **Official** ByteWorks ORCA/C 2.2.2 compiler source (Pascal + asm). Built via `GNUmakefile`. |
+| `byteworksinc-orcalib` | **Official** ByteWorks ORCALib. `unified` branch = current work (GNO + non-GNO). GNO build uses `TARGET=gno`; adds `gno/locale.asm` override for C-standard `struct lconv` field order. |
 | `gno-original` | Original Devin Reade GNO/ME v2.0.6 source |
-| `goldengate` | GoldenGate iix emulator source |
-| `ksherlock-gno` | ksherlock fork of GNO/ME (this repo's parent) |
+| `goldengate` | GoldenGate iix emulator source (C++) |
+| `goldengate-documentation` | GoldenGate docs |
+| `ksherlock-gno` | ksherlock fork of GNO/ME (upstream, unmaintained) |
 | `ksherlock-orca-c` | ksherlock fork of ORCA/C |
 | `nulib2` | nulib2 — ShrinkIt archive tool source |
 
@@ -278,7 +479,7 @@ See `goldengate/index.html` for a full browsable index.
 
 | Makefile | Source | Output |
 |----------|--------|--------|
-| `orcalib.mk` | `lib/ORCALib/*.asm` (13 files) | `gno-obj/orcalib` |
+| `install-gno-headers.mk` | `include/` + `orcacdefs/` + `Libraries/ORCACDefs/` | `~/Library/GoldenGate/lib/ORCACDefs/` |
 | `libc.mk` | Top-level: invokes all libc_*.mk | `gno-obj/lib/libc` |
 | `libc_gen.mk` | `lib/libc/gen/` (27 C + 1 asm) | `gno-obj/libc_gen.a` |
 | `libc_gno.mk` | `lib/libc/gno/` (5 C + 3 asm) | `gno-obj/libc_gno.a` |
@@ -289,3 +490,12 @@ See `goldengate/index.html` for a full browsable index.
 | `libc_stdtime.mk` | `lib/libc/stdtime/` (1 C) | `gno-obj/libc_stdtime.a` |
 | `libc_string.mk` | `lib/libc/string/` (23 C) | `gno-obj/libc_string.a` |
 | `libc_sys.mk` | `lib/libc/sys/` (2 C + 1 asm) | `gno-obj/libc_sys.a` |
+| `phase5.mk` | Top-level: invokes all Phase 5 libs | all Phase 5 outputs |
+| `lsaneglue.mk` | `lib/lsaneglue/` (2 asm) | `gno-obj/lib/lsaneglue` |
+| `libcrypt.mk` | `lib/libcrypt/` (1 asm + 1 C) | `gno-obj/usr/lib/libcrypt` |
+| `libutil.mk` | `lib/libutil/` (3 C) | `gno-obj/usr/lib/libutil` |
+| `libtermcap.mk` | `lib/libtermcap/` (5 C) | `gno-obj/usr/lib/libtermcap` |
+| `libcurses.mk` | `lib/libcurses/` (42 C) | `gno-obj/usr/lib/libcurses` |
+| `liby.mk` | `lib/liby/` (2 C) | `gno-obj/usr/lib/liby` |
+| `netdb.mk` | `lib/netdb/` (26 C) | `gno-obj/usr/lib/libnetdb` |
+| `libcontrib.mk` | `lib/libcontrib/` (4 C) | `gno-obj/usr/lib/libcontrib` |

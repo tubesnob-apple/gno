@@ -19,11 +19,13 @@
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
 GNO_OBJ   ?= $(abspath $(REPO_ROOT)/../gno-obj)
+GG_ROOT   ?= $(HOME)/Library/GoldenGate
 LIB_OUT   := $(GNO_OBJ)/lib/libc
 BUILD     := $(REPO_ROOT)/goldengate/build
 
-# ORCALib assert.A — "stolen" from ORCALib per original Makefile
-ASSERT_OBJ := $(REPO_ROOT)/lib/ORCALib/assert.A
+# assert.A — built from byteworksinc-orcalib (TARGET=gno) and installed to GoldenGate.
+# Run: make -f byteworksinc-orcalib/goldengate/Makefile TARGET=gno install
+ASSERT_OBJ := $(GG_ROOT)/lib/assert.A
 
 # Subdirectory Makefiles
 SUBDIRS := gen gno locale regex stdio stdlib stdtime string sys

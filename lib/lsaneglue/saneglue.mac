@@ -1,0 +1,461 @@
+ macro
+&lab phptr &n1
+&lab pea $0
+ tdc
+ clc
+ adc #&n1
+ pha
+ mend
+ macro
+&lab copyx &n1,&n2
+&lab lda &n1
+ sta &n2
+ lda &n1+2
+ sta &n2+2
+ lda &n1+4
+ sta &n2+4
+ lda &n1+6
+ sta &n2+6
+ lda &n1+8
+ sta &n2+8
+ mend
+ macro
+&lab sterr
+&lab bcs ~&SYSCNT
+ lda #0
+~&SYSCNT sta _toolErr
+ mend
+ MACRO
+&lab FSQRTX
+&lab FOPRF FOSQRT
+ MEND
+ MACRO
+&lab FRINTX
+&lab FOPRF FORTI
+ MEND
+ MACRO
+&lab FREMX
+&lab FOPRF FFEXT+FOREM
+ MEND
+ MACRO
+&lab FLOGBX
+&lab FOPRF FOLOGB
+ MEND
+ MACRO
+&lab FSCALBX
+&lab FOPRF FOSCALB
+ MEND
+ MACRO
+&lab FCPYSGNX
+&lab FOPRF FFEXT+FOCPYSGN
+ MEND
+ MACRO
+&lab FNEGX
+&lab FOPRF FONEG
+ MEND
+ MACRO
+&lab FABSX
+&lab FOPRF FOABS
+ MEND
+ MACRO
+&lab FNEXTS
+&lab FOPRF FFSGL+FONEXT
+ MEND
+ MACRO
+&lab FNEXTD
+&lab FOPRF FFDBL+FONEXT
+ MEND
+ MACRO
+&lab FNEXTX
+&lab FOPRF FFEXT+FONEXT
+ MEND
+ MACRO
+&lab FD2X
+&lab FOPRF FFDBL+FOZ2X
+ MEND
+ MACRO
+&lab FS2X
+&lab FOPRF FFSGL+FOZ2X
+ MEND
+ MACRO
+&lab FX2D
+&lab FOPRF FFDBL+FOX2Z
+ MEND
+ MACRO
+&lab FX2S
+&lab FOPRF FFSGL+FOX2Z
+ MEND
+ MACRO
+&lab FX2C
+&lab FOPRF FFCOMP+FOX2Z
+ MEND
+ MACRO
+&lab FX2DEC
+&lab FOPRF FFEXT+FOB2D
+ MEND
+ MACRO
+&lab FDEC2X
+&lab FOPRF FFEXT+FOD2B
+ MEND
+ MACRO
+&lab FCMPX
+&lab FOPRF FFEXT+FOCMP
+ MEND
+ MACRO
+&lab FCLASSS
+&lab FOPRF FFSGL+FOCLASS
+ MEND
+ MACRO
+&lab FCLASSD
+&lab FOPRF FFDBL+FOCLASS
+ MEND
+ MACRO
+&lab FCLASSX
+&lab FOPRF FFEXT+FOCLASS
+ MEND
+ MACRO
+&lab FCLASSC
+&lab FOPRF FFCOMP+FOCLASS
+ MEND
+ MACRO
+&lab FGETENV
+&lab FOPRF FOGETENV
+ MEND
+ MACRO
+&lab FSETENV
+&lab FOPRF FOSETENV
+ MEND
+ MACRO
+&lab FTESTXCP
+&lab FOPRF FOTESTXCP
+ MEND
+ MACRO
+&lab FSETXCP
+&lab FOPRF FOSETXCP
+ MEND
+ MACRO
+&lab FPROCENTRY
+&lab FOPRF FOPROCENTRY
+ MEND
+ MACRO
+&lab FPROCEXIT
+&lab FOPRF FOPROCEXIT
+ MEND
+ MACRO
+&lab FGETHV
+&lab FOPRF FOGETHV
+ MEND
+ MACRO
+&lab FSETHV
+&lab FOPRF FOSETHV
+ MEND
+ MACRO
+&lab FLNX
+&lab FOPRE FOLNX
+ MEND
+ MACRO
+&lab FLOG2X
+&lab FOPRE FOLOG2X
+ MEND
+ MACRO
+&lab FLN1X
+&lab FOPRE FOLN1X
+ MEND
+ MACRO
+&lab FEXPX
+&lab FOPRE FOEXPX
+ MEND
+ MACRO
+&lab FEXP2X
+&lab FOPRE FOEXP2X
+ MEND
+ MACRO
+&lab FEXP1X
+&lab FOPRE FOEXP1X
+ MEND
+ MACRO
+&lab FXPWRI
+&lab FOPRE FOXPWRI
+ MEND
+ MACRO
+&lab FXPWRY
+&lab FOPRE FOXPWRY
+ MEND
+ MACRO
+&lab FCOMPOUND
+&lab FOPRE FOCOMPOUND
+ MEND
+ MACRO
+&lab FANNUITY
+&lab FOPRE FOANNUITY
+ MEND
+ MACRO
+&lab FATANX
+&lab FOPRE FOATANX
+ MEND
+ MACRO
+&lab FSINX
+&lab FOPRE FOSINX
+ MEND
+ MACRO
+&lab FCOSX
+&lab FOPRE FOCOSX
+ MEND
+ MACRO
+&lab FTANX
+&lab FOPRE FOTANX
+ MEND
+ MACRO
+&lab FRANDX
+&lab FOPRE FORANDX
+ MEND
+ MACRO
+&lab FCSTR2DEC
+&lab FOPRD FOCSTR2DEC
+ MEND
+ MACRO
+&lab FDEC2STR
+&lab FOPRD FODEC2STR
+ MEND
+ MACRO
+&lab FOPRF &N1
+&lab PEA &N1
+ LDX #SANEtsNum+256*FPNum
+ JSL $E10000
+ MEND
+ MACRO
+&lab FOPRD &N1
+&lab PEA &N1
+ LDX #SANEtsNum+256*DecStrNum
+ JSL $E10000
+ MEND
+ MACRO
+&lab FOPRE &N1
+&lab PEA &N1
+ LDX #SANEtsNum+256*ElemNum
+ JSL $E10000
+ MEND
+ macro
+&l csub &parms,&work
+&l anop
+ aif c:&work,.a
+ lclc &work
+&work setc 0
+.a
+ gbla &totallen
+ gbla &worklen
+&worklen seta &work
+&totallen seta 0
+ aif c:&parms=0,.e
+ lclc &len
+ lclc &p
+ lcla &i
+&i seta 1
+.b
+&p setc &parms(&i)
+&len amid &p,2,1
+ aif "&len"=":",.c
+&len amid &p,1,2
+&p amid &p,4,l:&p-3
+ ago .d
+.c
+&len amid &p,1,1
+&p amid &p,3,l:&p-2
+.d
+&p equ &totallen+4+&work
+&totallen seta &totallen+&len
+&i seta &i+1
+ aif &i<=c:&parms,^b
+.e
+ tsc
+ aif &work=0,.f
+ sec
+ sbc #&work
+ tcs
+.f
+ phd
+ tcd
+ mend
+ macro
+&l ret &r
+&l anop
+ lclc &len
+ aif c:&r,.a
+ lclc &r
+&r setc 0
+&len setc 0
+ ago .h
+.a
+&len amid &r,2,1
+ aif "&len"=":",.b
+&len amid &r,1,2
+&r amid &r,4,l:&r-3
+ ago .c
+.b
+&len amid &r,1,1
+&r amid &r,3,l:&r-2
+.c
+ aif &len<>2,.d
+ ldy &r
+ ago .h
+.d
+ aif &len<>4,.e
+ ldx &r+2
+ ldy &r
+ ago .h
+.e
+ aif &len<>10,.g
+ ldy #&r
+ ldx #^&r
+ ago .h
+.g
+ mnote 'Not a valid return length',16
+ mexit
+.h
+ aif &totallen=0,.i
+ lda &worklen+2
+ sta &worklen+&totallen+2
+ lda &worklen+1
+ sta &worklen+&totallen+1
+.i
+ pld
+ tsc
+ clc
+ adc #&worklen+&totallen
+ tcs
+ aif &len=0,.j
+ tya
+.j
+ rtl
+ mend
+ macro
+&l long &a,&b
+ lclb &i
+ lclb &m
+&a amid &a,1,1
+&m setb ("&a"="M").or.("&a"="m")
+&i setb ("&a"="I").or.("&a"="i")
+ aif c:&b=0,.a
+&b amid &b,1,1
+&m setb ("&b"="M").or.("&b"="m").or.&m
+&i setb ("&b"="I").or.("&b"="i").or.&i
+.a
+&l rep #&m*32+&i*16
+ aif .not.&m,.b
+ longa on
+.b
+ aif .not.&i,.c
+ longi on
+.c
+ mend
+ macro
+&l ph2 &n1
+&l anop
+ aif "&n1"="*",.f
+ lclc &c
+&c amid &n1,1,1
+ aif "&c"="#",.d
+ aif s:longa=1,.a
+ rep #%00100000
+.a
+ aif "&c"<>"{",.b
+&c amid &n1,l:&n1,1
+ aif "&c"<>"}",.g
+&n1 amid &n1,2,l:&n1-2
+ lda (&n1)
+ pha
+ ago .e
+.b
+ aif "&c"="<",.c
+ lda &n1
+ pha
+ ago .e
+.c
+&n1 amid &n1,2,l:&n1-1
+ pei &n1
+ ago .e
+.d
+&n1 amid &n1,2,l:&n1-1
+ pea &n1
+ ago .f
+.e
+ aif s:longa=1,.f
+ sep #%00100000
+.f
+ mexit
+.g
+ mnote "Missing closing '}'",16
+ mend
+ macro
+&l ph4 &n1
+&l anop
+ aif "&n1"="*",.f
+ lclc &c
+&c amid &n1,1,1
+ aif "&c"="#",.d
+ aif s:longa=1,.a
+ rep #%00100000
+.a
+ aif "&c"<>"{",.b
+&c amid &n1,l:&n1,1
+ aif "&c"<>"}",.g
+&n1 amid &n1,2,l:&n1-2
+ ldy #2
+ lda (&n1),y
+ pha
+ lda (&n1)
+ pha
+ ago .e
+.b
+ aif "&c"<>"[",.c
+ ldy #2
+ lda &n1,y
+ pha
+ lda &n1
+ pha
+ ago .e
+.c
+ aif "&c"<>"<",.c1
+&n1 amid &n1,2,l:&n1-1
+ pei &n1+2
+ pei &n1
+ ago .e
+.c1
+ lda &n1+2
+ pha
+ lda &n1
+ pha
+ ago .e
+.d
+&n1 amid &n1,2,l:&n1-1
+ pea +(&n1)|-16
+ pea &n1
+ ago .f
+.e
+ aif s:longa=1,.f
+ sep #%00100000
+.f
+ mexit
+.g
+ mnote "Missing closing '}'",16
+ mend
+ macro
+&l short &a,&b
+ lclb &i
+ lclb &m
+&a amid &a,1,1
+&m setb ("&a"="M").or.("&a"="m")
+&i setb ("&a"="I").or.("&a"="i")
+ aif c:&b=0,.a
+&b amid &b,1,1
+&m setb ("&b"="M").or.("&b"="m").or.&m
+&i setb ("&b"="I").or.("&b"="i").or.&i
+.a
+&l sep #&m*32+&i*16
+ aif .not.&m,.b
+ longa off
+.b
+ aif .not.&i,.c
+ longi off
+.c
+ mend

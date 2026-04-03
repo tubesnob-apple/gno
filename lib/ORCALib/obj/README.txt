@@ -1,1 +1,0 @@
-This directory is used by the make file for storing object files.

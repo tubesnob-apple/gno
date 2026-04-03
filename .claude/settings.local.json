@@ -1,5 +1,7 @@
 {
+  "model": "claude-sonnet-4-6",
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "allow": [
       "Bash(xargs ls:*)",
       "Bash(iix ls:*)",
@@ -52,7 +54,11 @@
       "Bash(1 cat:*)",
       "Bash(cd /Users/smentzer/source/ksherlock-gno/gno/lib/ORCALib iix /bin/chtyp --help)",
       "Bash(# Try: copy source to /tmp, assemble there \\(no -o\\), then makelib\ncp /Users/smentzer/source/ksherlock-gno/gno/lib/ORCALib/vars.asm /tmp/\ncp /Users/smentzer/source/ksherlock-gno/gno/lib/ORCALib/equates.asm /tmp/\ncp /Users/smentzer/source/ksherlock-gno/gno/lib/ORCALib/vars.macros /tmp/\ncd /tmp && iix assemble +T vars.asm 2>&1 | tail -3\necho \"--- created: ---\"\nls /tmp/vars* 2>&1\nxattr -l /tmp/vars.A 2>&1 | xxd | head -3)",
-      "Bash(xxd /tmp/vars.A)"
+      "Bash(xxd /tmp/vars.A)",
+      "Bash(cd:*)",
+      "Bash(DOCS=\"/Volumes/Storage/IIgs/DocTemple/docs\" echo \"=== hardware/ ===\")",
+      "Read(//Users/smentzer/source/gno/$DOCS/**)",
+      "Read(//Users/smentzer/source/gno/**)"
     ]
   }
 }
