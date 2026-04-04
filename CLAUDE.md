@@ -331,11 +331,11 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - libcurses: scanw.c excluded (noted as having trouble in original Makefile — `_SRCS`)
 - netdb: iso_addr.c, linkaddr.c, ns_addr.c, ns_ntoa.c, send.c, recv.c excluded (not in original Makefile SRCS)
 
-#### Phase 6 — Utilities ✓ (mostly complete)
+#### Phase 6 — Utilities ✓
 - Makefile: `goldengate/build/phase6.mk`
-- **77 utilities built** across `bin/`, `usr.bin/`, `usr.orca.bin/`, `sbin/`, `usr.sbin/`
+- **79/79 utilities built** across `bin/`, `usr.bin/`, `usr.orca.bin/`, `sbin/`, `usr.sbin/`
 - Output: `gno-obj/bin/`, `gno-obj/usr/bin/`, etc.
-- 2 link failures: `more` and `tput` — need getcap.c (missing from GNO source tree)
+- `more` and `tput` now link — fixed by adding `lib/libtermcap/getcap.c` (full BSD getcap)
 
 **Source fixes applied during Phase 6 build:**
 - `bin/du/du.c`: removed `#pragma lint -1` (was enabling all lint); changed `sccsid` to `const`
@@ -372,13 +372,47 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - Asm-only: `gsh`, `date`, `purge`, `getvers`, `help`, `setvers`
 - C+asm mixed (deferred): `binprint`, `mkdir`
 - Complex (deferred): `vi`, `less`, `awk`, `man`, `nroff`, `cpp`
-- Needs getcap.c: `more`, `tput` (cgetset/cgetent/tcgetattr missing from GNO libtermcap source)
+
+#### Phase 7 — Kernel ✓
+- Makefile: `goldengate/build/phase7.mk` — `make -k -f goldengate/build/phase7.mk`
+- **kern**: 150,673 bytes (reference 140,754 — ~7% larger due to ksherlock fork additions)
+- **Drivers**: `dev/null` (592 bytes), `dev/zero` (619), `dev/full` (620), `dev/console` (5,927)
+- 14 C modules + 16 kern/gno ASM + 4 driver ASM (linked into kern) + 4 standalone driver ASM
+
+**Source fixes applied during Phase 7 build:**
+- `kern/gno/*.c` (all 14): added `#define KERNEL` before first `#include`
+- `kern/gno/*.c`: replaced GNO namespace includes (`/lang/orca/...`) with standard `<stdio.h>` etc.
+- `kern/gno/fastfile.c`: removed `#pragma lint -1` (enables ALL lint — 7 unused-var errors)
+- `kern/gno/sys.c` fix 1: `if (h = (FindHandle(mem) == NULL))` → `if ((h = FindHandle(mem)) == NULL)`
+- `kern/gno/sys.c` fix 2: reordered includes — `kvm.h` before `gno.h` so `struct kvmt` is complete; `kvmt *` → `struct kvmt *` throughout
+- `kern/gno/queue.c`: `return (mptr - kp)` → `return (int)(mptr - kp->procTable)`
+- `kern/gno/signal.c`: `(sig->v_signal[signum] >> 16)` → `(word)((unsigned long)sig->v_signal[signum] >> 16)`
+- `kern/gno/ep.c`: strincmp signature → `short strincmp(const char *, const char *, unsigned)`
+- `kern/gno/inc/tty.inc`, `gsos.inc`, `kern.inc`: converted LF→CR (COPY directive requires CR)
+- `kern/drivers/*.equates`: converted LF→CR
+- `include/stdio.h`: added `#ifdef KERNEL` guard — kernel uses `extern FILE *stdout` (ORCALib) instead of `&__sF[1]` (GNO libc array); run `make -f goldengate/install-gno-headers.mk` after this change
+
+#### maccatrez — macOS Resource Fork Tool ✓
+- **`goldengate/tools/maccatrez.py`** — replaces `catrez` (which requires Apple IIgs Resource Manager toolbox, unavailable in GoldenGate)
+- Parses GNO `.rez` source files; writes Apple IIgs resource fork binary as `com.apple.ResourceFork` xattr
+- Supports: rVersion ($8029), rComment ($802A)
+- Handles: `#include`, `#define` macros (recursive), `BUILD_DATE`/`$$Date`, adjacent string concat, `\n`→CR
+- Verified byte-for-byte vs GNO 2.0.6 `catrez.rsrc` reference; all 80+ GNO `.rez` files parse cleanly
+- Usage: `python3 goldengate/tools/maccatrez.py <file.rez> <target_binary> [-v] [--dry-run] [--output rsrc.bin]`
+
+**Apple IIgs resource fork binary format** (documented from reference analysis):
+- Header (140 bytes at offset 0): rFileVersion=0, rFileToMap=0x8C, rFileMapSize=mapSize
+- Map at 0x8C: 32-byte fixed header + 10×8-byte free list + 4-byte padding + N×20-byte index + 2-byte trail
+- `mapToIndex` = 0x74 (offset from map start to ref index)
+- ResRefRec (20 bytes each): type(2)+id(4)+absOffset(4)+attr(2)+size(4)+handle(4, zero on disk)
+- rVersion: ReverseBytes{nonfinal, stage, minor|bug, major} + country(2 LE) + pstring + pstring
+- rComment: raw string, NO null terminator (`string;` type is not C-terminated)
+- Free list sentinel: blkOffset=fileSize, blkSize=-(fileSize+1)
 
 ### Next Steps (in order)
-- [ ] **getcap.c for libtermcap**: port BSD getcap.c to fix `more` and `tput` link failures
-- [ ] **Bootstrap catrez**: compile `usr.orca.bin/catrez/` — needed to attach resource forks
-- [ ] **Phase 7 — Kernel**: kern/gno/, kern/drivers/
-- [ ] **Phase 8 — Distribution**: nulib2 .shk or cadius disk image
+- [ ] **Phase 8a — Resource forks**: `phase8_rez.mk` — run maccatrez for all ~80 binaries that have a `.rez` file
+- [ ] **Phase 8b — ProDOS file types**: set `com.apple.FinderInfo` xattr on each binary ($B3 for executables, $BB auxtype 0x7E01 for drivers)
+- [ ] **Phase 8c — Disk image**: install cadius (`brew install cadius`), assemble full GNO directory tree into a ProDOS `.2mg` volume matching the 2.0.6 reference layout (`diskImages/extracted/`)
 
 ### Known Skips
 - `libedit` / `libsim` — not building in original
@@ -443,6 +477,16 @@ make -f goldengate/build/phase6.mk bin_du
 
 # Validate Phase 6 sizes vs reference
 make -f goldengate/build/phase6.mk validate
+
+# Build Phase 7 — kernel + drivers
+make -k -f goldengate/build/phase7.mk
+
+# Attach resource fork to a built binary (maccatrez)
+python3 goldengate/tools/maccatrez.py kern/gno/kern.rez gno-obj/kern -v
+python3 goldengate/tools/maccatrez.py bin/cat/cat.rez gno-obj/bin/cat -v
+
+# Dry-run / inspect without writing
+python3 goldengate/tools/maccatrez.py kern/gno/kern.rez --dry-run --verify -v
 ```
 
 ---
@@ -529,6 +573,7 @@ Canonical reference store for all Apple IIgs development materials. Organized by
 | `NOTES/devel/doing.builds` | **Authoritative build sequence** |
 | `goldengate/build/*.mk` | GNU Makefiles for each build target |
 | `goldengate/tools/compare_libc.py` | Symbol comparison between built and reference libc |
+| `goldengate/tools/maccatrez.py` | macOS Rez compiler: parses .rez → resource fork xattr (replaces catrez) |
 | `goldengate/orcac-tests/tools/omf_dis.py` | OMF v2 parser + 65816 disassembler |
 | `diskImages/extracted/` | All files from GNO 2.0.6 reference disk image |
 | `diskImages/extracted/metadata.json` | File types, sizes, dates for all extracted files |
@@ -557,4 +602,5 @@ Canonical reference store for all Apple IIgs development materials. Organized by
 | `liby.mk` | `lib/liby/` (2 C) | `gno-obj/usr/lib/liby` |
 | `netdb.mk` | `lib/netdb/` (26 C) | `gno-obj/usr/lib/libnetdb` |
 | `libcontrib.mk` | `lib/libcontrib/` (4 C) | `gno-obj/usr/lib/libcontrib` |
-| `phase6.mk` | Top-level: ~75 utilities across bin/, usr.bin/, usr.orca.bin/, sbin/, usr.sbin/ | `gno-obj/bin/`, `gno-obj/usr/bin/`, etc. |
+| `phase6.mk` | 79 utilities across bin/, usr.bin/, usr.orca.bin/, sbin/, usr.sbin/ | `gno-obj/bin/`, `gno-obj/usr/bin/`, etc. |
+| `phase7.mk` | kern/gno/ (14 C + 16 ASM) + kern/drivers/ (4 ASM linked + 4 standalone) | `gno-obj/kern`, `gno-obj/dev/{null,zero,full,console}` |
