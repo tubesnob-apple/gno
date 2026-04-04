@@ -410,9 +410,16 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - Free list sentinel: blkOffset=fileSize, blkSize=-(fileSize+1)
 
 ### Next Steps (in order)
-- [ ] **Phase 8a — Resource forks**: `phase8_rez.mk` — run cowrez for all ~80 binaries that have a `.rez` file
-- [ ] **Phase 8b — ProDOS file types**: set `com.apple.FinderInfo` xattr on each binary ($B3 for executables, $BB auxtype 0x7E01 for drivers)
+- [x] **Phase 8a — Resource forks**: `phase8_rez.mk` — 72/72 binaries complete
+- [x] **Phase 8b — ProDOS file types**: already set by iix linker/makelib (79×$B5, 10×$B2, 4×$BB, 1×$B3) — nothing to do
 - [ ] **Phase 8c — Disk image**: install cadius (`brew install cadius`), assemble full GNO directory tree into a ProDOS `.2mg` volume matching the 2.0.6 reference layout (`diskImages/extracted/`)
+
+**ProDOS file type reference (from GNO 2.0.6 reference disk):**
+- `$B5` auxtype `$0001` — GS/OS application (all utilities: bin/, usr/bin/, sbin/, usr/sbin/, usr/orca/bin/)
+- `$B3` auxtype `$0000` — System file (kern only)
+- `$B2` auxtype `$0000` — OMF library (lib/libc, lib/lsaneglue, usr/lib/lib*)
+- `$BB` auxtype `$7E01` — Device driver (dev/null, dev/zero, dev/full, dev/console)
+- Note: iix linker sets FinderInfo automatically — no manual xattr patching needed for linked/makelib outputs
 
 ### Known Skips
 - `libedit` / `libsim` — not building in original
