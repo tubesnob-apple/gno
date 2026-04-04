@@ -374,9 +374,10 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 
 #### Phase 6 — Utilities ✓
 - Makefile: `goldengate/build/phase6.mk`
-- **79/79 utilities built** across `bin/`, `usr.bin/`, `usr.orca.bin/`, `sbin/`, `usr.sbin/`
-- Output: `gno-obj/bin/`, `gno-obj/usr/bin/`, etc.
+- **100+ utilities built** across `bin/`, `usr.bin/`, `sbin/`, `usr.sbin/`, `usr.games/`
+- Output: `gno-obj/bin/`, `gno-obj/usr/bin/`, `gno-obj/usr/sbin/`, `gno-obj/usr/games/`
 - `more` and `tput` now link — fixed by adding `lib/libtermcap/getcap.c` (full BSD getcap)
+- Path fixes: `describe` → `usr/bin/describe`, `descc/descu` → `usr/sbin/`, `udl` → `usr/bin/udl` (matching reference metadata)
 
 **Source fixes applied during Phase 6 build:**
 - `bin/du/du.c`: removed `#pragma lint -1` (was enabling all lint); changed `sccsid` to `const`
@@ -407,12 +408,24 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - **`#pragma lint -1`**: ENABLES all lint (= 0xFFFF); lint is OFF by default — remove these pragmas
 - **`const` on sccsid**: ORCA/C lint doesn't flag `static char const sccsid[]` as unused; plain `static char sccsid[]` IS flagged
 
+**Added in Phase 6 (expanded):**
+- `awk` (9 C files, pre-generated ytab.c/proctab.c — no yacc needed)
+- `cpp` (10 C files)
+- `nroff` (9 C files, links libtermcap; uses `#ifdef __GNO__` for portability)
+- `man`, `apropos`, `whatis` → `usr/bin/`; `catman`, `makewhatis` → `usr/sbin/` (from usr.bin/man/)
+- `mkdir` (mkdir.c only — ORCALib provides startup; mkdir2.asm not needed for GoldenGate)
+- `ps` (1 C, kernel-dependent at runtime, compiles cleanly)
+- `login` (1 C, links libutil + libcrypt; `sys/resource.h` guarded with `#ifndef __GNO__`)
+- `nogetty` (1 C)
+- `calendar` → `usr/games/calendar` (1 C)
+
 **Skipped utilities:**
-- Kernel deps: `ps`, `init`, `reboot`, `shutdown`, `nogetty`
+- Missing BSD headers: `init`, `reboot`, `shutdown` (need `sys/sysctl.h`, `sys/reboot.h` — not in GNO include tree)
 - Network deps: `rcp`, `ftp`, `rlogin`, `rsh`, `inetd`, `syslogd`
 - Asm-only: `gsh`, `date`, `purge`, `getvers`, `help`, `setvers`
-- C+asm mixed (deferred): `binprint`, `mkdir`
-- Complex (deferred): `vi`, `less`, `awk`, `man`, `nroff`, `cpp`
+- C+asm real dep: `binprint` (`doline.asm` implements `doline()` — ASM function, not just startup)
+- Complex (deferred): `vi`, `less`
+- No source in repo: ~14 utilities (diff, dmake, script, sum, apropos index tools, etc.)
 
 #### Phase 7 — Kernel ✓
 - Makefile: `goldengate/build/phase7.mk` — `make -f goldengate/build/phase7.mk`
@@ -451,13 +464,14 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - Free list sentinel: blkOffset=fileSize, blkSize=-(fileSize+1)
 
 #### Phase 8 — Distribution Packaging ✓
-- **Phase 8a** — Resource forks: `make -f goldengate/build/phase8_rez.mk` — 72/72 binaries with .rez files complete; resource forks attached as `com.apple.ResourceFork` xattr
+- **Phase 8a** — Resource forks: `make -f goldengate/build/phase8_rez.mk` — resource forks attached as `com.apple.ResourceFork` xattr for all binaries with .rez files (updated to cover expanded Phase 6 builds: awk, cpp, nroff, man suite, login, calendar, describe/descc/descu/udl at correct paths)
 - **Phase 8b** — ProDOS file types: already set by iix linker/makelib — nothing to do
 - **Phase 8c** — Disk image: `diskImages/gno-built.2mg` — 32MB ProDOS `.2mg` volume
-  - 738 files: 709 from 2.0.6 reference metadata + 29 ksherlock fork extras (dev/full, dev/zero, dev/console, lib/lsaneglue, usr/bin/{sort,tr,env,tr,true,false,…}, usr/orca/bin/{describe,descc,descu,udl}, bin/{edit,rm,upper})
+  - Reference metadata pass + gno-obj extras; prefers built over reference; falls back for unbuilt (init/reboot/shutdown/gsh etc.)
   - All ProDOS types correct: EXE+ $0100, S16+ $0000 (kern), DVR+ $7E01 (drivers), LIB $0000
-  - Resource forks embedded for all 72 built binaries that have .rez files
+  - Resource forks embedded for all built binaries that have .rez files
   - Script: `goldengate/build/phase8c_image.py` — prefers gno-obj/ over reference, falls back to diskImages/extracted/
+  - **Path fix**: describe → `usr/bin/`, descc/descu → `usr/sbin/`, udl → `usr/bin/` (match reference metadata, not usr/orca/bin/)
 
 **cadius notes (not in homebrew):**
 - Build: `git clone https://github.com/mach-kernel/cadius.git ~/source/cadius && cd ~/source/cadius && make`
@@ -466,9 +480,10 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - File type in filename: `#TTAAAA` suffix where TT=hex type, AAAA=4-digit hex auxtype (e.g., `kern#B30000`, `cat#B50100`)
 
 ### Next Steps (in order)
-- [x] **Phase 8a — Resource forks**: `phase8_rez.mk` — 72/72 binaries complete
-- [x] **Phase 8b — ProDOS file types**: already set by iix linker/makelib (79×$B5, 10×$B2, 4×$BB, 1×$B3) — nothing to do
-- [x] **Phase 8c — Disk image**: `diskImages/gno-built.2mg` — 32MB ProDOS volume, 738 files (709 from 2.0.6 reference + 29 ksherlock extras), resource forks embedded, all ProDOS types correct
+- [x] **Phase 8a — Resource forks**: `phase8_rez.mk` — all binaries with .rez files covered; updated for expanded Phase 6 (awk, cpp, nroff, man suite, login, calendar, describe/udl at corrected paths)
+- [x] **Phase 8b — ProDOS file types**: already set by iix linker/makelib — nothing to do
+- [x] **Phase 8c — Disk image**: `diskImages/gno-built.2mg` — 32MB ProDOS volume; expanded Phase 6 builds more utilities from source (awk, cpp, nroff, man, mkdir, ps, login, calendar, etc.); reference fallback covers remaining (init, reboot, gsh, etc.)
+- [ ] **Rebuild Phase 6** to pick up new targets: `make -f goldengate/build/phase6.mk` (then re-run phase8_rez + phase8c_image.py for updated disk image)
 
 **ProDOS file type reference (from GNO 2.0.6 reference disk):**
 - `$B5` auxtype `$0001` — GS/OS application (all utilities: bin/, usr/bin/, sbin/, usr/sbin/, usr/orca/bin/)
@@ -677,5 +692,5 @@ Canonical reference store for all Apple IIgs development materials. Organized by
 | `liby.mk` | `lib/liby/` (2 C) | `gno-obj/usr/lib/liby` |
 | `netdb.mk` | `lib/netdb/` (26 C) | `gno-obj/usr/lib/libnetdb` |
 | `libcontrib.mk` | `lib/libcontrib/` (4 C) | `gno-obj/usr/lib/libcontrib` |
-| `phase6.mk` | 79 utilities across bin/, usr.bin/, usr.orca.bin/, sbin/, usr.sbin/ | `gno-obj/bin/`, `gno-obj/usr/bin/`, etc. |
+| `phase6.mk` | 100+ utilities across bin/, usr.bin/, sbin/, usr.sbin/, usr.games/ | `gno-obj/bin/`, `gno-obj/usr/bin/`, `gno-obj/usr/sbin/`, `gno-obj/usr/games/` |
 | `phase7.mk` | kern/gno/ (14 C + 16 ASM) + kern/drivers/ (4 ASM linked + 4 standalone) | `gno-obj/kern`, `gno-obj/dev/{null,zero,full,console}` |

@@ -17,10 +17,9 @@
 #
 # Skipped (no built binary):
 #   binprint, gsh, rcp              — C+asm mixed / asm-only / network
-#   login, passwd                   — kernel deps, not built
-#   awk, cpp, man/*, nroff          — complex, deferred
 #   ftp, rlogin, rsh, inetd, syslogd — network daemons, not built
 #   getvers, help, date, purge      — asm-only
+#   init, reboot, shutdown          — missing BSD headers (sys/sysctl.h, sys/reboot.h)
 #   modem, printer (drivers)        — not built in Phase 7
 #   sys/sim/{sim,simlib}            — libedit/libsim, not built
 #   rinclude/, goldengate/orca-m/   — include files / external tool
@@ -188,14 +187,18 @@ $(OBJ_BASE)/sbin/renram5.rsrc.done: $(REPO_ROOT)/sbin/renram5/renram5.rez $(OBJ_
 
 .PHONY: usr_bin
 usr_bin: \
+     $(OBJ_BASE)/usr/bin/apropos.rsrc.done \
+     $(OBJ_BASE)/usr/bin/awk.rsrc.done \
      $(OBJ_BASE)/usr/bin/basename.rsrc.done \
      $(OBJ_BASE)/usr/bin/calendar.rsrc.done \
      $(OBJ_BASE)/usr/bin/catrez.rsrc.done \
      $(OBJ_BASE)/usr/bin/cksum.rsrc.done \
      $(OBJ_BASE)/usr/bin/colcrt.rsrc.done \
      $(OBJ_BASE)/usr/bin/compile.rsrc.done \
+     $(OBJ_BASE)/usr/bin/cpp.rsrc.done \
      $(OBJ_BASE)/usr/bin/ctags.rsrc.done \
      $(OBJ_BASE)/usr/bin/cut.rsrc.done \
+     $(OBJ_BASE)/usr/bin/describe.rsrc.done \
      $(OBJ_BASE)/usr/bin/dirname.rsrc.done \
      $(OBJ_BASE)/usr/bin/env.rsrc.done \
      $(OBJ_BASE)/usr/bin/false.rsrc.done \
@@ -205,16 +208,24 @@ usr_bin: \
      $(OBJ_BASE)/usr/bin/link.rsrc.done \
      $(OBJ_BASE)/usr/bin/logger.rsrc.done \
      $(OBJ_BASE)/usr/bin/lseg.rsrc.done \
+     $(OBJ_BASE)/usr/bin/man.rsrc.done \
+     $(OBJ_BASE)/usr/bin/nroff.rsrc.done \
      $(OBJ_BASE)/usr/bin/printenv.rsrc.done \
      $(OBJ_BASE)/usr/bin/removerez.rsrc.done \
      $(OBJ_BASE)/usr/bin/sed.rsrc.done \
      $(OBJ_BASE)/usr/bin/tr.rsrc.done \
      $(OBJ_BASE)/usr/bin/true.rsrc.done \
+     $(OBJ_BASE)/usr/bin/udl.rsrc.done \
      $(OBJ_BASE)/usr/bin/wall.rsrc.done \
+     $(OBJ_BASE)/usr/bin/whatis.rsrc.done \
      $(OBJ_BASE)/usr/bin/whereis.rsrc.done \
      $(OBJ_BASE)/usr/bin/who.rsrc.done \
      $(OBJ_BASE)/usr/bin/whois.rsrc.done
 
+$(OBJ_BASE)/usr/bin/apropos.rsrc.done:   $(REPO_ROOT)/usr.bin/man/apropos.rez        $(OBJ_BASE)/usr/bin/apropos
+	$(call REZ,usr.bin/man/apropos.rez,usr/bin/apropos)
+$(OBJ_BASE)/usr/bin/awk.rsrc.done:       $(REPO_ROOT)/usr.bin/awk/awk.rez             $(OBJ_BASE)/usr/bin/awk
+	$(call REZ,usr.bin/awk/awk.rez,usr/bin/awk)
 $(OBJ_BASE)/usr/bin/basename.rsrc.done:  $(REPO_ROOT)/usr.bin/basename/basename.rez   $(OBJ_BASE)/usr/bin/basename
 	$(call REZ,usr.bin/basename/basename.rez,usr/bin/basename)
 $(OBJ_BASE)/usr/bin/calendar.rsrc.done:  $(REPO_ROOT)/usr.bin/calendar/calendar.rez   $(OBJ_BASE)/usr/bin/calendar
@@ -227,10 +238,14 @@ $(OBJ_BASE)/usr/bin/colcrt.rsrc.done:    $(REPO_ROOT)/usr.bin/colcrt/colcrt.rez 
 	$(call REZ,usr.bin/colcrt/colcrt.rez,usr/bin/colcrt)
 $(OBJ_BASE)/usr/bin/compile.rsrc.done:   $(REPO_ROOT)/usr.bin/compile/compile.rez     $(OBJ_BASE)/usr/bin/compile
 	$(call REZ,usr.bin/compile/compile.rez,usr/bin/compile)
+$(OBJ_BASE)/usr/bin/cpp.rsrc.done:       $(REPO_ROOT)/usr.bin/cpp/cpp.rez             $(OBJ_BASE)/usr/bin/cpp
+	$(call REZ,usr.bin/cpp/cpp.rez,usr/bin/cpp)
 $(OBJ_BASE)/usr/bin/ctags.rsrc.done:     $(REPO_ROOT)/usr.bin/ctags/ctags.rez         $(OBJ_BASE)/usr/bin/ctags
 	$(call REZ,usr.bin/ctags/ctags.rez,usr/bin/ctags)
 $(OBJ_BASE)/usr/bin/cut.rsrc.done:       $(REPO_ROOT)/usr.bin/cut/cut.rez             $(OBJ_BASE)/usr/bin/cut
 	$(call REZ,usr.bin/cut/cut.rez,usr/bin/cut)
+$(OBJ_BASE)/usr/bin/describe.rsrc.done:  $(REPO_ROOT)/usr.orca.bin/describe/describe.rez $(OBJ_BASE)/usr/bin/describe
+	$(call REZ,usr.orca.bin/describe/describe.rez,usr/bin/describe)
 $(OBJ_BASE)/usr/bin/dirname.rsrc.done:   $(REPO_ROOT)/usr.bin/dirname/dirname.rez     $(OBJ_BASE)/usr/bin/dirname
 	$(call REZ,usr.bin/dirname/dirname.rez,usr/bin/dirname)
 $(OBJ_BASE)/usr/bin/env.rsrc.done:       $(REPO_ROOT)/usr.bin/env/env.rez             $(OBJ_BASE)/usr/bin/env
@@ -249,6 +264,10 @@ $(OBJ_BASE)/usr/bin/logger.rsrc.done:    $(REPO_ROOT)/usr.bin/logger/logger.rez 
 	$(call REZ,usr.bin/logger/logger.rez,usr/bin/logger)
 $(OBJ_BASE)/usr/bin/lseg.rsrc.done:      $(REPO_ROOT)/usr.bin/lseg/lseg.rez           $(OBJ_BASE)/usr/bin/lseg
 	$(call REZ,usr.bin/lseg/lseg.rez,usr/bin/lseg)
+$(OBJ_BASE)/usr/bin/man.rsrc.done:       $(REPO_ROOT)/usr.bin/man/man.rez             $(OBJ_BASE)/usr/bin/man
+	$(call REZ,usr.bin/man/man.rez,usr/bin/man)
+$(OBJ_BASE)/usr/bin/nroff.rsrc.done:     $(REPO_ROOT)/usr.bin/nroff/nroff.rez         $(OBJ_BASE)/usr/bin/nroff
+	$(call REZ,usr.bin/nroff/nroff.rez,usr/bin/nroff)
 $(OBJ_BASE)/usr/bin/printenv.rsrc.done:  $(REPO_ROOT)/usr.bin/printenv/printenv.rez   $(OBJ_BASE)/usr/bin/printenv
 	$(call REZ,usr.bin/printenv/printenv.rez,usr/bin/printenv)
 $(OBJ_BASE)/usr/bin/removerez.rsrc.done: $(REPO_ROOT)/usr.bin/removerez/removerez.rez $(OBJ_BASE)/usr/bin/removerez
@@ -259,8 +278,12 @@ $(OBJ_BASE)/usr/bin/tr.rsrc.done:        $(REPO_ROOT)/usr.bin/tr/tr.rez         
 	$(call REZ,usr.bin/tr/tr.rez,usr/bin/tr)
 $(OBJ_BASE)/usr/bin/true.rsrc.done:      $(REPO_ROOT)/usr.bin/true/true.rez           $(OBJ_BASE)/usr/bin/true
 	$(call REZ,usr.bin/true/true.rez,usr/bin/true)
+$(OBJ_BASE)/usr/bin/udl.rsrc.done:       $(REPO_ROOT)/usr.orca.bin/udl/udl.rez        $(OBJ_BASE)/usr/bin/udl
+	$(call REZ,usr.orca.bin/udl/udl.rez,usr/bin/udl)
 $(OBJ_BASE)/usr/bin/wall.rsrc.done:      $(REPO_ROOT)/usr.bin/wall/wall.rez           $(OBJ_BASE)/usr/bin/wall
 	$(call REZ,usr.bin/wall/wall.rez,usr/bin/wall)
+$(OBJ_BASE)/usr/bin/whatis.rsrc.done:    $(REPO_ROOT)/usr.bin/man/whatis.rez          $(OBJ_BASE)/usr/bin/whatis
+	$(call REZ,usr.bin/man/whatis.rez,usr/bin/whatis)
 $(OBJ_BASE)/usr/bin/whereis.rsrc.done:   $(REPO_ROOT)/usr.bin/whereis/whereis.rez     $(OBJ_BASE)/usr/bin/whereis
 	$(call REZ,usr.bin/whereis/whereis.rez,usr/bin/whereis)
 $(OBJ_BASE)/usr/bin/who.rsrc.done:       $(REPO_ROOT)/usr.bin/who/who.rez             $(OBJ_BASE)/usr/bin/who
@@ -269,38 +292,50 @@ $(OBJ_BASE)/usr/bin/whois.rsrc.done:     $(REPO_ROOT)/usr.bin/whois/whois.rez   
 	$(call REZ,usr.bin/whois/whois.rez,usr/bin/whois)
 
 # ── usr/orca/bin/ ────────────────────────────────────────────────────────────
+# describe/descc/descu/udl moved to usr/bin and usr/sbin to match reference paths;
+# handled in usr_bin and usr_sbin sections above.
 
 .PHONY: usr_orca_bin
-usr_orca_bin: \
-     $(OBJ_BASE)/usr/orca/bin/describe.rsrc.done \
-     $(OBJ_BASE)/usr/orca/bin/descc.rsrc.done \
-     $(OBJ_BASE)/usr/orca/bin/descu.rsrc.done \
-     $(OBJ_BASE)/usr/orca/bin/udl.rsrc.done
-
-$(OBJ_BASE)/usr/orca/bin/describe.rsrc.done: $(REPO_ROOT)/usr.orca.bin/describe/describe.rez $(OBJ_BASE)/usr/orca/bin/describe
-	$(call REZ,usr.orca.bin/describe/describe.rez,usr/orca/bin/describe)
-$(OBJ_BASE)/usr/orca/bin/descc.rsrc.done:    $(REPO_ROOT)/usr.orca.bin/describe/descc.rez    $(OBJ_BASE)/usr/orca/bin/descc
-	$(call REZ,usr.orca.bin/describe/descc.rez,usr/orca/bin/descc)
-$(OBJ_BASE)/usr/orca/bin/descu.rsrc.done:    $(REPO_ROOT)/usr.orca.bin/describe/descu.rez    $(OBJ_BASE)/usr/orca/bin/descu
-	$(call REZ,usr.orca.bin/describe/descu.rez,usr/orca/bin/descu)
-$(OBJ_BASE)/usr/orca/bin/udl.rsrc.done:      $(REPO_ROOT)/usr.orca.bin/udl/udl.rez           $(OBJ_BASE)/usr/orca/bin/udl
-	$(call REZ,usr.orca.bin/udl/udl.rez,usr/orca/bin/udl)
+usr_orca_bin:
 
 # ── usr/sbin/ ────────────────────────────────────────────────────────────────
 
 .PHONY: usr_sbin
 usr_sbin: \
+     $(OBJ_BASE)/usr/sbin/catman.rsrc.done \
+     $(OBJ_BASE)/usr/sbin/descc.rsrc.done \
+     $(OBJ_BASE)/usr/sbin/descu.rsrc.done \
      $(OBJ_BASE)/usr/sbin/getty.rsrc.done \
+     $(OBJ_BASE)/usr/sbin/login.rsrc.done \
+     $(OBJ_BASE)/usr/sbin/makewhatis.rsrc.done \
      $(OBJ_BASE)/usr/sbin/newuser.rsrc.done
 
-$(OBJ_BASE)/usr/sbin/getty.rsrc.done:   $(REPO_ROOT)/usr.sbin/getty/getty.rez     $(OBJ_BASE)/usr/sbin/getty
+$(OBJ_BASE)/usr/sbin/catman.rsrc.done:     $(REPO_ROOT)/usr.bin/man/catman.rez              $(OBJ_BASE)/usr/sbin/catman
+	$(call REZ,usr.bin/man/catman.rez,usr/sbin/catman)
+$(OBJ_BASE)/usr/sbin/descc.rsrc.done:      $(REPO_ROOT)/usr.orca.bin/describe/descc.rez     $(OBJ_BASE)/usr/sbin/descc
+	$(call REZ,usr.orca.bin/describe/descc.rez,usr/sbin/descc)
+$(OBJ_BASE)/usr/sbin/descu.rsrc.done:      $(REPO_ROOT)/usr.orca.bin/describe/descu.rez     $(OBJ_BASE)/usr/sbin/descu
+	$(call REZ,usr.orca.bin/describe/descu.rez,usr/sbin/descu)
+$(OBJ_BASE)/usr/sbin/getty.rsrc.done:      $(REPO_ROOT)/usr.sbin/getty/getty.rez             $(OBJ_BASE)/usr/sbin/getty
 	$(call REZ,usr.sbin/getty/getty.rez,usr/sbin/getty)
-$(OBJ_BASE)/usr/sbin/newuser.rsrc.done: $(REPO_ROOT)/usr.sbin/newuser/newuser.rez $(OBJ_BASE)/usr/sbin/newuser
+$(OBJ_BASE)/usr/sbin/login.rsrc.done:      $(REPO_ROOT)/usr.bin/login/login.rez             $(OBJ_BASE)/usr/sbin/login
+	$(call REZ,usr.bin/login/login.rez,usr/sbin/login)
+$(OBJ_BASE)/usr/sbin/makewhatis.rsrc.done: $(REPO_ROOT)/usr.bin/man/makewhatis.rez          $(OBJ_BASE)/usr/sbin/makewhatis
+	$(call REZ,usr.bin/man/makewhatis.rez,usr/sbin/makewhatis)
+$(OBJ_BASE)/usr/sbin/newuser.rsrc.done:    $(REPO_ROOT)/usr.sbin/newuser/newuser.rez        $(OBJ_BASE)/usr/sbin/newuser
 	$(call REZ,usr.sbin/newuser/newuser.rez,usr/sbin/newuser)
+
+# ── usr/games/ ───────────────────────────────────────────────────────────────
+
+.PHONY: usr_games
+usr_games: $(OBJ_BASE)/usr/games/calendar.rsrc.done
+
+$(OBJ_BASE)/usr/games/calendar.rsrc.done: $(REPO_ROOT)/usr.bin/calendar/calendar.rez $(OBJ_BASE)/usr/games/calendar
+	$(call REZ,usr.bin/calendar/calendar.rez,usr/games/calendar)
 
 # ── Top-level targets ─────────────────────────────────────────────────────────
 
-ALL_TARGETS := kern drivers libs bin sbin usr_bin usr_orca_bin usr_sbin
+ALL_TARGETS := kern drivers libs bin sbin usr_bin usr_orca_bin usr_sbin usr_games
 
 .PHONY: all
 all: $(ALL_TARGETS)
@@ -326,15 +361,22 @@ validate:
 	    bin/tee/tee.rez bin/test/test.rez bin/uname/uname.rez \
 	    bin/uniq/uniq.rez bin/wc/wc.rez bin/yes/yes.rez \
 	    sbin/mkso/mkso.rez sbin/renram5/renram5.rez \
-	    usr.bin/basename/basename.rez usr.bin/calendar/calendar.rez \
+	    usr.bin/awk/awk.rez usr.bin/basename/basename.rez \
+	    usr.bin/calendar/calendar.rez \
 	    usr.bin/catrez/catrez.rez usr.bin/cksum/cksum.rez \
 	    usr.bin/colcrt/colcrt.rez usr.bin/compile/compile.rez \
-	    usr.bin/ctags/ctags.rez usr.bin/cut/cut.rez \
+	    usr.bin/cpp/cpp.rez usr.bin/ctags/ctags.rez usr.bin/cut/cut.rez \
 	    usr.bin/dirname/dirname.rez usr.bin/env/env.rez \
 	    usr.bin/false/false.rez usr.bin/fmt/fmt.rez \
 	    usr.bin/install/inst.rez usr.bin/last/last.rez \
 	    usr.bin/link/link.rez usr.bin/logger/logger.rez \
-	    usr.bin/lseg/lseg.rez usr.bin/printenv/printenv.rez \
+	    usr.bin/login/login.rez \
+	    usr.bin/lseg/lseg.rez \
+	    usr.bin/man/apropos.rez usr.bin/man/catman.rez \
+	    usr.bin/man/makewhatis.rez usr.bin/man/man.rez \
+	    usr.bin/man/whatis.rez \
+	    usr.bin/nroff/nroff.rez \
+	    usr.bin/printenv/printenv.rez \
 	    usr.bin/removerez/removerez.rez usr.bin/sed/sed.rez \
 	    usr.bin/tr/tr.rez usr.bin/true/true.rez \
 	    usr.bin/wall/wall.rez usr.bin/whereis/whereis.rez \

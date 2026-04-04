@@ -11,12 +11,11 @@
 #   make -f goldengate/build/phase6.mk validate   # compare sizes vs reference
 #   make -f goldengate/build/phase6.mk clean      # remove all built utilities
 #
-# Skipped (kernel deps):  ps, init, reboot, shutdown, nogetty
+# Skipped (missing BSD headers):  init, reboot, shutdown (sys/sysctl.h, sys/reboot.h not in GNO tree)
 # Skipped (network deps): rcp, ftp, rlogin, rsh, inetd, syslogd
-# Needs getcap.c: more, tput (cgetset/cgetent/tcgetattr missing from our libtermcap)
 # Skipped (asm-only):     gsh, date, purge, getvers, help, setvers
-# Skipped (C+asm mixed):  binprint, mkdir  (needs separate asm compile step)
-# Complex (deferred):     vi, less, awk, man, nroff, cpp
+# Skipped (C+asm mixed):  binprint (doline.asm provides doline() - real ASM dep)
+# Complex (deferred):     vi, less
 #
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
@@ -29,11 +28,12 @@ USRORCA_SRC := $(REPO_ROOT)/usr.orca.bin
 SBIN_SRC    := $(REPO_ROOT)/sbin
 USRSBIN_SRC := $(REPO_ROOT)/usr.sbin
 
-BIN_OUT     := $(GNO_OBJ)/bin
-USRBIN_OUT  := $(GNO_OBJ)/usr/bin
-USRORCA_OUT := $(GNO_OBJ)/usr/orca/bin
-SBIN_OUT    := $(GNO_OBJ)/sbin
-USRSBIN_OUT := $(GNO_OBJ)/usr/sbin
+BIN_OUT      := $(GNO_OBJ)/bin
+USRBIN_OUT   := $(GNO_OBJ)/usr/bin
+USRORCA_OUT  := $(GNO_OBJ)/usr/orca/bin
+SBIN_OUT     := $(GNO_OBJ)/sbin
+USRSBIN_OUT  := $(GNO_OBJ)/usr/sbin
+USRGAMES_OUT := $(GNO_OBJ)/usr/games
 
 # Temporary object directory (per-utility subdirs created here)
 OBJ_BASE    := $(GNO_OBJ)/utils_obj
@@ -86,8 +86,8 @@ endef
 
 # ── Default target ─────────────────────────────────────────────────────────────
 
-.PHONY: all bin usr_bin usr_orca_bin sbin usr_sbin
-all: bin usr_bin usr_orca_bin sbin usr_sbin
+.PHONY: all bin usr_bin usr_orca_bin sbin usr_sbin usr_games
+all: bin usr_bin usr_orca_bin sbin usr_sbin usr_games
 
 # ── bin/ ──────────────────────────────────────────────────────────────────────
 
@@ -106,10 +106,10 @@ BIN_MULTI_TAIL   := tail tail_extern tail_special tail_regular tail_stdin
 BIN_MULTI_TEST   := test test_operator
 
 .PHONY: bin $(BIN_SIMPLE:%=bin_%) \
-	bin_aroff bin_chtyp bin_cmp bin_df bin_ls bin_more bin_passwd bin_rm bin_rmdir bin_tail bin_test
+	bin_aroff bin_chtyp bin_cmp bin_df bin_ls bin_more bin_mkdir bin_passwd bin_ps bin_rm bin_rmdir bin_tail bin_test
 
 bin: $(BIN_SIMPLE:%=bin_%) \
-	bin_aroff bin_chtyp bin_cmp bin_df bin_ls bin_more bin_passwd bin_rm bin_rmdir bin_tail bin_test
+	bin_aroff bin_chtyp bin_cmp bin_df bin_ls bin_more bin_mkdir bin_passwd bin_ps bin_rm bin_rmdir bin_tail bin_test
 
 $(BIN_SIMPLE:%=bin_%):
 	$(call build_simple,$(BIN_SRC),$(BIN_OUT),$(@:bin_%=%))
@@ -198,6 +198,20 @@ bin_rmdir:
 	$(call cc1,$(BIN_SRC)/rmdir,rmdir,$(OBJ_BASE)/rmdir)
 	$(call ld1,$(OBJ_BASE)/rmdir,$(BIN_OUT),rmdir,rmdir,$(LIBCONTRIB))
 
+# mkdir: pure C implementation (mkdir2.asm startup is provided by ORCALib in GoldenGate)
+bin_mkdir:
+	@echo "=== mkdir ==="
+	@mkdir -p $(OBJ_BASE)/mkdir $(BIN_OUT)
+	$(call cc1,$(BIN_SRC)/mkdir,mkdir,$(OBJ_BASE)/mkdir)
+	$(call ld1,$(OBJ_BASE)/mkdir,$(BIN_OUT),mkdir,mkdir)
+
+# ps: kernel-dependent at runtime; compiles cleanly for the disk image
+bin_ps:
+	@echo "=== ps ==="
+	@mkdir -p $(OBJ_BASE)/ps $(BIN_OUT)
+	$(call cc1,$(BIN_SRC)/ps,ps,$(OBJ_BASE)/ps)
+	$(call ld1,$(OBJ_BASE)/ps,$(BIN_OUT),ps,ps)
+
 # ── usr.bin/ ──────────────────────────────────────────────────────────────────
 
 USRBIN_SIMPLE := \
@@ -209,12 +223,16 @@ USRBIN_SIMPLE := \
 .PHONY: usr_bin $(USRBIN_SIMPLE:%=usrbin_%) \
 	usrbin_cksum usrbin_ctags usrbin_fmt usrbin_install usrbin_printf usrbin_sed \
 	usrbin_sort usrbin_tr usrbin_tput usrbin_removerez \
-	usrbin_wall usrbin_whereis usrbin_whois
+	usrbin_wall usrbin_whereis usrbin_whois \
+	usrbin_awk usrbin_cpp usrbin_nroff usrbin_man_suite \
+	usrbin_describe usrbin_udl
 
 usr_bin: $(USRBIN_SIMPLE:%=usrbin_%) \
 	usrbin_cksum usrbin_ctags usrbin_fmt usrbin_install usrbin_printf usrbin_sed \
 	usrbin_sort usrbin_tr usrbin_tput usrbin_removerez \
-	usrbin_wall usrbin_whereis usrbin_whois
+	usrbin_wall usrbin_whereis usrbin_whois \
+	usrbin_awk usrbin_cpp usrbin_nroff usrbin_man_suite \
+	usrbin_describe usrbin_udl
 
 $(USRBIN_SIMPLE:%=usrbin_%):
 	$(call build_simple,$(USRBIN_SRC),$(USRBIN_OUT),$(@:usrbin_%=%))
@@ -313,33 +331,78 @@ usrbin_wall:
 	@allobjs=$$(ls $(OBJ_BASE)/wall/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
 	 cd $(OBJ_BASE)/wall && iix --gno link -P -o $(USRBIN_OUT)/wall $$allobjs
 
-# ── usr.orca.bin/ ─────────────────────────────────────────────────────────────
+# awk: pre-generated ytab.c/proctab.c included; no yacc required
+usrbin_awk:
+	@echo "=== awk ==="
+	@mkdir -p $(OBJ_BASE)/awk $(USRBIN_OUT)
+	$(foreach s,main run ytab b lib lex tran parse proctab, \
+		cd $(USRBIN_SRC)/awk && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/awk/ && { mv $(s).root $(OBJ_BASE)/awk/ 2>/dev/null || true; };)
+	cd $(OBJ_BASE)/awk && iix --gno link -P -o $(USRBIN_OUT)/awk main run ytab b lib lex tran parse proctab
 
-USRORCA_MULTI := describe udl
+# cpp: ORCA/C segment pragmas handled via DO_SEGMENTS define
+usrbin_cpp:
+	@echo "=== cpp ==="
+	@mkdir -p $(OBJ_BASE)/cpp $(USRBIN_OUT)
+	$(foreach s,cpp eval getopt hideset include lex macro nlist tokens unix, \
+		cd $(USRBIN_SRC)/cpp && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/cpp/ && { mv $(s).root $(OBJ_BASE)/cpp/ 2>/dev/null || true; };)
+	cd $(OBJ_BASE)/cpp && iix --gno link -P -o $(USRBIN_OUT)/cpp cpp eval getopt hideset include lex macro nlist tokens unix
 
-.PHONY: usr_orca_bin usrorca_describe usrorca_udl
+# nroff: uses #ifdef __GNO__ for termcap/err includes; links libtermcap
+usrbin_nroff:
+	@echo "=== nroff ==="
+	@mkdir -p $(OBJ_BASE)/nroff $(USRBIN_OUT)
+	$(foreach s,nroff command escape io low macros chars strings text, \
+		cd $(USRBIN_SRC)/nroff && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/nroff/ && { mv $(s).root $(OBJ_BASE)/nroff/ 2>/dev/null || true; };)
+	cd $(OBJ_BASE)/nroff && iix --gno link -P -o $(USRBIN_OUT)/nroff nroff command escape io low macros chars strings text $(LIBTERMCAP)
 
-usr_orca_bin: usrorca_describe usrorca_udl
+# man suite: builds man, apropos, whatis (usr/bin) + catman, makewhatis (usr/sbin)
+# All share util.o, globals.o, common.o, apropos2.o; links libcontrib
+usrbin_man_suite:
+	@echo "=== man suite ==="
+	@mkdir -p $(OBJ_BASE)/man $(USRBIN_OUT) $(USRSBIN_OUT)
+	$(foreach s,man man2 apropos apropos2 util globals common fillbuffer process catman makewhatis whatis, \
+		cd $(USRBIN_SRC)/man && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/man/ && { mv $(s).root $(OBJ_BASE)/man/ 2>/dev/null || true; };)
+	cd $(OBJ_BASE)/man && iix --gno link -P -o $(USRBIN_OUT)/man man man2 apropos2 util globals common $(LIBCONTRIB)
+	cd $(OBJ_BASE)/man && iix --gno link -P -o $(USRBIN_OUT)/apropos apropos apropos2 util globals $(LIBCONTRIB)
+	cd $(OBJ_BASE)/man && iix --gno link -P -o $(USRBIN_OUT)/whatis whatis apropos2 util globals $(LIBCONTRIB)
+	cd $(OBJ_BASE)/man && iix --gno link -P -o $(USRSBIN_OUT)/catman catman util globals common $(LIBCONTRIB)
+	cd $(OBJ_BASE)/man && iix --gno link -P -o $(USRSBIN_OUT)/makewhatis makewhatis fillbuffer process $(LIBCONTRIB)
 
-usrorca_describe:
-	@echo "=== describe ==="
-	@mkdir -p $(OBJ_BASE)/describe $(USRORCA_OUT)
+# describe/descc/descu: source in usr.orca.bin/describe; reference paths are
+#   describe → usr/bin/describe, descc → usr/sbin/descc, descu → usr/sbin/descu
+usrbin_describe:
+	@echo "=== describe/descc/descu ==="
+	@mkdir -p $(OBJ_BASE)/describe $(USRBIN_OUT) $(USRSBIN_OUT)
 	$(foreach s,describe descc descu, \
 		cd $(USRORCA_SRC)/describe && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/describe/ && { mv $(s).root $(OBJ_BASE)/describe/ 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/describe && iix --gno link -P -o $(USRORCA_OUT)/describe describe
-	cd $(OBJ_BASE)/describe && iix --gno link -P -o $(USRORCA_OUT)/descc descc
-	cd $(OBJ_BASE)/describe && iix --gno link -P -o $(USRORCA_OUT)/descu descu
+	cd $(OBJ_BASE)/describe && iix --gno link -P -o $(USRBIN_OUT)/describe describe
+	cd $(OBJ_BASE)/describe && iix --gno link -P -o $(USRSBIN_OUT)/descc descc
+	cd $(OBJ_BASE)/describe && iix --gno link -P -o $(USRSBIN_OUT)/descu descu
 
-usrorca_udl:
+# udl: source in usr.orca.bin/udl; reference path is usr/bin/udl
+usrbin_udl:
 	@echo "=== udl ==="
-	@mkdir -p $(OBJ_BASE)/udl $(USRORCA_OUT)
+	@mkdir -p $(OBJ_BASE)/udl $(USRBIN_OUT)
 	$(foreach s,udlgs udluse common globals, \
 		cd $(USRORCA_SRC)/udl && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/udl/ && { mv $(s).root $(OBJ_BASE)/udl/ 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/udl && iix --gno link -P -o $(USRORCA_OUT)/udl udlgs udluse common globals
+	cd $(OBJ_BASE)/udl && iix --gno link -P -o $(USRBIN_OUT)/udl udlgs udluse common globals
+
+# ── usr.orca.bin/ ─────────────────────────────────────────────────────────────
+# describe and udl now build to their reference paths (usr/bin, usr/sbin) via
+# usrbin_describe and usrbin_udl above. usr_orca_bin is retained as a no-op
+# for backward compatibility; usr/orca/bin/occ comes from reference fallback.
+
+.PHONY: usr_orca_bin
+
+usr_orca_bin:
 
 # ── sbin/ ─────────────────────────────────────────────────────────────────────
 
 SBIN_SIMPLE := mkso renram5
+
+# Skipped (missing BSD headers: sys/sysctl.h, sys/reboot.h, sys/resource.h):
+#   init (sbin/init), reboot (sbin/reboot), shutdown (sbin/shutdown)
+# These are not in the GNO include tree; reference disk fallback covers them.
 
 .PHONY: sbin $(SBIN_SIMPLE:%=sbin_%)
 sbin: $(SBIN_SIMPLE:%=sbin_%)
@@ -351,9 +414,11 @@ $(SBIN_SIMPLE:%=sbin_%):
 
 USRSBIN_SIMPLE := cron
 
-.PHONY: usr_sbin $(USRSBIN_SIMPLE:%=usrsbin_%) usrsbin_newuser usrsbin_getty
+.PHONY: usr_sbin $(USRSBIN_SIMPLE:%=usrsbin_%) usrsbin_newuser usrsbin_getty \
+	usrsbin_login usrsbin_nogetty
 
-usr_sbin: $(USRSBIN_SIMPLE:%=usrsbin_%) usrsbin_newuser usrsbin_getty
+usr_sbin: $(USRSBIN_SIMPLE:%=usrsbin_%) usrsbin_newuser usrsbin_getty \
+	usrsbin_login usrsbin_nogetty
 
 $(USRSBIN_SIMPLE:%=usrsbin_%):
 	$(call build_simple,$(USRSBIN_SRC),$(USRSBIN_OUT),$(@:usrsbin_%=%))
@@ -371,6 +436,31 @@ usrsbin_getty:
 		cd $(USRSBIN_SRC)/getty && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/getty/ && { mv $(s).root $(OBJ_BASE)/getty/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/getty/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
 	 cd $(OBJ_BASE)/getty && iix --gno link -P -o $(USRSBIN_OUT)/getty $$allobjs $(LIBUTIL)
+
+# login: uses libutil + libcrypt; note catman/makewhatis are built via usrbin_man_suite
+usrsbin_login:
+	@echo "=== login ==="
+	@mkdir -p $(OBJ_BASE)/login $(USRSBIN_OUT)
+	$(call cc1,$(USRBIN_SRC)/login,login,$(OBJ_BASE)/login)
+	$(call ld1,$(OBJ_BASE)/login,$(USRSBIN_OUT),login,login,$(LIBUTIL) $(LIBCRYPT))
+
+usrsbin_nogetty:
+	@echo "=== nogetty ==="
+	@mkdir -p $(OBJ_BASE)/nogetty $(USRSBIN_OUT)
+	$(call cc1,$(USRSBIN_SRC)/nogetty,nogetty,$(OBJ_BASE)/nogetty)
+	$(call ld1,$(OBJ_BASE)/nogetty,$(USRSBIN_OUT),nogetty,nogetty)
+
+# ── usr.games/ ────────────────────────────────────────────────────────────────
+
+.PHONY: usr_games usrgames_calendar
+
+usr_games: usrgames_calendar
+
+usrgames_calendar:
+	@echo "=== calendar ==="
+	@mkdir -p $(OBJ_BASE)/calendar $(USRGAMES_OUT)
+	$(call cc1,$(USRBIN_SRC)/calendar,calendar,$(OBJ_BASE)/calendar)
+	$(call ld1,$(OBJ_BASE)/calendar,$(USRGAMES_OUT),calendar,calendar)
 
 # ── Convenience aliases (build by program name) ───────────────────────────────
 
@@ -395,10 +485,20 @@ sort: usrbin_sort
 tr: usrbin_tr
 wall: usrbin_wall
 
-describe udl: %: usrorca_%
+describe: usrbin_describe
+udl: usrbin_udl
 mkso renram5: %: sbin_%
 cron newuser: %: usrsbin_%
 getty: usrsbin_getty
+login: usrsbin_login
+nogetty: usrsbin_nogetty
+calendar: usrgames_calendar
+awk: usrbin_awk
+cpp: usrbin_cpp
+nroff: usrbin_nroff
+man apropos whatis catman makewhatis: usrbin_man_suite
+mkdir: bin_mkdir
+ps: bin_ps
 
 # ── Validate vs reference ─────────────────────────────────────────────────────
 
@@ -429,5 +529,5 @@ validate:
 .PHONY: clean
 clean:
 	rm -rf $(OBJ_BASE)
-	rm -rf $(BIN_OUT) $(USRBIN_OUT) $(USRORCA_OUT) $(SBIN_OUT) $(USRSBIN_OUT)
+	rm -rf $(BIN_OUT) $(USRBIN_OUT) $(USRORCA_OUT) $(SBIN_OUT) $(USRSBIN_OUT) $(USRGAMES_OUT)
 	@echo "Phase 6 objects and binaries removed."
