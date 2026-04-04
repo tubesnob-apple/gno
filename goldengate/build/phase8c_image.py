@@ -18,6 +18,7 @@ cadius must be built and accessible (see CLAUDE.md: ~/source/cadius/cadius).
 import argparse
 import json
 import os
+import platform
 import shutil
 import stat
 import subprocess
@@ -28,11 +29,23 @@ from pathlib import Path
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-REPO_ROOT    = Path(__file__).resolve().parent.parent.parent
-GNO_OBJ      = REPO_ROOT.parent / 'gno-obj'
-EXTRACTED    = REPO_ROOT / 'diskImages' / 'extracted'
-METADATA     = EXTRACTED / 'metadata.json'
-CADIUS       = Path.home() / 'source' / 'cadius' / 'cadius'
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+GNO_OBJ   = REPO_ROOT.parent / 'gno-obj'
+EXTRACTED = REPO_ROOT / 'diskImages' / 'extracted'
+METADATA  = EXTRACTED / 'metadata.json'
+
+
+def _find_cadius() -> Path:
+    """Locate cadius: $CADIUS env var → PATH → ~/source/cadius/cadius."""
+    env = os.environ.get('CADIUS')
+    if env:
+        return Path(env)
+    which = shutil.which('cadius')
+    if which:
+        return Path(which)
+    return Path.home() / 'source' / 'cadius' / 'cadius'
+
+CADIUS = _find_cadius()
 VOLUME_NAME  = 'GNO'
 VOLUME_SIZE  = '32MB'
 
@@ -106,15 +119,26 @@ def get_type_suffix_for_gnoobj(rel_path: str) -> str:
 
 
 def read_resource_fork_xattr(path: Path) -> bytes:
-    """Return com.apple.ResourceFork xattr bytes, or b'' if absent."""
+    """Return resource fork bytes (com.apple.ResourceFork xattr), or b'' if absent.
+
+    macOS: reads com.apple.ResourceFork via xattr CLI
+    Linux: reads user.com.apple.ResourceFork via os.getxattr()
+    Windows: resource fork xattrs are not supported; always returns b''
+    """
+    system = platform.system()
     try:
-        result = subprocess.run(
-            ['xattr', '-px', 'com.apple.ResourceFork', str(path)],
-            capture_output=True, text=True
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return bytes.fromhex(result.stdout.replace('\n', '').replace(' ', ''))
-    except Exception:
+        if system == 'Darwin':
+            result = subprocess.run(
+                ['xattr', '-px', 'com.apple.ResourceFork', str(path)],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return bytes.fromhex(result.stdout.replace('\n', '').replace(' ', ''))
+        elif system == 'Linux':
+            data = os.getxattr(str(path), 'user.com.apple.ResourceFork')
+            return data if data else b''
+        # Windows: no xattr support; resource forks not preserved — return empty
+    except (OSError, Exception):
         pass
     return b''
 

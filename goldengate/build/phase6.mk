@@ -21,6 +21,7 @@
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
 GNO_OBJ   ?= $(abspath $(REPO_ROOT)/../gno-obj)
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
 
 BIN_SRC     := $(REPO_ROOT)/bin
 USRBIN_SRC  := $(REPO_ROOT)/usr.bin
@@ -62,7 +63,7 @@ LIBCONTRIB  := $(GNO_OBJ)/usr/lib/libcontrib
 LIBCRYPT    := $(GNO_OBJ)/usr/lib/libcrypt
 LIBUTIL     := $(GNO_OBJ)/usr/lib/libutil
 LIBNETDB    := $(GNO_OBJ)/usr/lib/libnetdb
-SYSFLOAT    := $(HOME)/Library/GoldenGate/Libraries/SysFloat
+SYSFLOAT    := $(GG_ROOT)/Libraries/SysFloat
 
 # Build a single-C-file utility (source file = progname.c).
 # Usage: $(call build_simple,srcparent,outdir,progname)

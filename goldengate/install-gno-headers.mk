@@ -16,7 +16,7 @@
 # Usage:
 #   make -f goldengate/install-gno-headers.mk
 
-GOLDENGATE    := $(HOME)/Library/GoldenGate
+GOLDENGATE    := $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
 LIBRARIES_ORC := $(GOLDENGATE)/Libraries/ORCACDefs
 LIB_ORC       := $(GOLDENGATE)/lib/ORCACDefs
 

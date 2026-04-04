@@ -30,7 +30,7 @@ LIB_OUT   := $(GNO_OBJ)/libc_gno.a
 CC        := iix --gno compile
 AS        := iix assemble
 MAKELIB   := iix makelib
-XATTR     := xattr
+SET_FINDERINFO := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
 
 CFLAGS    := -P +O
 ASFLAGS   := +T
@@ -71,7 +71,7 @@ $(OBJ_DIR)/%.a: $(SRC_DIR)/%.asm $(SRC_DIR)/%.mac | $(OBJ_DIR)
 	cd $(SRC_DIR) && $(AS) $(ASFLAGS) $*.asm
 	mv $(SRC_DIR)/$*.A $@
 	mv $(SRC_DIR)/$*.ROOT $(OBJ_DIR)/$*.root 2>/dev/null || true
-	$(XATTR) -wx com.apple.FinderInfo "$(PRODOS_OBJ_FINDERINFO)" $@
+	$(SET_FINDERINFO) $@ "$(PRODOS_OBJ_FINDERINFO)"
 
 # ── Create output directories ──────────────────────────────────────────────────
 $(OBJ_DIR):

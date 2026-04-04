@@ -14,7 +14,7 @@
 # protos.h is a local header — compile from SRC_DIR.
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GG_ROOT   ?= $(HOME)/Library/GoldenGate
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
 LIB_OUT   ?= $(abspath $(REPO_ROOT)/../gno-obj/usr/lib/libnetdb)
 OBJ_DIR   ?= $(abspath $(REPO_ROOT)/../gno-obj/netdb_obj)
 

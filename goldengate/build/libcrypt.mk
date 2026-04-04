@@ -12,7 +12,7 @@
 # Reference size: 7,180 bytes
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GG_ROOT   ?= $(HOME)/Library/GoldenGate
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
 LIB_OUT   ?= $(abspath $(REPO_ROOT)/../gno-obj/usr/lib/libcrypt)
 OBJ_DIR   ?= $(abspath $(REPO_ROOT)/../gno-obj/libcrypt_obj)
 
@@ -21,7 +21,7 @@ SRC_DIR   := $(REPO_ROOT)/lib/libcrypt
 AS        := iix assemble
 CC        := iix --gno compile
 MAKELIB   := iix makelib
-XATTR     := xattr
+SET_FINDERINFO := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
 
 ASFLAGS   := +T
 CCFLAGS   := -P +O
@@ -43,7 +43,7 @@ $(OBJ_DIR)/crypta.a: $(SRC_DIR)/crypta.asm $(SRC_DIR)/crypta.mac | $(OBJ_DIR)
 	cd $(SRC_DIR) && $(AS) $(ASFLAGS) crypta.asm
 	mv $(SRC_DIR)/crypta.A $@
 	rm -f $(SRC_DIR)/crypta.ROOT
-	$(XATTR) -wx com.apple.FinderInfo "$(PRODOS_OBJ_FINDERINFO)" $@
+	$(SET_FINDERINFO) $@ "$(PRODOS_OBJ_FINDERINFO)"
 
 # Compile C sources
 $(OBJ_DIR)/%.a: $(SRC_DIR)/%.c | $(OBJ_DIR)

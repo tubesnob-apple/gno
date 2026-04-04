@@ -41,7 +41,7 @@
 
 REPO_ROOT  ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
 SRC_DIR    := $(REPO_ROOT)/goldengate/orca-m
-GG_ROOT    ?= $(HOME)/Library/GoldenGate
+GG_ROOT    ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
 INSTALLED  := $(GG_ROOT)/Languages/Asm65816
 
 AS         := iix assemble

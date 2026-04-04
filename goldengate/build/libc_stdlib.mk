@@ -10,7 +10,7 @@ LIB_OUT   := $(GNO_OBJ)/libc_stdlib.a
 CC        := iix --gno compile
 AS        := iix assemble
 MAKELIB   := iix makelib
-XATTR     := xattr
+SET_FINDERINFO := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
 CFLAGS    := -P +O
 ASFLAGS   := +T
 PRODOS_OBJ_FINDERINFO := 70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
@@ -33,7 +33,7 @@ $(OBJ_DIR)/%.a: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	@echo "--- compile $*.c ---"
 	cd $(OBJ_DIR) && $(CC) $(CFLAGS) $(SRC_DIR)/$*.c
 
-GG_ROOT   ?= $(HOME)/Library/GoldenGate
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
 AINCLUDE  := $(GG_ROOT)/Libraries/AINClude
 
 # fpspecnum.asm uses COPY E16.SANE (SANE equates).
@@ -47,7 +47,7 @@ $(OBJ_DIR)/fpspecnum.a: $(SRC_DIR)/fpspecnum.asm $(SRC_DIR)/fpspecnum.mac | $(OB
 	rm -f $(SRC_DIR)/E16.SANE
 	mv $(SRC_DIR)/fpspecnum.A $@
 	mv $(SRC_DIR)/fpspecnum.ROOT $(OBJ_DIR)/fpspecnum.root 2>/dev/null || true
-	$(XATTR) -wx com.apple.FinderInfo "$(PRODOS_OBJ_FINDERINFO)" $@
+	$(SET_FINDERINFO) $@ "$(PRODOS_OBJ_FINDERINFO)"
 
 $(OBJ_DIR):
 	mkdir -p $@

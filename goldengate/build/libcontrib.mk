@@ -15,7 +15,7 @@
 # errnoGS.c uses gsos.h (available in GNO --gno mode).
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GG_ROOT   ?= $(HOME)/Library/GoldenGate
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
 LIB_OUT   ?= $(abspath $(REPO_ROOT)/../gno-obj/usr/lib/libcontrib)
 OBJ_DIR   ?= $(abspath $(REPO_ROOT)/../gno-obj/libcontrib_obj)
 

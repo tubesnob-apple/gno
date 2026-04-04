@@ -16,7 +16,7 @@
 #   - Assembly output gets $B0 type by default; patched to $B1 for makelib
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GG_ROOT   ?= $(HOME)/Library/GoldenGate
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
 LIB_OUT   ?= $(abspath $(REPO_ROOT)/../gno-obj/lib/lsaneglue)
 
 SRC_DIR   := $(REPO_ROOT)/lib/lsaneglue
@@ -26,7 +26,7 @@ ORCAINC   := $(GG_ROOT)/Libraries/ORCAInclude
 AS        := iix assemble
 MACGEN    := iix macgen
 MAKELIB   := iix makelib
-XATTR     := xattr
+SET_FINDERINFO := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
 
 ASFLAGS   := +T
 PRODOS_OBJ_FINDERINFO := 70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
@@ -55,11 +55,11 @@ $(SRC_DIR)/E16.SANE:
 
 $(SRC_DIR)/saneglue.A: $(SRC_DIR)/saneglue.asm $(SRC_DIR)/saneglue.mac $(SRC_DIR)/E16.SANE
 	cd $(SRC_DIR) && $(AS) $(ASFLAGS) saneglue.asm
-	$(XATTR) -wx com.apple.FinderInfo "$(PRODOS_OBJ_FINDERINFO)" $@
+	$(SET_FINDERINFO) $@ "$(PRODOS_OBJ_FINDERINFO)"
 
 $(SRC_DIR)/findfpcp.A: $(SRC_DIR)/findfpcp.asm $(SRC_DIR)/findfpcp.mac
 	cd $(SRC_DIR) && $(AS) $(ASFLAGS) findfpcp.asm
-	$(XATTR) -wx com.apple.FinderInfo "$(PRODOS_OBJ_FINDERINFO)" $@
+	$(SET_FINDERINFO) $@ "$(PRODOS_OBJ_FINDERINFO)"
 
 $(dir $(LIB_OUT)):
 	mkdir -p $@

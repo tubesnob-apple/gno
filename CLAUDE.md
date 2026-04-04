@@ -12,9 +12,48 @@ GNO/ME (GNO Multitasking Environment) is a complete Unix-like operating system f
 
 ## Project Goal
 
-**Build GNO/ME from source on macOS using the GoldenGate/iix toolchain, producing a distributable archive (`.shk` or ProDOS disk image) that can be loaded onto real Apple IIgs hardware.**
+**Build GNO/ME from source on macOS, Linux, or Windows using the GoldenGate/iix toolchain, producing a distributable archive (`.shk` or ProDOS disk image) that can be loaded onto real Apple IIgs hardware.**
 
 The build does NOT need to run on the IIgs itself. GoldenGate acts as a cross-compiler host.
+
+---
+
+## Cross-Platform Build Support
+
+All Makefiles and Python tools support macOS, Linux, and Windows (MSYS2/Git Bash).
+
+### GoldenGate root — `$GOLDEN_GATE` env var
+
+All Makefiles resolve GoldenGate via:
+```makefile
+GG_ROOT ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
+```
+
+| Platform | Default path | Override |
+|----------|-------------|---------|
+| macOS | `~/Library/GoldenGate` | `export GOLDEN_GATE=/path` |
+| Linux | `/usr/local/share/GoldenGate` | `export GOLDEN_GATE=/path` |
+| Windows (MSYS2) | (none — must set) | `export GOLDEN_GATE=/c/path` |
+
+### ProDOS FinderInfo metadata — `goldengate/tools/set-finder-info.py`
+
+Assembly object files must be tagged with ProDOS type `$B1` after `iix assemble`. All Makefiles call `set-finder-info.py` which handles all platforms:
+- **macOS**: `xattr -wx com.apple.FinderInfo` (32-byte block)
+- **Linux**: `os.setxattr('user.com.apple.FinderInfo', ...)` (same 32-byte block)
+- **Windows**: writes `filename:AFP_AfpInfo` NTFS alternate data stream (60-byte AFP structure)
+
+`.c`, `.asm`, `.pas` source files do NOT need explicit metadata — GoldenGate extension fallback handles them on all platforms.
+
+### Resource fork xattrs — `cowrez.py` and `phase8c_image.py`
+
+- `cowrez.py`: already cross-platform (macOS `xattr`, Linux `os.setxattr`, Windows unsupported → use `--output`)
+- `phase8c_image.py`: reads `com.apple.ResourceFork` (macOS) or `user.com.apple.ResourceFork` (Linux)
+
+### First-time setup
+
+```bash
+bash goldengate/setup.sh    # verifies iix, GG_ROOT, python3; creates output dirs
+```
 
 ---
 
@@ -23,7 +62,7 @@ The build does NOT need to run on the IIgs itself. GoldenGate acts as a cross-co
 ### iix — GoldenGate CLI wrapper
 
 **Location:** `/usr/local/bin/iix`
-**GoldenGate root:** `~/Library/GoldenGate/`
+**GoldenGate root:** `~/Library/GoldenGate/` (macOS default; set `$GOLDEN_GATE` on Linux/Windows)
 
 #### iix compile (ORCA/C 2.2.2)
 
@@ -73,11 +112,13 @@ iix assemble +T foo.asm      # +T = terminal on first error
 ```
 
 **Output:** `foo.A` + `foo.ROOT` in **CWD** (uppercase `.A` extension!)
-**File type:** Sets `$B0` outside `/tmp` — **must patch to `$B1`:**
+**File type:** Sets `$B0` outside `/tmp` — **must patch to `$B1`** using the cross-platform helper:
 ```bash
-xattr -wx com.apple.FinderInfo "70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00" file.a
+python3 goldengate/tools/set-finder-info.py file.a \
+  "70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
 ```
 Why: GoldenGate only sets `$B1` for files in `/tmp` (prefix 3:). All other directories get `$B0`, which makelib silently rejects ("not an object module").
+The helper handles macOS (xattr), Linux (os.setxattr), and Windows (AFP_AfpInfo NTFS stream).
 
 **KEEP directive:** Assembler writes output named by `keep` directive in CWD. If no `keep`, uses source filename.
 **MCOPY directive:** Resolves `.mac` files relative to CWD. Must `cd` to source directory before assembling.
