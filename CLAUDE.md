@@ -491,10 +491,9 @@ cd /Users/smentzer/source/iigs-official-repos/byteworksinc-orca-c
 make -f GNUmakefile          # compile only
 make -f GNUmakefile install  # compile + install to ~/Library/GoldenGate/Languages/cc
 
-# Build + install GNO ORCALib (in byteworksinc-orcalib repo)
-cd /Users/smentzer/source/iigs-official-repos/byteworksinc-orcalib
-make -f goldengate/Makefile TARGET=gno
-make -f goldengate/Makefile TARGET=gno install  # installs liborca + assert.A
+# Build + install GNO ORCALib (prerequisite — done in byteworksinc-orcalib repo, not here)
+# cd ~/source/iigs-official-repos/byteworksinc-orcalib
+# make -f goldengate/Makefile TARGET=gno install  # installs liborca + assert.A to GoldenGate
 
 # Install GNO headers to GoldenGate (in this repo)
 make -f goldengate/install-gno-headers.mk
