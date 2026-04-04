@@ -5,14 +5,15 @@ segment "KERN2     ";
 #pragma stacksize 1024
 #pragma optimize 79
 
+#define KERNEL
 #include "proc.h"
 #include "gno.h"
 #include "sys.h"
 #include "sem.h"
 #include "tty.h"
-#include "/lang/orca/libraries/orcacdefs/stdio.h"
-#include "/lang/orca/libraries/orcacdefs/stdlib.h"
-#include "/lang/orca/libraries/orcacdefs/string.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <memory.h>
 #include <gsos.h>
 #include <event.h>

@@ -52,6 +52,9 @@ static char sccsid[] = "@(#)regular.c	8.3 (Berkeley) 4/2/94";
 
 #include "extern.h"
 
+#ifdef __GNO__
+#define getpagesize() 512	/* only used for pagemask; unused in GNO mmap-free path */
+#endif
 #define ROUNDPAGE(i) ((i) & ~pagemask)
 
 void

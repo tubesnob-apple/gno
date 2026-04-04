@@ -104,13 +104,12 @@ extern int _toolErr;
 
 /* Formerly in GSOS.h */
 
-#ifdef __GNO__
 typedef struct GSString {    /* don't use "struct GSString"; use pointers */
    Word length;                         /* Number of chars in text field  */
    char text[1];                        /* Is enlarged dynamically */
 } *GSStringPtr, **GSStringHndl;
+typedef struct GSString GSString;       /* value-type alias for struct tag */
 typedef GSStringHndl *GSStringHndlPtr;
-#endif
 
 typedef struct GSString255 {
    Word length;                         /* Number of Chars in text field  */
@@ -123,13 +122,11 @@ typedef struct GSString32 {
    char text[32];
    } GSString32, *GSString32Ptr, **GSString32Hndl;
 
-#ifdef __GNO__
 typedef struct ResultBuf {      /* don't use "struct ResultBuf"; use pointers */
    Word  bufSize;                    /* Maximum number of chars in text field */
    struct GSString bufString;        /* This one is enlarged dynamically */
 } *ResultBufPtr, **ResultBufHndl;
 typedef ResultBufHndl *ResultBufHndlPtr ;
-#endif
 
 typedef struct ResultBuf255 {
    Word  bufSize;

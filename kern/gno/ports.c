@@ -1,11 +1,12 @@
 /*	$Id: ports.c,v 1.1 1998/02/02 08:18:41 taubert Exp $ */
 
+#define KERNEL
 #include "conf.h"
 #include "kernel.h"
 #include "proc.h"
 #include "gno.h"
-#include "/lang/orca/libraries/orcacdefs/stdlib.h"
-#include "/lang/orca/libraries/orcacdefs/string.h"
+#include <stdlib.h>
+#include <string.h>
 #include <sys/errno.h>
 #include <sys/ports.h>
 

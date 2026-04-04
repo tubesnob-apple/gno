@@ -31,14 +31,15 @@
 #pragma optimize 79
 segment "KERN2     ";
 
+#define KERNEL
 #include "conf.h"
 #include "kernel.h"
 #include "proc.h"
 #include "sys.h"
 #include "gno.h"
-#include "/lang/orca/libraries/orcacdefs/stdio.h"
-#include "/lang/orca/libraries/orcacdefs/string.h"
-#include "/lang/orca/libraries/orcacdefs/stdlib.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include <memory.h>
 #include <loader.h>
 #include <gsos.h>
@@ -422,7 +423,7 @@ extern void disposevar(int);
        tosig->irq_B = tosig->irq_B1 =
            tosig->irq_K = (sig->v_signal[signum] >> 16);
 #else
-	tosig->irq_K = (sig->v_signal[signum] >> 16);
+	tosig->irq_K = (word)((unsigned long)sig->v_signal[signum] >> 16);
 	tosig->irq_B1 = tosig->irq_K;
 	tosig->irq_B = tosig->irq_B1;
 #endif

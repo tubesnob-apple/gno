@@ -188,7 +188,7 @@ void main(int argc, char **argv) {
 		else
 			fprintf(newpass, "%s:%s:%d:%d:%s:%s:%s\n", passwdRec->pw_name,
 				crypt(password, salt), passwdRec->pw_uid, passwdRec->pw_gid,
-				passwdRec->pw_comment, passwdRec->pw_dir, passwdRec->pw_shell);
+				passwdRec->pw_gecos, passwdRec->pw_dir, passwdRec->pw_shell);
 	}
 
 	fclose(passfile);

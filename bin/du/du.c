@@ -45,7 +45,7 @@ char copyright[] =
 #endif /* not lint */
 
 #ifndef lint
-static char sccsid[] = "@(#)du.c        5.6 (Berkeley) 6/1/90";
+static char const sccsid[] = "@(#)du.c        5.6 (Berkeley) 6/1/90";
 #endif /* not lint */
 
 #define _SYSV_SOURCE
@@ -58,8 +58,6 @@ static char sccsid[] = "@(#)du.c        5.6 (Berkeley) 6/1/90";
 #include <getopt.h>
 #include <unistd.h>
 #include <errno.h>
-
-#pragma lint -1
 
 typedef struct _ID {
         dev_t   dev;

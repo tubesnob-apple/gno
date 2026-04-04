@@ -31,7 +31,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include "/usr/include/getopt.h"    /* GNU version */
+#include <getopt.h>
 
 extern int  optind;
 extern char *optarg;

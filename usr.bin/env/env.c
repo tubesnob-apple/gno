@@ -1,5 +1,3 @@
-#pragma lint -1
-
 #include <types.h>
 #include <shell.h>
 #include <gsos.h>
@@ -95,8 +93,6 @@ char *get_path(void) {
 
 	static GSString32 name = { 4, "PATH" };
 	static ReadVariableGSPB dcb = { 3, &name, &value, 0 };
-	ResultBuf255 tmp = value;
-
 	int len;
 	char *cp = _PATH_DEFPATH;
 

@@ -23,7 +23,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <errno.h>
-#include "/usr/include/getopt.h"    /* GNU version */
+#include <getopt.h>
 
 extern int optind;
 extern char *optarg;

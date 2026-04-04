@@ -1,5 +1,6 @@
 /*	$Id: queue.c,v 1.1 1998/02/02 08:18:48 taubert Exp $ */
 
+#define KERNEL
 #pragma optimize 79
 
 #ifdef KERNEL
@@ -8,7 +9,7 @@
 #include "conf.h"
 #include "kernel.h"
 #include "q.h"
-#include "/lang/orca/libraries/orcacdefs/stdlib.h"
+#include <stdlib.h>
 
 extern kernelStructPtr kp;
 #else
@@ -97,7 +98,7 @@ struct pentry *mptr;
 	mptr->p_link = NULL;
 	mptr->p_rlink = NULL;
 
-	return (mptr - kp);
+	return (int)(mptr - kp->procTable);
 }
 
 /* we don't use _getlast anywhere */

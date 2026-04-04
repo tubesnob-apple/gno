@@ -81,6 +81,7 @@ SRC_C := \
 	siglist.c \
 	sleep.c \
 	syslog.c \
+	termios.c \
 	tty.c \
 	uname.c \
 	unvis.c \

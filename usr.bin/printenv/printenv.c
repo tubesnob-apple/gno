@@ -27,9 +27,6 @@
  * SUCH DAMAGE.
  */
 
-#ifdef __ORCAC__
-#pragma lint -1
-#endif
 
 #ifndef lint
 static const char copyright[] =
@@ -87,7 +84,9 @@ stackResults(void) {
 int
 main(int argc, char **argv)
 {
+#ifndef __ORCAC__
 	char *cp, **ep;
+#endif
 	size_t len;
 	int ch;
 

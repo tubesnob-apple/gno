@@ -1,5 +1,7 @@
 /*	$Id: net.c,v 1.1 1998/02/02 08:18:36 taubert Exp $ */
 
+#define KERNEL
+
 /*
  *	GNO/ME Network Support
  *
@@ -29,8 +31,8 @@
 #include "sys.h"
 #include "kernel.h"
 #include "net.h"
-#include "/lang/orca/libraries/orcacdefs/string.h"
-#include "/lang/orca/libraries/orcacdefs/stdlib.h"
+#include <string.h>
+#include <stdlib.h>
 #include <locator.h>
 #include <orca.h>
 #include <memory.h>

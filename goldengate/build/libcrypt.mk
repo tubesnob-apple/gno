@@ -35,7 +35,7 @@ C_OBJS   := $(patsubst %.c,$(OBJ_DIR)/%.a,$(C_SRCS))
 
 $(LIB_OUT): $(OBJ_DIR)/crypta.a $(C_OBJS) | $(dir $(LIB_OUT))
 	rm -f $(LIB_OUT)
-	ls $(OBJ_DIR)/*.a | sort | while read f; do echo "+$$f"; done | \
+	cd $(OBJ_DIR) && ls *.a | sort | while read f; do echo "+$$f"; done | \
 	  xargs -n 20 sh -c '$(MAKELIB) $(LIB_OUT) "$$@"' _
 
 # Assemble crypta.asm (crypta.mac already exists in SRC_DIR)

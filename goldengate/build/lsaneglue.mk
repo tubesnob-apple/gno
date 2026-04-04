@@ -35,7 +35,9 @@ PRODOS_OBJ_FINDERINFO := 70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 0
 all: $(LIB_OUT)
 
 $(LIB_OUT): $(SRC_DIR)/saneglue.A $(SRC_DIR)/findfpcp.A | $(dir $(LIB_OUT))
-	$(MAKELIB) $(LIB_OUT) +$(SRC_DIR)/saneglue.A +$(SRC_DIR)/findfpcp.A
+	rm -f $(LIB_OUT)
+	$(MAKELIB) $(LIB_OUT) +$(SRC_DIR)/saneglue.A
+	$(MAKELIB) $(LIB_OUT) +$(SRC_DIR)/findfpcp.A
 
 # Generate saneglue.mac from macros
 $(SRC_DIR)/saneglue.mac: $(SRC_DIR)/saneglue.asm $(SRC_DIR)/saneglue.macro

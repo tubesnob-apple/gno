@@ -48,7 +48,7 @@ all: $(LIB_OUT)
 
 $(LIB_OUT): $(C_OBJS) | $(dir $(LIB_OUT))
 	rm -f $(LIB_OUT)
-	ls $(OBJ_DIR)/*.a | sort | while read f; do echo "+$$f"; done | \
+	cd $(OBJ_DIR) && ls *.a | sort | while read f; do echo "+$$f"; done | \
 	  xargs -n 20 sh -c '$(MAKELIB) $(LIB_OUT) "$$@"' _
 
 # Preprocessed files (clang -E workaround for ORCA/C compiler bug)

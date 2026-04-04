@@ -9,14 +9,15 @@
    I wouldn't do this except the Orca compilers require FastFile.
 
 */
+#define KERNEL
 #pragma optimize 72
 
 #include "proc.h"
 #include "sys.h"
-#include "/lang/orca/libraries/orcacdefs/stdio.h"
-#include "/lang/orca/libraries/orcacdefs/string.h"
-#include "/lang/orca/libraries/orcacdefs/stdlib.h"
-#include "/lang/orca/libraries/orcacdefs/stddef.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stddef.h>
 #include <ctype.h>
 #include <gsos.h>
 #include <shell.h>
@@ -41,7 +42,7 @@ typedef struct {
     long blocksUsed;
 } my_FastFileGSPB;
 
-#pragma lint -1
+/* #pragma lint -1 removed: enables ALL lint, opposite of intent */
 
 void printGS(GSString255Ptr path);
 

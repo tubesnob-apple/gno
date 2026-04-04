@@ -1,11 +1,12 @@
 /*	$Id: diag.c,v 1.2 1998/02/22 05:05:42 taubert Exp $ */
 
 /* kernel diagnostics and error routines */
+#define KERNEL
 #pragma optimize 79
 
 #include "proc.h"
 #include "sys.h"
-#include "/lang/orca/libraries/orcacdefs/stdio.h"
+#include <stdio.h>
 
 struct intState {
   word irq_A;

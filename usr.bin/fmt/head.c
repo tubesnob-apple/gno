@@ -50,6 +50,7 @@ static char sccsid[] = "@(#)head.c	8.1 (Berkeley) 6/6/93";
 #include <assert.h>
 #endif
 
+#define BUILD_FMT
 #include "def.h"
 #include "extern.h"
 

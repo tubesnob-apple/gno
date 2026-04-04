@@ -225,9 +225,19 @@ __END_DECLS
 #define	SEEK_END	2	/* set file offset to EOF plus offset */
 #endif
 
+#ifdef KERNEL
+/* In kernel mode, use ORCA-style stdio pointers (defined in ORCALib).
+ * The kernel links against ORCALib only, not GNO libc, so __sF is not
+ * available.  printf() et al. work during early kernel startup via
+ * ORCALib's own stdio implementation. */
+extern FILE *stdin;
+extern FILE *stdout;
+extern FILE *stderr;
+#else
 #define	stdin	(&__sF[0])
 #define	stdout	(&__sF[1])
 #define	stderr	(&__sF[2])
+#endif
 
 /*
  * Functions defined in ANSI C standard.

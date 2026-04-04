@@ -12,6 +12,7 @@ _seminit() - initialize semaphore system
 newsem() - allocate an unused semaphore and return its index
 */
 
+#define KERNEL
 #pragma optimize 79
 segment "KERN3     ";
 
@@ -23,8 +24,8 @@ segment "KERN3     ";
 #include "q.h"
 #include "sem.h"
 #include "gno.h"
-#include "/lang/orca/libraries/orcacdefs/stdio.h"
-#include "/lang/orca/libraries/orcacdefs/stdlib.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/errno.h>
 
 static int nextsem = NSEM-1;

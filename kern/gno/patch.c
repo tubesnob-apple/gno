@@ -4,12 +4,13 @@ segment "KERN2     ";
 
 #pragma optimize 79
 
+#define KERNEL
 #include "proc.h"
 #include "gno.h"
 #include "sys.h"
 #include "sem.h"
-#include "/lang/orca/libraries/orcacdefs/stdio.h"
-#include "/lang/orca/libraries/orcacdefs/stdlib.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <memory.h>
 #include <gsos.h>
 #include <event.h>

@@ -244,7 +244,7 @@ popen(const char *command, const char *type)
 		execl(SHELL_PATH, SHELL_NAME, SH_CFLAG command, (char *) 0);
 		_exit(127);
 		/* NOTREACHED */
-#endif /* ! __GNO__ */
+#endif
 	}
 
 	/* parent */

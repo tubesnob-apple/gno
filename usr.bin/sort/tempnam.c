@@ -24,7 +24,9 @@
  */
 
 #ifdef __ORCAC__
-#define __GNO__ 1
+#  ifndef __GNO__
+#  define __GNO__ 1
+#  endif
 #endif
 
 #include <stdio.h>

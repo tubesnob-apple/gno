@@ -5,15 +5,16 @@
         this code should be changed from using GetPrefix to grabbing
           the prefixes directly from the process entry
 */
+#define KERNEL
 #pragma optimize 79
 segment "KERN2     ";
 
 #include "proc.h"
 #include "sys.h"
-#include "/lang/orca/libraries/orcacdefs/stdio.h"
-#include "/lang/orca/libraries/orcacdefs/stdlib.h"
-#include "/lang/orca/libraries/orcacdefs/string.h"
-#include "/lang/orca/libraries/orcacdefs/ctype.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 #include <gsos.h>
 
 unsigned short err;
@@ -136,8 +137,8 @@ char *line,*pt,*pt1;
 #undef TOLOWER
 #define TOLOWER(c) isupper(c) ? _tolower(c) : c
 
-int
-strincmp (const char *s1, const char *s2, size_t n)
+short
+strincmp (const char *s1, const char *s2, unsigned n)
 {
 	unsigned int c1, c2;
 	size_t i;

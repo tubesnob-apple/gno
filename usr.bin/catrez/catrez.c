@@ -37,7 +37,6 @@ char    *prog_version = "  Version 1.0.2 (%s)\n";
 #include <signal.h>
 #endif
 
-#pragma lint -1
 /* #pragma debug 25 */		/* Only for development */
 #pragma optimize 95		/* Bit 5 off due to defect in ORCA/C 2.1.0 */
 

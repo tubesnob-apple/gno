@@ -16,10 +16,12 @@
 #include <string.h>
 #include <orca.h>
 
+#ifndef __appleiigs__
 typedef struct GSString {
   Word			length;
   char			string[1];
 } GSString;
+#endif
 
 typedef struct FileInfoRecGS {
 	Word			pCount;
@@ -81,7 +83,7 @@ int main(int argc, char **argv)
       return(-1);
      }
    filnam->length = j;
-   strcpy(filnam->string,argv[i]);
+   strcpy(filnam->text,argv[i]);
    infospace.pathname=filnam;
    GetFileInfoGS(&infospace);
    if (j = toolerror())

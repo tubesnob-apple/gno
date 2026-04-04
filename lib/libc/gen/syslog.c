@@ -85,6 +85,7 @@ static const char *LogTag = NULL;	/* string to tag the entry with */
 static int	LogFacility = LOG_USER;	/* default facility code */
 static int	LogMask = 0xff;		/* mask of priorities to be logged */
 #ifndef __GNO__	/* get __prognameGS() from <gno/gno.h>
+	/* get __prognameGS() from <gno/gno.h> */
 extern char	*__progname;		/* Program name, from crt0. */
 #endif
 

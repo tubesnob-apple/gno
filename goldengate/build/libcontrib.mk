@@ -34,7 +34,7 @@ all: $(LIB_OUT)
 
 $(LIB_OUT): $(C_OBJS) | $(dir $(LIB_OUT))
 	rm -f $(LIB_OUT)
-	ls $(OBJ_DIR)/*.a | sort | while read f; do echo "+$$f"; done | \
+	cd $(OBJ_DIR) && ls *.a | sort | while read f; do echo "+$$f"; done | \
 	  xargs -n 20 sh -c '$(MAKELIB) $(LIB_OUT) "$$@"' _
 
 # Compile from SRC_DIR so local contrib.h resolves

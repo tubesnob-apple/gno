@@ -13,15 +13,16 @@ segment "KERN2     ";
        Jawaid Bazyar and Derek Taubert
 */
 
+#define KERNEL
 #include "conf.h"
 #include "proc.h"
 #include "kernel.h"
-#include "gno.h"
 #include "kvm.h"
+#include "gno.h"
 #include "sys.h"
-#include "/lang/orca/libraries/orcacdefs/stdio.h"
-#include "/lang/orca/libraries/orcacdefs/string.h"
-#include "/lang/orca/libraries/orcacdefs/stdlib.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include <loader.h>
 #include <memory.h>
 #include <gsos.h>
@@ -152,7 +153,7 @@ int kfree(void *mem)
 {
 handle h;
 
-    if (h = (FindHandle(mem) == NULL)) return SYSERR;
+    if ((h = FindHandle(mem)) == NULL) return SYSERR;
     DisposeHandle(h);
     return (OK);
 }
@@ -937,11 +938,11 @@ extern void enableBuf(void);
 
 /* open the kernel to access the process structures */
 
-kvmt *KERNkvm_open(int *ERRNO)
+struct kvmt *KERNkvm_open(int *ERRNO)
 {
-kvmt *newk;
+struct kvmt *newk;
 
-    newk = (kvmt *) kmalloc(sizeof(kvmt));
+    newk = (struct kvmt *) kmalloc(sizeof(kvmt));
     if (newk == NULL) { *ERRNO = ENOMEM; return NULL;}
     Kkvmsetproc(ERRNO, newk);
     return newk;
@@ -986,7 +987,7 @@ int mpid;
    else return NULL;
 }
 
-int KERNkvmsetproc(int *ERRNO,kvmt *kd)
+int KERNkvmsetproc(int *ERRNO,struct kvmt *kd)
 {
 int i;
 

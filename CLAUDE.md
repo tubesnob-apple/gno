@@ -107,7 +107,11 @@ Why: GoldenGate only sets `$B1` for files in `/tmp` (prefix 3:). All other direc
 - `&SYSCNT` labels: use `SKIP&SYSCNT` (no `@` prefix — `@SKIP&SYSCNT` causes "Operand Syntax")
 - MCOPY files must have CR (0x0D) line endings, not LF
 
-#### iix makelib (MakeLib 2.0)
+#### iix makelib (MakeLib 2.2.4)
+
+Source: `~/source/orca-makelib/`. Two bugs fixed from original 2.0:
+- **2.2.3:** Multi-arg single invocation (fixed — now works with relative paths via `cd $(OBJ_DIR)` first)
+- **2.2.4:** `Read4()` 16-bit sign-extension corrupted sSeg on incremental builds (linker "Out of memory")
 
 ```bash
 iix makelib output_lib +file1.a +file2.a ...
@@ -118,9 +122,10 @@ iix makelib output_lib +file1.a +file2.a ...
 - Adding to an existing library works — call makelib multiple times with the same output file.
 - Cannot combine libraries — only accepts individual `.a` object modules.
 - Requires input files to have ProDOS type `$B1`. Assembly objects need xattr patching (see above).
+- **CRITICAL:** Always `cd $(OBJ_DIR)` first and use relative filenames. Absolute paths still cause issues in multi-arg calls.
 - **Batch pattern for large libraries:**
   ```bash
-  ls *.a | sort | while read f; do echo "+$f"; done | \
+  cd $(OBJ_DIR) && ls *.a | sort | while read f; do echo "+$f"; done | \
       xargs -n 20 sh -c 'iix makelib /path/to/output "$@"' _
   ```
 
@@ -326,9 +331,52 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - libcurses: scanw.c excluded (noted as having trouble in original Makefile — `_SRCS`)
 - netdb: iso_addr.c, linkaddr.c, ns_addr.c, ns_ntoa.c, send.c, recv.c excluded (not in original Makefile SRCS)
 
+#### Phase 6 — Utilities ✓ (mostly complete)
+- Makefile: `goldengate/build/phase6.mk`
+- **77 utilities built** across `bin/`, `usr.bin/`, `usr.orca.bin/`, `sbin/`, `usr.sbin/`
+- Output: `gno-obj/bin/`, `gno-obj/usr/bin/`, etc.
+- 2 link failures: `more` and `tput` — need getcap.c (missing from GNO source tree)
+
+**Source fixes applied during Phase 6 build:**
+- `bin/du/du.c`: removed `#pragma lint -1` (was enabling all lint); changed `sccsid` to `const`
+- `bin/passwd/passwd.c`: `pw_comment` → `pw_gecos` (old GNO 2.0.4 field name)
+- `bin/touch/touch.c`: wrapped local `GSString` struct in `#ifndef __appleiigs__`; `->string` → `->text`
+- `bin/df/df.c`: wrapped `struct ufs_args mdev;` in `#ifndef __GNO__` (type undefined in GNO)
+- `bin/cmp/regular.c`: added `#define getpagesize() 512` for GNO (unused in GNO mmap-free code path)
+- `bin/ls/ls.c`: removed conflicting `extern GSString255Ptr __C2GSMALLOC(char *)`; added cast
+- `include/types.h`: added `typedef struct GSString GSString;` value-type alias after GSStringPtr typedef
+- `include/getopt.h`: created (shim that includes `<stdlib.h>` where `getopt` is declared in GNO)
+- `include/gno/contrib.h`: created by copying from `lib/libcontrib/contrib.h`
+- `usr.bin/launch/launch.c`: changed `gs` from `GSString255Ptr` to `GSStringPtr` (matches `SetGNOQuitRec` arg type)
+- `usr.bin/env/env.c`: removed `#pragma lint -1`; removed unused `ResultBuf255 tmp`
+- `usr.bin/printenv/printenv.c`: removed `#pragma lint -1`; wrapped unused vars in `#ifndef __ORCAC__`
+- `usr.bin/catrez/catrez.c`: removed `#pragma lint -1`
+- `usr.bin/fmt/head.c`: added `#define BUILD_FMT` before `#include "def.h"` (prevents pathnames.h include)
+- `usr.bin/sort/dsort.c` + `msort.c`: changed `#include "/usr/include/getopt.h"` → `#include <getopt.h>`
+- `usr.bin/sort/tempnam.c`: wrapped `#define __GNO__ 1` in `#ifndef __GNO__` guard (was redefinition)
+- `usr.bin/cal/cal.c`: removed `extern int _INITGNOSTDIO(void)` and call (not in modern libc; handled by runtime)
+- `usr.orca.bin/udl/common.h`: added `#include <errno.h>` (needed for strerror)
+
+**Phase 6 build patterns:**
+- Simple utilities: `cd srcdir && iix --gno compile -P prog.c && mv prog.a objdir/ && { mv prog.root objdir/ 2>/dev/null || true; }`, then `iix --gno link -P -o outdir/prog prog`
+- Multi-file utilities: compile each .c, then link all together
+- Utilities with multiple mains (sort, describe): each program linked separately
+- Library links: `passwd`→libcrypt; `rmdir`,`removerez`,`whereis`,`newuser`,`install`→libcontrib; `newuser`→libcrypt+libcontrib; `tput`,`more`→libtermcap; `whois`→libnetdb; `printf`→SysFloat (`~/Library/GoldenGate/Libraries/SysFloat`); `getty`→libutil
+- **`~DOUBLEPRECISION`** runtime label: in `~/Library/GoldenGate/Libraries/SysFloat` (ORCA SDK, not GNO lib/)
+- **`#pragma lint -1`**: ENABLES all lint (= 0xFFFF); lint is OFF by default — remove these pragmas
+- **`const` on sccsid**: ORCA/C lint doesn't flag `static char const sccsid[]` as unused; plain `static char sccsid[]` IS flagged
+
+**Skipped utilities:**
+- Kernel deps: `ps`, `init`, `reboot`, `shutdown`, `nogetty`
+- Network deps: `rcp`, `ftp`, `rlogin`, `rsh`, `inetd`, `syslogd`
+- Asm-only: `gsh`, `date`, `purge`, `getvers`, `help`, `setvers`
+- C+asm mixed (deferred): `binprint`, `mkdir`
+- Complex (deferred): `vi`, `less`, `awk`, `man`, `nroff`, `cpp`
+- Needs getcap.c: `more`, `tput` (cgetset/cgetent/tcgetattr missing from GNO libtermcap source)
+
 ### Next Steps (in order)
+- [ ] **getcap.c for libtermcap**: port BSD getcap.c to fix `more` and `tput` link failures
 - [ ] **Bootstrap catrez**: compile `usr.orca.bin/catrez/` — needed to attach resource forks
-- [ ] **Phase 6 — Utilities**: bin/, usr.bin/, usr.orca.bin/, sbin/, usr.sbin/
 - [ ] **Phase 7 — Kernel**: kern/gno/, kern/drivers/
 - [ ] **Phase 8 — Distribution**: nulib2 .shk or cadius disk image
 
@@ -385,6 +433,16 @@ make -f goldengate/build/netdb.mk
 
 # Validate Phase 5 sizes vs reference
 make -f goldengate/build/phase5.mk validate
+
+# Build Phase 6 — all utilities
+make -k -f goldengate/build/phase6.mk
+
+# Build one Phase 6 utility
+make -f goldengate/build/phase6.mk cat
+make -f goldengate/build/phase6.mk bin_du
+
+# Validate Phase 6 sizes vs reference
+make -f goldengate/build/phase6.mk validate
 ```
 
 ---
@@ -499,3 +557,4 @@ Canonical reference store for all Apple IIgs development materials. Organized by
 | `liby.mk` | `lib/liby/` (2 C) | `gno-obj/usr/lib/liby` |
 | `netdb.mk` | `lib/netdb/` (26 C) | `gno-obj/usr/lib/libnetdb` |
 | `libcontrib.mk` | `lib/libcontrib/` (4 C) | `gno-obj/usr/lib/libcontrib` |
+| `phase6.mk` | Top-level: ~75 utilities across bin/, usr.bin/, usr.orca.bin/, sbin/, usr.sbin/ | `gno-obj/bin/`, `gno-obj/usr/bin/`, etc. |

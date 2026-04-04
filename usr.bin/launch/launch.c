@@ -12,8 +12,7 @@ void usage(void)
 
 int main(int argc, char *argv[])
 {
-GSString255Ptr gs;
-extern GSString255Ptr __C2GSMALLOC(char *);
+GSStringPtr gs;
 unsigned int quitFlag;
 int patharg = 1;
 

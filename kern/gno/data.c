@@ -1,4 +1,5 @@
 /*	$Id: data.c,v 1.1 1998/02/02 08:18:22 taubert Exp $ */
+#define KERNEL
 
 /* data.c - nulluser, sysinit
      global data structures

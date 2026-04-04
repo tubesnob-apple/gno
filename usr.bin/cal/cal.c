@@ -26,9 +26,7 @@ char *argv[];
 {
 	register y, i, j;
 	int m;
-	extern int _INITGNOSTDIO(void);
 
-    _INITGNOSTDIO();
 /*	setvbuf(stdout, NULL,_IOFBF, 1024l); */
     progname = argv[0];
 

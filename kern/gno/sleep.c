@@ -6,6 +6,7 @@
  *	sleep/wakeup handling routines
  */
 
+#define KERNEL
 extern void sleepbusy(void);
 
 #ifndef KERNEL
@@ -21,7 +22,7 @@ extern void sleepbusy(void);
 #include "proc.h"
 #include "sys.h"
 #include "kernel.h"
-#include "/lang/orca/libraries/orcacdefs/stdio.h"
+#include <stdio.h>
 extern kernelStructPtr kp;
 
 void dosleep(int pid)

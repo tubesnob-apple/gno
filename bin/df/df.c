@@ -92,7 +92,9 @@ void	  ufs_df __P((char *, int));
 void	  usage __P((void));
 
 int	iflag, nflag;
+#ifndef __GNO__
 struct	ufs_args mdev;
+#endif
 
 #ifdef __STACK_CHECK__
 #include <gno/gno.h>

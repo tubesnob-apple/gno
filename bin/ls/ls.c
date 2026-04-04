@@ -173,7 +173,6 @@ unsigned err;
 DirEntryRecPtrGS newents,nptr;
 FileInfoRecGS fi;
 ResultBuf255Ptr newn;
-extern GSString255Ptr __C2GSMALLOC(char *);
 
     new = malloc(sizeof(struct directory));
     new->num_entries = argc;
@@ -195,7 +194,7 @@ extern GSString255Ptr __C2GSMALLOC(char *);
         nptr->pCount = 17;
         nptr->optionList = NULL;
 
-        fi.pathname = __C2GSMALLOC(argv[i]);
+        fi.pathname = (GSString255Ptr)__C2GSMALLOC(argv[i]);
         GetFileInfoGS(&fi);
         if (err=_toolErr) {
 	    fprintf(stderr,"ls: %s: %s\n",strerror(_mapErr(err)),argv[i]);

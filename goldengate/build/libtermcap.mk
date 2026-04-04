@@ -30,7 +30,7 @@ MAKELIB   := iix makelib
 # Segment prefix via pragma in source (ORCA/C doesn't support -S on CLI)
 CCFLAGS   := -P +O
 
-C_SRCS    := termcap.c tgoto.c tputs.c tparm.c tospeed.c
+C_SRCS    := termcap.c getcap.c tgoto.c tputs.c tparm.c tospeed.c
 C_OBJS    := $(patsubst %.c,$(OBJ_DIR)/%.a,$(C_SRCS))
 
 .PHONY: all
@@ -38,7 +38,7 @@ all: $(LIB_OUT)
 
 $(LIB_OUT): $(C_OBJS) | $(dir $(LIB_OUT))
 	rm -f $(LIB_OUT)
-	ls $(OBJ_DIR)/*.a | sort | while read f; do echo "+$$f"; done | \
+	cd $(OBJ_DIR) && ls *.a | sort | while read f; do echo "+$$f"; done | \
 	  xargs -n 20 sh -c '$(MAKELIB) $(LIB_OUT) "$$@"' _
 
 # Compile from SRC_DIR so local headers (termcap.h, pathnames.h) resolve
