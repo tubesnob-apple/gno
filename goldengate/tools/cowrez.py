@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-maccatrez.py -- macOS Rez compiler for Apple IIgs GNO resource forks
+cowrez.py -- cross-platform Rez compiler for Apple IIgs GNO resource forks
 
-Parses .rez source files and writes the resource fork binary as the
-com.apple.ResourceFork extended attribute on the target file.
+Parses .rez source files and writes the resource fork binary either as a
+standalone file (--output) or as an extended attribute on the target file.
+
+Platform support:
+    macOS   -- writes com.apple.ResourceFork xattr via the `xattr` CLI
+    Linux   -- writes user.com.apple.ResourceFork xattr via os.setxattr()
+    Windows -- xattr not supported; use --output to write a standalone .rsrc
 
 Supported resource types:
     rVersion ($8029)  -- version info block
@@ -14,9 +19,9 @@ catrez.rsrc) using Apple IIgs Resource Manager header definitions from
 ORCA/C 2.2.0 ORCACDefs/resources.h.
 
 Usage:
-    python3 maccatrez.py <rezfile> <targetfile>
-    python3 maccatrez.py <rezfile> --dry-run
-    python3 maccatrez.py <rezfile> --output <rsrcfile>
+    python3 cowrez.py <rezfile> <targetfile>
+    python3 cowrez.py <rezfile> --dry-run
+    python3 cowrez.py <rezfile> --output <rsrcfile>
 
 The target file must already exist.  Use --output to write a standalone
 .rsrc binary file instead of setting the xattr.
@@ -27,6 +32,7 @@ import re
 import struct
 import subprocess
 import os
+import platform
 from datetime import date
 from pathlib import Path
 
@@ -519,17 +525,41 @@ def verify_fork(rsrc_bytes, expected_resources):
 # ── xattr writer ─────────────────────────────────────────────────────────────
 
 def write_resource_fork_xattr(target_path, rsrc_bytes):
-    """Write rsrc_bytes as com.apple.ResourceFork xattr on target_path."""
-    # xattr -wx expects a hex string (space-separated pairs are OK)
-    hex_str = rsrc_bytes.hex()
-    result = subprocess.run(
-        ['xattr', '-wx', 'com.apple.ResourceFork', hex_str, target_path],
-        capture_output=True, text=True
-    )
-    if result.returncode != 0:
-        print(f"  xattr error: {result.stderr.strip()}", file=sys.stderr)
+    """
+    Write rsrc_bytes as a resource fork extended attribute on target_path.
+
+    macOS:   com.apple.ResourceFork via the `xattr` CLI
+    Linux:   user.com.apple.ResourceFork via os.setxattr()
+    Windows: not supported — use --output to write a standalone .rsrc file
+    """
+    system = platform.system()
+
+    if system == 'Darwin':
+        hex_str = rsrc_bytes.hex()
+        result = subprocess.run(
+            ['xattr', '-wx', 'com.apple.ResourceFork', hex_str, target_path],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            print(f"  xattr error: {result.stderr.strip()}", file=sys.stderr)
+            return False
+        return True
+
+    elif system == 'Linux':
+        try:
+            os.setxattr(target_path, 'user.com.apple.ResourceFork', rsrc_bytes)
+            return True
+        except OSError as e:
+            print(f"  setxattr error: {e}", file=sys.stderr)
+            return False
+
+    else:
+        print(
+            f"  error: xattr writing is not supported on {system}.\n"
+            f"  Use --output to write a standalone .rsrc binary file.",
+            file=sys.stderr
+        )
         return False
-    return True
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
@@ -600,7 +630,7 @@ def main():
 
     if write_resource_fork_xattr(args.target, rsrc_bytes):
         if args.verbose:
-            print(f"  wrote com.apple.ResourceFork to {args.target}")
+            print(f"  wrote resource fork xattr to {args.target}")
     else:
         sys.exit(1)
 

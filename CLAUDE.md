@@ -392,13 +392,13 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - `kern/drivers/*.equates`: converted LF→CR
 - `include/stdio.h`: added `#ifdef KERNEL` guard — kernel uses `extern FILE *stdout` (ORCALib) instead of `&__sF[1]` (GNO libc array); run `make -f goldengate/install-gno-headers.mk` after this change
 
-#### maccatrez — macOS Resource Fork Tool ✓
-- **`goldengate/tools/maccatrez.py`** — replaces `catrez` (which requires Apple IIgs Resource Manager toolbox, unavailable in GoldenGate)
+#### cowrez — Cross-Platform Rez Compiler ✓
+- **`goldengate/tools/cowrez.py`** — replaces `catrez` (which requires Apple IIgs Resource Manager toolbox, unavailable in GoldenGate)
 - Parses GNO `.rez` source files; writes Apple IIgs resource fork binary as `com.apple.ResourceFork` xattr
 - Supports: rVersion ($8029), rComment ($802A)
 - Handles: `#include`, `#define` macros (recursive), `BUILD_DATE`/`$$Date`, adjacent string concat, `\n`→CR
 - Verified byte-for-byte vs GNO 2.0.6 `catrez.rsrc` reference; all 80+ GNO `.rez` files parse cleanly
-- Usage: `python3 goldengate/tools/maccatrez.py <file.rez> <target_binary> [-v] [--dry-run] [--output rsrc.bin]`
+- Usage: `python3 goldengate/tools/cowrez.py <file.rez> <target_binary> [-v] [--dry-run] [--output rsrc.bin]`
 
 **Apple IIgs resource fork binary format** (documented from reference analysis):
 - Header (140 bytes at offset 0): rFileVersion=0, rFileToMap=0x8C, rFileMapSize=mapSize
@@ -410,7 +410,7 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - Free list sentinel: blkOffset=fileSize, blkSize=-(fileSize+1)
 
 ### Next Steps (in order)
-- [ ] **Phase 8a — Resource forks**: `phase8_rez.mk` — run maccatrez for all ~80 binaries that have a `.rez` file
+- [ ] **Phase 8a — Resource forks**: `phase8_rez.mk` — run cowrez for all ~80 binaries that have a `.rez` file
 - [ ] **Phase 8b — ProDOS file types**: set `com.apple.FinderInfo` xattr on each binary ($B3 for executables, $BB auxtype 0x7E01 for drivers)
 - [ ] **Phase 8c — Disk image**: install cadius (`brew install cadius`), assemble full GNO directory tree into a ProDOS `.2mg` volume matching the 2.0.6 reference layout (`diskImages/extracted/`)
 
@@ -481,12 +481,12 @@ make -f goldengate/build/phase6.mk validate
 # Build Phase 7 — kernel + drivers
 make -k -f goldengate/build/phase7.mk
 
-# Attach resource fork to a built binary (maccatrez)
-python3 goldengate/tools/maccatrez.py kern/gno/kern.rez gno-obj/kern -v
-python3 goldengate/tools/maccatrez.py bin/cat/cat.rez gno-obj/bin/cat -v
+# Attach resource fork to a built binary (cowrez)
+python3 goldengate/tools/cowrez.py kern/gno/kern.rez gno-obj/kern -v
+python3 goldengate/tools/cowrez.py bin/cat/cat.rez gno-obj/bin/cat -v
 
 # Dry-run / inspect without writing
-python3 goldengate/tools/maccatrez.py kern/gno/kern.rez --dry-run --verify -v
+python3 goldengate/tools/cowrez.py kern/gno/kern.rez --dry-run --verify -v
 ```
 
 ---
@@ -573,7 +573,7 @@ Canonical reference store for all Apple IIgs development materials. Organized by
 | `NOTES/devel/doing.builds` | **Authoritative build sequence** |
 | `goldengate/build/*.mk` | GNU Makefiles for each build target |
 | `goldengate/tools/compare_libc.py` | Symbol comparison between built and reference libc |
-| `goldengate/tools/maccatrez.py` | macOS Rez compiler: parses .rez → resource fork xattr (replaces catrez) |
+| `goldengate/tools/cowrez.py` | Cross-platform Rez compiler: parses .rez → resource fork xattr (replaces catrez) |
 | `goldengate/orcac-tests/tools/omf_dis.py` | OMF v2 parser + 65816 disassembler |
 | `diskImages/extracted/` | All files from GNO 2.0.6 reference disk image |
 | `diskImages/extracted/metadata.json` | File types, sizes, dates for all extracted files |
