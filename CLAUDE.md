@@ -415,7 +415,7 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - Complex (deferred): `vi`, `less`, `awk`, `man`, `nroff`, `cpp`
 
 #### Phase 7 — Kernel ✓
-- Makefile: `goldengate/build/phase7.mk` — `make -k -f goldengate/build/phase7.mk`
+- Makefile: `goldengate/build/phase7.mk` — `make -f goldengate/build/phase7.mk`
 - **kern**: 150,673 bytes (reference 140,754 — ~7% larger due to ksherlock fork additions)
 - **Drivers**: `dev/null` (592 bytes), `dev/zero` (619), `dev/full` (620), `dev/console` (5,927)
 - 14 C modules + 16 kern/gno ASM + 4 driver ASM (linked into kern) + 4 standalone driver ASM
@@ -531,8 +531,8 @@ make -f goldengate/build/netdb.mk
 # Validate Phase 5 sizes vs reference
 make -f goldengate/build/phase5.mk validate
 
-# Build Phase 6 — all utilities
-make -k -f goldengate/build/phase6.mk
+# Build Phase 6 — all utilities (skipped programs are absent from targets, not failures)
+make -f goldengate/build/phase6.mk
 
 # Build one Phase 6 utility
 make -f goldengate/build/phase6.mk cat
@@ -542,7 +542,7 @@ make -f goldengate/build/phase6.mk bin_du
 make -f goldengate/build/phase6.mk validate
 
 # Build Phase 7 — kernel + drivers
-make -k -f goldengate/build/phase7.mk
+make -f goldengate/build/phase7.mk
 
 # Attach resource fork to a built binary (cowrez)
 python3 goldengate/tools/cowrez.py kern/gno/kern.rez gno-obj/kern -v
