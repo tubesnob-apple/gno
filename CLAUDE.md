@@ -409,10 +409,25 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - rComment: raw string, NO null terminator (`string;` type is not C-terminated)
 - Free list sentinel: blkOffset=fileSize, blkSize=-(fileSize+1)
 
+#### Phase 8 — Distribution Packaging ✓
+- **Phase 8a** — Resource forks: `make -f goldengate/build/phase8_rez.mk` — 72/72 binaries with .rez files complete; resource forks attached as `com.apple.ResourceFork` xattr
+- **Phase 8b** — ProDOS file types: already set by iix linker/makelib — nothing to do
+- **Phase 8c** — Disk image: `diskImages/gno-built.2mg` — 32MB ProDOS `.2mg` volume
+  - 738 files: 709 from 2.0.6 reference metadata + 29 ksherlock fork extras (dev/full, dev/zero, dev/console, lib/lsaneglue, usr/bin/{sort,tr,env,tr,true,false,…}, usr/orca/bin/{describe,descc,descu,udl}, bin/{edit,rm,upper})
+  - All ProDOS types correct: EXE+ $0100, S16+ $0000 (kern), DVR+ $7E01 (drivers), LIB $0000
+  - Resource forks embedded for all 72 built binaries that have .rez files
+  - Script: `goldengate/build/phase8c_image.py` — prefers gno-obj/ over reference, falls back to diskImages/extracted/
+
+**cadius notes (not in homebrew):**
+- Build: `git clone https://github.com/mach-kernel/cadius.git ~/source/cadius && cd ~/source/cadius && make`
+- cadius ADDFOLDER is **recursive** — one call from root adds the entire tree; do NOT loop per-directory or files get double-added
+- Resource fork sidecar: `filename#TTAAAA_ResourceFork.bin` alongside `filename#TTAAAA`
+- File type in filename: `#TTAAAA` suffix where TT=hex type, AAAA=4-digit hex auxtype (e.g., `kern#B30000`, `cat#B50100`)
+
 ### Next Steps (in order)
 - [x] **Phase 8a — Resource forks**: `phase8_rez.mk` — 72/72 binaries complete
 - [x] **Phase 8b — ProDOS file types**: already set by iix linker/makelib (79×$B5, 10×$B2, 4×$BB, 1×$B3) — nothing to do
-- [ ] **Phase 8c — Disk image**: install cadius (`brew install cadius`), assemble full GNO directory tree into a ProDOS `.2mg` volume matching the 2.0.6 reference layout (`diskImages/extracted/`)
+- [x] **Phase 8c — Disk image**: `diskImages/gno-built.2mg` — 32MB ProDOS volume, 738 files (709 from 2.0.6 reference + 29 ksherlock extras), resource forks embedded, all ProDOS types correct
 
 **ProDOS file type reference (from GNO 2.0.6 reference disk):**
 - `$B5` auxtype `$0001` — GS/OS application (all utilities: bin/, usr/bin/, sbin/, usr/sbin/, usr/orca/bin/)
@@ -494,6 +509,16 @@ python3 goldengate/tools/cowrez.py bin/cat/cat.rez gno-obj/bin/cat -v
 
 # Dry-run / inspect without writing
 python3 goldengate/tools/cowrez.py kern/gno/kern.rez --dry-run --verify -v
+
+# Phase 8a — attach all resource forks
+make -f goldengate/build/phase8_rez.mk
+
+# Phase 8c — build ProDOS disk image (cadius at ~/source/cadius/cadius)
+python3 goldengate/build/phase8c_image.py             # → diskImages/gno-built.2mg
+python3 goldengate/build/phase8c_image.py --dry-run   # preview without writing
+python3 goldengate/build/phase8c_image.py -v          # verbose: show each file staged
+# cadius (not in homebrew — build from source)
+# git clone https://github.com/mach-kernel/cadius.git ~/source/cadius && cd ~/source/cadius && make
 ```
 
 ---
@@ -584,6 +609,9 @@ Canonical reference store for all Apple IIgs development materials. Organized by
 | `goldengate/orcac-tests/tools/omf_dis.py` | OMF v2 parser + 65816 disassembler |
 | `diskImages/extracted/` | All files from GNO 2.0.6 reference disk image |
 | `diskImages/extracted/metadata.json` | File types, sizes, dates for all extracted files |
+| `diskImages/gno-built.2mg` | Built GNO/ME ProDOS disk image (32MB, 738 files) |
+| `goldengate/build/phase8_rez.mk` | Attach resource forks to all 72 built binaries (via cowrez.py) |
+| `goldengate/build/phase8c_image.py` | Build ProDOS .2mg disk image from gno-obj/ + reference |
 
 ### goldengate/build/ Makefiles
 
