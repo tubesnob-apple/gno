@@ -10,10 +10,12 @@
 /* 2/orcacdefs/gsos.h, not OUR include file */
 #include "stevie.h"
 #include <gno/gno.h>
-#include <gno/signal.h>
+#include <signal.h>
 #include <unistd.h>
 #include "gsos.h"
 #include <sys/ioctl.h>
+#include <sys/ioctl.compat.h>
+#include <sys/ttycom.h>
 #include <fcntl.h>
 
 #ifdef __ORCAC__

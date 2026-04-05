@@ -2,15 +2,19 @@
 """
 phase8c_image.py -- Build a GNO/ME ProDOS disk image
 
-Creates a 32MB .2mg ProDOS disk image containing all GNO/ME files by:
-  1. Preferring built files from gno-obj/ over reference extractions
-  2. Falling back to diskImages/extracted/ for files we didn't build
-  3. Including resource forks (from com.apple.ResourceFork xattr or .rsrc sidecars)
-  4. Encoding ProDOS file types in cadius #TTAAAA filename suffixes
-  5. Including gno-obj extras (ksherlock fork additions not in 2.0.6 reference)
+Creates a 32MB .2mg ProDOS disk image containing all GNO/ME files.
+
+Source policy (Phase 9 — Source Completeness):
+  - Executables and libraries ($B5, $B3, $B2, $BB) MUST come from gno-obj/.
+    Any reference-disk binary not present in gno-obj/ is an error.
+    Use --warn-missing to demote these errors to warnings (for gradual porting).
+  - A small whitelist of SDK-supplied files (sysfloat) is exempt from this rule.
+  - Text, config, and data files use verbatim/ overrides first, then the
+    reference extraction as a fallback (these are not built from source).
 
 Usage:
     python3 goldengate/build/phase8c_image.py [--output /path/to/gno.2mg] [--dry-run] [-v]
+    python3 goldengate/build/phase8c_image.py --warn-missing   # treat missing binaries as warnings
 
 cadius must be built and accessible (see CLAUDE.md: ~/source/cadius/cadius).
 """
@@ -30,8 +34,9 @@ from pathlib import Path
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-GNO_OBJ   = REPO_ROOT.parent / 'gno-obj'
+GNO_OBJ   = REPO_ROOT / 'gno-obj'
 EXTRACTED = REPO_ROOT / 'diskImages' / 'extracted'
+VERBATIM  = REPO_ROOT / 'verbatim'
 METADATA  = EXTRACTED / 'metadata.json'
 
 
@@ -49,8 +54,37 @@ CADIUS = _find_cadius()
 VOLUME_NAME  = 'GNO'
 VOLUME_SIZE  = '32MB'
 
+# ProDOS types that MUST come from gno-obj/ (built from source).
+# Anything else is a missing-binary error (or warning with --warn-missing).
+BINARY_TYPES = {'$B5', '$B3', '$B2', '$BB', '$B1'}
+
+# Files exempt from the "must be built" rule.
+# These are built from source but live outside gno-obj/ (e.g. installed to the
+# GoldenGate SDK tree).  For each, GG_LOOKUP provides the resolved path.
+# If the resolved path doesn't exist either, it falls back to the reference
+# extraction so the disk can still be built for testing.
+BINARY_EXEMPT = {
+    'lib/sysfloat',   # SysFloat floating-point library — GoldenGate SDK
+    'lib/orcalib',    # ORCA Runtime Library — byteworksinc-orcalib, installed to GoldenGate
+}
+
+def _gg_root() -> Path:
+    """Locate the GoldenGate root (mirrors Makefile logic)."""
+    for env in ('GOLDEN_GATE', 'ORCA_ROOT'):
+        v = os.environ.get(env)
+        if v:
+            return Path(v)
+    return Path.home() / 'Library' / 'GoldenGate'
+
+GG_ROOT = _gg_root()
+
+# Maps metadata local_path → absolute path for exempt binaries in GoldenGate
+GG_LOOKUP: dict[str, Path] = {
+    'lib/sysfloat': GG_ROOT / 'Libraries' / 'SysFloat',
+    'lib/orcalib':  GG_ROOT / 'lib' / 'ORCALib',
+}
+
 # ProDOS type → cadius hex suffix (type byte + 4-digit aux type)
-# Based on GNO 2.0.6 reference disk catalog analysis
 TYPE_SUFFIX = {
     '$B5': 'B50100',   # GS/OS application (EXE)
     '$B3': 'B30000',   # System file (kernel, S16)
@@ -79,7 +113,7 @@ GNOOBJ_TYPE = {
     'dev/zero':      'BB7E01',
     'dev/full':      'BB7E01',
     'dev/console':   'BB7E01',
-    'lib/lsaneglue': 'B20000',   # OMF library
+    'lib/lsaneglue': 'B20000',
 }
 # Directories whose contents are executables
 EXE_DIRS = {
@@ -92,7 +126,6 @@ LIB_DIRS = {
 }
 
 # Remap: metadata local_path → actual gno-obj relative path
-# For files where our built version lives at a different path than the reference
 GNOOBJ_PATH_REMAP = {
     'lib/orcalib': 'orcalib',   # ORCALib build places output at gno-obj/orcalib
 }
@@ -119,12 +152,7 @@ def get_type_suffix_for_gnoobj(rel_path: str) -> str:
 
 
 def read_resource_fork_xattr(path: Path) -> bytes:
-    """Return resource fork bytes (com.apple.ResourceFork xattr), or b'' if absent.
-
-    macOS: reads com.apple.ResourceFork via xattr CLI
-    Linux: reads user.com.apple.ResourceFork via os.getxattr()
-    Windows: resource fork xattrs are not supported; always returns b''
-    """
+    """Return resource fork bytes (com.apple.ResourceFork xattr), or b'' if absent."""
     system = platform.system()
     try:
         if system == 'Darwin':
@@ -137,21 +165,28 @@ def read_resource_fork_xattr(path: Path) -> bytes:
         elif system == 'Linux':
             data = os.getxattr(str(path), 'user.com.apple.ResourceFork')
             return data if data else b''
-        # Windows: no xattr support; resource forks not preserved — return empty
     except (OSError, Exception):
         pass
     return b''
 
 
+def lf_to_cr(data: bytes) -> bytes:
+    """Convert Unix LF line endings to IIgs CR line endings."""
+    return data.replace(b'\r\n', b'\r').replace(b'\n', b'\r')
+
+
 def stage_file(staging: Path, rel_dir: str, name: str, type_sfx: str,
-               data_src: Path, rsrc_data: bytes) -> Path:
+               data_src: Path, rsrc_data: bytes, convert_lf: bool = False) -> Path:
     """Copy data_src to staging/<rel_dir>/<name>#<type_sfx>, with optional resource fork."""
     staged_name = f'{name}#{type_sfx}'
     staged_dir  = staging / rel_dir
     staged_dir.mkdir(parents=True, exist_ok=True)
     staged_file = staged_dir / staged_name
 
-    shutil.copy2(str(data_src), str(staged_file))
+    if convert_lf:
+        staged_file.write_bytes(lf_to_cr(data_src.read_bytes()))
+    else:
+        shutil.copy2(str(data_src), str(staged_file))
     os.chmod(staged_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
 
     if rsrc_data:
@@ -161,64 +196,115 @@ def stage_file(staging: Path, rel_dir: str, name: str, type_sfx: str,
     return staged_file
 
 
-def populate_staging(staging: Path, metadata: list, verbose: bool) -> tuple:
+def _verbatim_path(local: str) -> Path:
+    """
+    Return the verbatim/ override path for a reference local_path, if it exists.
+
+    verbatim/ mirrors the GNO filesystem layout.  verbatim/boot/ is for the
+    separate installer disk and is excluded here.
+    """
+    candidate = VERBATIM / local
+    if candidate.exists() and candidate.is_file():
+        # Exclude verbatim/boot/ — that's for the installer disk, not the main GNO volume
+        if candidate.relative_to(VERBATIM).parts[0] != 'boot':
+            return candidate
+    return None
+
+
+def populate_staging(staging: Path, metadata: list,
+                     verbose: bool, warn_missing: bool) -> tuple:
     """
     Populate staging directory from metadata entries.
 
-    For each entry:
-    - Pick source: gno-obj/ (preferred, with path remap) or extracted/
-    - Determine ProDOS type suffix
-    - Copy file + optional resource fork to staging area
+    Binary types ($B5/$B3/$B2/$BB/$B1):
+      - Must come from gno-obj/.  Missing = error (or warning with --warn-missing).
+      - BINARY_EXEMPT paths fall back to the reference extraction silently.
 
-    Returns (placed_dict, covered_gnoobj_set)
-      placed_dict: prodos_path → staging_file_path
-      covered_gnoobj_set: gno-obj relative paths already staged
+    Text/data/config types:
+      - Use verbatim/ override first (with LF→CR conversion), then reference.
+
+    Returns (placed_dict, covered_gnoobj_set, errors_list)
     """
-    placed = {}
+    placed        = {}
     covered_gnoobj = set()
+    errors        = []
 
     for entry in metadata:
-        prodos   = entry['prodos_path']       # e.g. /BIN/CAT
-        local    = entry['local_path']        # e.g. bin/cat
-        rsrc_rel = entry['rsrc_path']         # e.g. bin/cat.rsrc or None
-        ftype    = entry['file_type']         # e.g. $B5
+        prodos   = entry['prodos_path']
+        local    = entry['local_path']
+        rsrc_rel = entry['rsrc_path']
+        ftype    = entry['file_type']
+        size     = entry['data_fork_bytes']
 
-        # Allow path remap (e.g., lib/orcalib → orcalib at top of gno-obj)
         gnoobj_rel = GNOOBJ_PATH_REMAP.get(local, local)
         gnoobj_src = GNO_OBJ / gnoobj_rel
         ref_src    = EXTRACTED / local
+        is_binary  = ftype in BINARY_TYPES
+        is_exempt  = local in BINARY_EXEMPT    # keyed by original local_path, not remapped
+
+        # ── Determine source ───────────────────────────────────────────────
+        convert_lf = False
 
         if gnoobj_src.exists():
             data_src  = gnoobj_src
             type_sfx  = get_type_suffix_for_gnoobj(gnoobj_rel)
             rsrc_data = read_resource_fork_xattr(data_src)
             covered_gnoobj.add(gnoobj_rel)
-        elif ref_src.exists():
-            data_src  = ref_src
+            src_tag   = 'built'
+
+        elif is_binary and not is_exempt:
+            # Binary required from source but not built — flag it
+            msg = f'{prodos} ({ftype}, {size}B) — not in gno-obj/{gnoobj_rel}'
+            errors.append(msg)
+            if verbose or warn_missing:
+                label = 'WARN' if warn_missing else 'ERROR'
+                print(f'  [{label}] MISSING BUILT BINARY: {msg}')
+            continue
+
+        elif is_exempt and (gg_path := GG_LOOKUP.get(local)) and gg_path.exists():
+            # Exempt binary found in GoldenGate installation
+            data_src  = gg_path
+            type_sfx  = get_type_suffix_for_gnoobj(gnoobj_rel)
+            rsrc_data = read_resource_fork_xattr(data_src)
+            covered_gnoobj.add(gnoobj_rel)
+            src_tag   = 'goldengate'
+
+        else:
+            # Non-binary data file — use verbatim/ first, then reference extraction.
+            # Check verbatim even when ref_src doesn't exist (cadius skips empty files).
+            verbatim_src = _verbatim_path(local)
+            if verbatim_src:
+                data_src   = verbatim_src
+                convert_lf = True   # verbatim files have Unix LF; IIgs needs CR
+                src_tag    = 'verbatim'
+            elif ref_src.exists():
+                data_src = ref_src
+                src_tag  = 'ref  '
+            else:
+                if verbose:
+                    print(f'  [skip ] {prodos}  (no source at all)')
+                continue
             type_sfx  = TYPE_SUFFIX.get(ftype, '000000')
             rsrc_data = b''
             if rsrc_rel:
                 rsrc_path = EXTRACTED / rsrc_rel
                 if rsrc_path.exists():
                     rsrc_data = rsrc_path.read_bytes()
-        else:
-            if verbose:
-                print(f'  SKIP (no source): {prodos}')
-            continue
 
+        # ── Stage the file ─────────────────────────────────────────────────
         parts     = prodos.strip('/').split('/')
         rel_dir   = '/'.join(parts[:-1]).lower()
         name      = parts[-1].lower()
 
-        staged_file = stage_file(staging, rel_dir, name, type_sfx, data_src, rsrc_data)
+        staged_file = stage_file(staging, rel_dir, name, type_sfx,
+                                 data_src, rsrc_data, convert_lf)
         placed[prodos] = staged_file
 
         if verbose:
-            src_tag  = 'built' if gnoobj_src.exists() else 'ref  '
             rsrc_tag = f' +rsrc({len(rsrc_data)}B)' if rsrc_data else ''
             print(f'  [{src_tag}] {prodos:40s} #{type_sfx}{rsrc_tag}')
 
-    return placed, covered_gnoobj
+    return placed, covered_gnoobj, errors
 
 
 def populate_gnoobj_extras(staging: Path, covered_gnoobj: set, verbose: bool) -> dict:
@@ -236,22 +322,18 @@ def populate_gnoobj_extras(staging: Path, covered_gnoobj: set, verbose: bool) ->
 
         rel = str(path.relative_to(GNO_OBJ))
 
-        # Skip build artifacts and sentinel files
         if any(rel.endswith(s) for s in GNOOBJ_SKIP_SUFFIXES):
             continue
         if path.name.startswith('.'):
             continue
 
-        # Only include files from installable output directories
         top_dir = rel.split('/')[0]
         if top_dir not in GNOOBJ_OUTPUT_DIRS:
             continue
 
-        # Skip files already handled by the metadata pass
         if rel in covered_gnoobj:
             continue
 
-        # Derive ProDOS path by uppercasing each component
         parts  = rel.split('/')
         prodos = '/' + '/'.join(p.upper() for p in parts)
 
@@ -286,7 +368,8 @@ def cadius_run(args: list, dry_run: bool, quiet: bool = True) -> bool:
     return True
 
 
-def build_image(output: Path, metadata: list, dry_run: bool, verbose: bool):
+def build_image(output: Path, metadata: list, dry_run: bool,
+                verbose: bool, warn_missing: bool):
     print(f'=== Phase 8c: building {output} ===')
 
     if not dry_run and not CADIUS.exists():
@@ -294,13 +377,23 @@ def build_image(output: Path, metadata: list, dry_run: bool, verbose: bool):
         print('Build it: cd ~/source/cadius && make', file=sys.stderr)
         sys.exit(1)
 
-    # ── Staging directory ──────────────────────────────────────────────────
     staging = Path(tempfile.mkdtemp(prefix='gno-staging-'))
     print(f'Staging: {staging}')
     try:
         print(f'Populating staging ({len(metadata)} reference entries)...')
-        placed, covered_gnoobj = populate_staging(staging, metadata, verbose)
-        print(f'  {len(placed)} files staged from reference/built')
+        placed, covered_gnoobj, errors = populate_staging(
+            staging, metadata, verbose, warn_missing)
+        print(f'  {len(placed)} files staged')
+
+        if errors:
+            print(f'\n{"WARNING" if warn_missing else "ERROR"}: '
+                  f'{len(errors)} reference executable(s)/librar(ies) '
+                  f'have no built version in gno-obj/:')
+            for e in errors:
+                print(f'  {"WARN" if warn_missing else "MISS"}: {e}')
+            if not warn_missing:
+                print('\nBuild these from source first, or run with --warn-missing.')
+                sys.exit(1)
 
         print('Scanning gno-obj for extra built files...')
         extras = populate_gnoobj_extras(staging, covered_gnoobj, verbose)
@@ -315,11 +408,6 @@ def build_image(output: Path, metadata: list, dry_run: bool, verbose: bool):
                           dry_run, quiet=False):
             sys.exit(1)
 
-        # ── Add all files in one recursive ADDFOLDER call ─────────────────
-        # cadius ADDFOLDER is recursive: it traverses the staging tree and
-        # creates subdirectories automatically.  A single call from the root
-        # is simpler and avoids the "file already exists" error that occurs
-        # when mixing per-directory ADDFOLDER calls with their parent.
         n_data = sum(1 for f in staging.rglob('*')
                      if f.is_file() and not f.name.endswith('_ResourceFork.bin'))
         print(f'Adding {n_data} files via ADDFOLDER (recursive from root)...')
@@ -345,6 +433,8 @@ def main():
                     help='Show what would be done without writing')
     ap.add_argument('-v', '--verbose', action='store_true',
                     help='Show each file being staged')
+    ap.add_argument('--warn-missing', action='store_true',
+                    help='Treat missing built binaries as warnings instead of errors')
     args = ap.parse_args()
 
     if not METADATA.exists():
@@ -354,7 +444,8 @@ def main():
     with open(METADATA) as f:
         metadata = json.load(f)
 
-    build_image(Path(args.output), metadata, args.dry_run, args.verbose)
+    build_image(Path(args.output), metadata, args.dry_run,
+                args.verbose, args.warn_missing)
 
 
 if __name__ == '__main__':

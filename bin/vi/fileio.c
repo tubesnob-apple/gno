@@ -15,9 +15,9 @@ segment "s_io";
 #ifdef GSOS
 #include <gsos.h>
 #include <signal.h>
-#include <gno/gno.h>
 #include <fcntl.h>
 FileInfoRecGS finfo = {4, 0l, 0xC3, 0xB0, 0l};
+extern void stopHandler(int, int);
 #endif
 
 void
@@ -298,37 +298,20 @@ writeit(char *fname, LPtr *start, LPtr *end)
         fprintf(f, "%s\n", p->linep->s);
 #else
         line_ptr = p->linep->s;
-        asm {
-            stz inind
-agin:       ldy inind
-	    lda [line_ptr],y
-            and #0xff
-            beq done
-
-            ldy outind
-            cpy #BUFSIZE1
-            bcc otaydude
-            pha
-            jsl flushout
-            pla
-            ldy #0
-otaydude:   sta	[saveb1],y
-            iny
-            sty outind
-            inc inind
-            jmp agin
-
-done:	    sty linesize
-	    lda #13
-            ldy outind
-            sta [saveb1],y
-            iny
-            sty	outind
-
-            lda	linesize
-            clc
-            adc nchars
-            sta nchars
+        {
+            char c;
+            for (inind = 0; (c = line_ptr[inind]) != '\0'; inind++) {
+                if (outind >= BUFSIZE1) {
+                    flushout();
+                }
+                saveb1[outind++] = c;
+            }
+            linesize = inind;
+            if (outind >= BUFSIZE1) {
+                flushout();
+            }
+            saveb1[outind++] = '\r';
+            nchars += linesize;
         }
 #endif
         lines++;

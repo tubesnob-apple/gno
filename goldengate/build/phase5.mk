@@ -26,7 +26,7 @@ MAKE      := $(MAKE) --no-print-directory
 BUILD_DIR := $(REPO_ROOT)/goldengate/build
 
 .PHONY: all
-all: lsaneglue libcrypt libutil libtermcap libcurses liby netdb libcontrib
+all: lsaneglue libcrypt libsim libutil libtermcap libcurses liby netdb libcontrib
 
 .PHONY: lsaneglue
 lsaneglue:
@@ -35,6 +35,10 @@ lsaneglue:
 .PHONY: libcrypt
 libcrypt:
 	$(MAKE) -f $(BUILD_DIR)/libcrypt.mk
+
+.PHONY: libsim
+libsim:
+	$(MAKE) -f $(BUILD_DIR)/libsim.mk
 
 .PHONY: libutil
 libutil:
@@ -64,6 +68,7 @@ libcontrib:
 clean:
 	$(MAKE) -f $(BUILD_DIR)/lsaneglue.mk clean
 	$(MAKE) -f $(BUILD_DIR)/libcrypt.mk clean
+	$(MAKE) -f $(BUILD_DIR)/libsim.mk clean
 	$(MAKE) -f $(BUILD_DIR)/libutil.mk clean
 	$(MAKE) -f $(BUILD_DIR)/libtermcap.mk clean
 	$(MAKE) -f $(BUILD_DIR)/libcurses.mk clean
@@ -76,9 +81,9 @@ validate: all
 	@echo ""
 	@echo "=== Phase 5 Library Sizes ==="
 	@REF=$(REPO_ROOT)/diskImages/extracted/usr/lib; \
-	GNO_OBJ=$(abspath $(REPO_ROOT)/../gno-obj/usr/lib); \
-	GNO_LIB=$(abspath $(REPO_ROOT)/../gno-obj/lib); \
-	for lib in libcrypt libutil libtermcap libcurses liby libnetdb libcontrib; do \
+	GNO_OBJ=$(abspath $(REPO_ROOT)/gno-obj/usr/lib); \
+	GNO_LIB=$(abspath $(REPO_ROOT)/gno-obj/lib); \
+	for lib in libcrypt libsim libutil libtermcap libcurses liby libnetdb libcontrib; do \
 	  built=$$GNO_OBJ/$$lib; \
 	  ref=$$REF/$$lib; \
 	  if [ -f "$$built" ]; then \

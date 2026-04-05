@@ -11,15 +11,16 @@
 #   make -f goldengate/build/phase6.mk validate   # compare sizes vs reference
 #   make -f goldengate/build/phase6.mk clean      # remove all built utilities
 #
-# Skipped (missing BSD headers):  init, reboot, shutdown (sys/sysctl.h, sys/reboot.h not in GNO tree)
+# Skipped (missing BSD headers):  reboot, shutdown (sys/sysctl.h, sys/reboot.h not in GNO tree)
 # Skipped (network deps): rcp, ftp, rlogin, rsh, inetd, syslogd
-# Skipped (asm-only):     gsh, date, purge, getvers, help, setvers
-# Skipped (C+asm mixed):  binprint (doline.asm provides doline() - real ASM dep)
+# Skipped (asm-only):     date, purge, help, setvers
+# getvers: built from old-gno/usr.bin/getvers/ (pure asm — already written)
+# binprint: built with pure-C doline.c replacing doline.asm
 # Complex (deferred):     vi, less
 #
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GNO_OBJ   ?= $(abspath $(REPO_ROOT)/../gno-obj)
+GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno-obj)
 GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
 
 BIN_SRC     := $(REPO_ROOT)/bin
@@ -53,7 +54,7 @@ endef
 # objs = space-separated list of base names (no extension).
 # Usage: $(call ld1,objdir,outdir,progname,objs[,extra_libs])
 define ld1
-cd $(1) && iix --gno link -P -o $(2)/$(3) $(4) $(5)
+rm -f $(2)/$(3); cd $(1) && iix --gno link -P -o $(2)/$(3) $(4) $(5)
 endef
 
 # Library paths
@@ -86,8 +87,12 @@ endef
 
 # ── Default target ─────────────────────────────────────────────────────────────
 
-.PHONY: all bin usr_bin usr_orca_bin sbin usr_sbin usr_games
-all: bin usr_bin usr_orca_bin sbin usr_sbin usr_games
+.PHONY: all bin usr_bin usr_orca_bin sbin usr_sbin usr_games gsh
+all: bin usr_bin usr_orca_bin sbin usr_sbin usr_games gsh
+
+# gsh delegates to its own Makefile (22 ORCA/M assembly modules)
+gsh:
+	$(MAKE) -f $(REPO_ROOT)/goldengate/build/phase6_gsh.mk REPO_ROOT=$(REPO_ROOT) GNO_OBJ=$(GNO_OBJ)
 
 # ── bin/ ──────────────────────────────────────────────────────────────────────
 
@@ -106,13 +111,89 @@ BIN_MULTI_TAIL   := tail tail_extern tail_special tail_regular tail_stdin
 BIN_MULTI_TEST   := test test_operator
 
 .PHONY: bin $(BIN_SIMPLE:%=bin_%) \
-	bin_aroff bin_chtyp bin_cmp bin_df bin_ls bin_more bin_mkdir bin_passwd bin_ps bin_rm bin_rmdir bin_tail bin_test
+	bin_aroff bin_binprint bin_chmod bin_chtyp bin_cmp bin_compress bin_cp bin_date bin_df bin_echo bin_egrep bin_false bin_fgrep bin_freeze bin_grep bin_hostname bin_less bin_ls bin_more bin_mkdir bin_passwd bin_ps bin_purge bin_rm bin_rmdir bin_tail bin_test bin_tr bin_true bin_uncompress bin_vi
 
 bin: $(BIN_SIMPLE:%=bin_%) \
-	bin_aroff bin_chtyp bin_cmp bin_df bin_ls bin_more bin_mkdir bin_passwd bin_ps bin_rm bin_rmdir bin_tail bin_test
+	bin_aroff bin_binprint bin_chmod bin_chtyp bin_cmp bin_compress bin_cp bin_date bin_df bin_echo bin_egrep bin_false bin_fgrep bin_freeze bin_grep bin_hostname bin_less bin_ls bin_more bin_mkdir bin_passwd bin_ps bin_purge bin_rm bin_rmdir bin_tail bin_test bin_tr bin_true bin_uncompress bin_vi
 
 $(BIN_SIMPLE:%=bin_%):
 	$(call build_simple,$(BIN_SRC),$(BIN_OUT),$(@:bin_%=%))
+
+bin_binprint:
+	@echo "=== binprint ==="
+	@mkdir -p $(OBJ_BASE)/binprint $(BIN_OUT)
+	$(foreach s,binprint doline, \
+		cd $(BIN_SRC)/binprint && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/binprint/ && { mv $(s).root $(OBJ_BASE)/binprint/ 2>/dev/null || true; };)
+	cd $(OBJ_BASE)/binprint && iix --gno link -P -o $(BIN_OUT)/binprint binprint doline
+
+# cp: single-file GNO-native utility (from ksherlock-gno-sources)
+# Implements cp, rm, mv via argv[0] detection; only cp is needed here.
+bin_cp:
+	@echo "=== cp ==="
+	@mkdir -p $(OBJ_BASE)/cp $(BIN_OUT)
+	cd $(BIN_SRC)/cp && iix --gno compile -P cp.c && mv cp.a $(OBJ_BASE)/cp/ && { mv cp.root $(OBJ_BASE)/cp/ 2>/dev/null || true; }
+	cd $(OBJ_BASE)/cp && iix --gno link -P -o $(BIN_OUT)/cp cp
+
+# grep/egrep/fgrep/chmod: BSD ports using POSIX regex (grep=4.3BSD Reno, egrep/fgrep=4.3BSD Reno, chmod=4.4BSD-Lite2)
+bin_grep:
+	$(call build_simple,$(BIN_SRC),$(BIN_OUT),grep)
+
+bin_egrep:
+	$(call build_simple,$(BIN_SRC),$(BIN_OUT),egrep)
+
+bin_fgrep:
+	$(call build_simple,$(BIN_SRC),$(BIN_OUT),fgrep)
+
+bin_chmod:
+	@echo "=== chmod ==="
+	@mkdir -p $(OBJ_BASE)/chmod $(BIN_OUT)
+	$(foreach s,chmod setmode, \
+		cd $(BIN_SRC)/chmod && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/chmod/ && { mv $(s).root $(OBJ_BASE)/chmod/ 2>/dev/null || true; };)
+	cd $(OBJ_BASE)/chmod && iix --gno link -P -o $(BIN_OUT)/chmod chmod setmode
+
+# compress: LZW compress/decompress (single binary handles both; detect via argv[0])
+bin_compress:
+	@echo "=== compress ==="
+	@mkdir -p $(OBJ_BASE)/compress $(BIN_OUT)
+	$(call cc1,$(BIN_SRC)/compress,compress,$(OBJ_BASE)/compress)
+	$(call ld1,$(OBJ_BASE)/compress,$(BIN_OUT),compress,compress)
+
+# uncompress: tiny stub that execs compress -d
+bin_uncompress:
+	@echo "=== uncompress ==="
+	@mkdir -p $(OBJ_BASE)/uncompress $(BIN_OUT)
+	$(call cc1,$(BIN_SRC)/compress,uncompress,$(OBJ_BASE)/uncompress)
+	$(call ld1,$(OBJ_BASE)/uncompress,$(BIN_OUT),uncompress,uncompress)
+
+# freeze: LZH freeze/melt compressor (single binary; detect melt via argv[0])
+bin_freeze:
+	@echo "=== freeze ==="
+	@mkdir -p $(OBJ_BASE)/freeze $(BIN_OUT)
+	$(call cc1,$(BIN_SRC)/compress,freeze,$(OBJ_BASE)/freeze)
+	$(call ld1,$(OBJ_BASE)/freeze,$(BIN_OUT),freeze,freeze)
+
+# asm utilities: assemble in source dir, patch both .A and .ROOT, link with plain iix link
+
+SETFI := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
+FI_OBJ := 70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+bin_date:
+	@echo "=== date ==="
+	@mkdir -p $(OBJ_BASE)/date $(BIN_OUT)
+	cd $(BIN_SRC)/date && iix assemble +T date.asm
+	$(SETFI) $(BIN_SRC)/date/date.A    "$(FI_OBJ)"
+	$(SETFI) $(BIN_SRC)/date/date.ROOT "$(FI_OBJ)"
+	mv $(BIN_SRC)/date/date.A    $(OBJ_BASE)/date/date.a
+	mv $(BIN_SRC)/date/date.ROOT $(OBJ_BASE)/date/date.root.a
+	cd $(OBJ_BASE)/date && iix --gno link -P -o $(BIN_OUT)/date date.root.a date.a
+
+bin_purge:
+	@echo "=== purge ==="
+	@mkdir -p $(OBJ_BASE)/purge $(BIN_OUT)
+	cd $(BIN_SRC)/purge && iix assemble +T purge.asm
+	$(SETFI) $(BIN_SRC)/purge/purge.ROOT "$(FI_OBJ)"
+	mv $(BIN_SRC)/purge/purge.ROOT $(OBJ_BASE)/purge/purge.root.a
+	cd $(OBJ_BASE)/purge && iix --gno link -P -o $(BIN_OUT)/purge purge.root.a
 
 bin_passwd:
 	@echo "=== passwd ==="
@@ -205,6 +286,47 @@ bin_mkdir:
 	$(call cc1,$(BIN_SRC)/mkdir,mkdir,$(OBJ_BASE)/mkdir)
 	$(call ld1,$(OBJ_BASE)/mkdir,$(BIN_OUT),mkdir,mkdir)
 
+# less: pager; 29 C files adapted for GNO from old-gno/bin/less/
+# gsos.c is excluded (GNO libc provides getenv); lesskey.c is a separate tool
+LESS_OBJS := brac ch charset cmdbuf command decode edit filename forwback \
+             help ifile input jump line linenum lsystem main mark optfunc \
+             option opttbl os output position prompt screen search signal \
+             tags ttyin version
+
+bin_less:
+	@echo "=== less ==="
+	@mkdir -p $(OBJ_BASE)/less $(BIN_OUT)
+	$(foreach s,$(LESS_OBJS), \
+		cd $(BIN_SRC)/less && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/less/ && { mv $(s).root $(OBJ_BASE)/less/ 2>/dev/null || true; };)
+	rm -f $(BIN_OUT)/less
+	cd $(OBJ_BASE)/less && iix --gno link -P -o $(BIN_OUT)/less $(LESS_OBJS) $(LIBTERMCAP)
+
+# vi: Stevie vi editor, GNO port (Jawaid Bayzar)
+# Source files with dots in the name (format.l.c, s.io.c) need explicit handling
+VI_PLAIN := alloc charset cmdline dec edit fileio gsos help inc linefunc \
+            main mark misccmds mk normal param regexp regsub screen search version
+VI_LINK_ORDER := main.a edit.a linefunc.a cmdline.a charset.a mk.a format.l.a \
+                 normal.a regexp.a regsub.a version.a misccmds.a help.a dec.a \
+                 inc.a search.a alloc.a s.io.a mark.a screen.a fileio.a param.a gsos.a
+
+bin_vi:
+	@echo "=== vi ==="
+	@mkdir -p $(OBJ_BASE)/vi $(BIN_OUT)
+	$(foreach s,$(VI_PLAIN), \
+		cd $(BIN_SRC)/vi && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/vi/ && { mv $(s).root $(OBJ_BASE)/vi/ 2>/dev/null || true; };)
+	cd $(BIN_SRC)/vi && iix --gno compile -P "format.l.c" && mv "format.l.a" $(OBJ_BASE)/vi/ && { mv "format.l.root" $(OBJ_BASE)/vi/ 2>/dev/null || true; }
+	cd $(BIN_SRC)/vi && iix --gno compile -P "s.io.c" && mv "s.io.a" $(OBJ_BASE)/vi/ && { mv "s.io.root" $(OBJ_BASE)/vi/ 2>/dev/null || true; }
+	rm -f $(BIN_OUT)/vi
+	cd $(OBJ_BASE)/vi && iix --gno link -P -o $(BIN_OUT)/vi $(VI_LINK_ORDER) $(LIBTERMCAP)
+
+# echo: BSD echo with -n and -e; written from scratch for GNO
+bin_echo:
+	$(call build_simple,$(BIN_SRC),$(BIN_OUT),echo)
+
+# hostname: gethostname/sethostname wrapper; written from scratch for GNO
+bin_hostname:
+	$(call build_simple,$(BIN_SRC),$(BIN_OUT),hostname)
+
 # ps: kernel-dependent at runtime; compiles cleanly for the disk image
 bin_ps:
 	@echo "=== ps ==="
@@ -212,30 +334,71 @@ bin_ps:
 	$(call cc1,$(BIN_SRC)/ps,ps,$(OBJ_BASE)/ps)
 	$(call ld1,$(OBJ_BASE)/ps,$(BIN_OUT),ps,ps)
 
+# false/true/tr: source lives in usr.bin/ but reference disk puts these in /bin/
+bin_false:
+	$(call build_simple,$(USRBIN_SRC),$(BIN_OUT),false)
+
+bin_true:
+	$(call build_simple,$(USRBIN_SRC),$(BIN_OUT),true)
+
+bin_tr:
+	@echo "=== tr ==="
+	@mkdir -p $(OBJ_BASE)/tr $(BIN_OUT)
+	$(foreach s,$(shell ls $(USRBIN_SRC)/tr/*.c | xargs -n1 basename | sed 's/\.c//'), \
+		cd $(USRBIN_SRC)/tr && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/tr/ && { mv $(s).root $(OBJ_BASE)/tr/ 2>/dev/null || true; };)
+	@allobjs=$$(ls $(OBJ_BASE)/tr/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
+	 cd $(OBJ_BASE)/tr && iix --gno link -P -o $(BIN_OUT)/tr $$allobjs
+
 # ── usr.bin/ ──────────────────────────────────────────────────────────────────
 
 USRBIN_SIMPLE := \
 	alarm asa basename cal calendar catrez colcrt compile \
-	cut dirname env false file2c fold last launch \
-	link logger lseg printenv true \
-	tsort who write
+	cut dirname env file2c fold last launch \
+	link logger lseg printenv \
+	setvers tsort unshar who write
 
 .PHONY: usr_bin $(USRBIN_SIMPLE:%=usrbin_%) \
-	usrbin_cksum usrbin_ctags usrbin_fmt usrbin_install usrbin_printf usrbin_sed \
-	usrbin_sort usrbin_tr usrbin_tput usrbin_removerez \
+	usrbin_asml usrbin_assemble usrbin_cmpl \
+	usrbin_cksum usrbin_ctags usrbin_fmt usrbin_getvers usrbin_install usrbin_printf usrbin_sed \
+	usrbin_sort usrbin_sum usrbin_tput usrbin_removerez \
 	usrbin_wall usrbin_whereis usrbin_whois \
 	usrbin_awk usrbin_cpp usrbin_nroff usrbin_man_suite \
 	usrbin_describe usrbin_udl
 
 usr_bin: $(USRBIN_SIMPLE:%=usrbin_%) \
-	usrbin_cksum usrbin_ctags usrbin_fmt usrbin_install usrbin_printf usrbin_sed \
-	usrbin_sort usrbin_tr usrbin_tput usrbin_removerez \
+	usrbin_asml usrbin_assemble usrbin_cmpl \
+	usrbin_cksum usrbin_ctags usrbin_fmt usrbin_getvers usrbin_install usrbin_printf usrbin_sed \
+	usrbin_sort usrbin_sum usrbin_tput usrbin_removerez \
 	usrbin_wall usrbin_whereis usrbin_whois \
 	usrbin_awk usrbin_cpp usrbin_nroff usrbin_man_suite \
 	usrbin_describe usrbin_udl
 
 $(USRBIN_SIMPLE:%=usrbin_%):
 	$(call build_simple,$(USRBIN_SRC),$(USRBIN_OUT),$(@:usrbin_%=%))
+
+# asml/assemble/cmpl: same binary as compile (same source, ORCA tool front-ends)
+# The man page says they are installed by copying the compile binary.
+usrbin_asml usrbin_assemble usrbin_cmpl: usrbin_compile
+	@mkdir -p $(USRBIN_OUT)
+	cp $(USRBIN_OUT)/compile $(USRBIN_OUT)/asml
+	cp $(USRBIN_OUT)/compile $(USRBIN_OUT)/assemble
+	cp $(USRBIN_OUT)/compile $(USRBIN_OUT)/cmpl
+
+# getvers: pure 65816 assembly; reads resource forks to display version strings
+# Source from old-gno/usr.bin/getvers/ — getvers.mac must be in CWD for MCOPY
+usrbin_getvers:
+	@echo "=== getvers ==="
+	@mkdir -p $(OBJ_BASE)/getvers $(USRBIN_OUT)
+	cd $(USRBIN_SRC)/getvers && iix assemble +T getvers.asm
+	python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py \
+		$(USRBIN_SRC)/getvers/getvers.A \
+		"70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+	python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py \
+		$(USRBIN_SRC)/getvers/getvers.ROOT \
+		"70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+	mv $(USRBIN_SRC)/getvers/getvers.A $(OBJ_BASE)/getvers/getvers.a
+	mv $(USRBIN_SRC)/getvers/getvers.ROOT $(OBJ_BASE)/getvers/getvers.root.a
+	cd $(OBJ_BASE)/getvers && iix link -P -o $(USRBIN_OUT)/getvers getvers.root.a getvers.a
 
 # printf uses floating-point format specifiers → needs SysFloat for ~DOUBLEPRECISION
 usrbin_printf:
@@ -278,10 +441,15 @@ usrbin_whereis:
 usrbin_cksum:
 	@echo "=== cksum ==="
 	@mkdir -p $(OBJ_BASE)/cksum $(USRBIN_OUT)
-	$(foreach s,$(shell ls $(USRBIN_SRC)/cksum/*.c | xargs -n1 basename | sed 's/\.c//'), \
+	$(foreach s,cksum crc crc32 print sum1 sum2, \
 		cd $(USRBIN_SRC)/cksum && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/cksum/ && { mv $(s).root $(OBJ_BASE)/cksum/ 2>/dev/null || true; };)
-	@allobjs=$$(ls $(OBJ_BASE)/cksum/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/cksum && iix --gno link -P -o $(USRBIN_OUT)/cksum $$allobjs
+	cd $(OBJ_BASE)/cksum && iix --gno link -P -o $(USRBIN_OUT)/cksum cksum crc crc32 print sum1 sum2
+
+# sum: same objects as cksum; runtime detects argv[0] to select algorithm
+usrbin_sum: usrbin_cksum
+	@echo "=== sum ==="
+	@mkdir -p $(USRBIN_OUT)
+	cd $(OBJ_BASE)/cksum && iix --gno link -P -o $(USRBIN_OUT)/sum cksum crc crc32 print sum1 sum2
 
 usrbin_ctags:
 	@echo "=== ctags ==="
@@ -314,14 +482,6 @@ usrbin_sort:
 		cd $(USRBIN_SRC)/sort && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/sort/ && { mv $(s).root $(OBJ_BASE)/sort/ 2>/dev/null || true; };)
 	cd $(OBJ_BASE)/sort && iix --gno link -P -o $(USRBIN_OUT)/msort msort linecount loadarray sortarray
 	cd $(OBJ_BASE)/sort && iix --gno link -P -o $(USRBIN_OUT)/dsort dsort disksort initdisksort mergeone tempnam sortarray
-
-usrbin_tr:
-	@echo "=== tr ==="
-	@mkdir -p $(OBJ_BASE)/tr $(USRBIN_OUT)
-	$(foreach s,$(shell ls $(USRBIN_SRC)/tr/*.c | xargs -n1 basename | sed 's/\.c//'), \
-		cd $(USRBIN_SRC)/tr && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/tr/ && { mv $(s).root $(OBJ_BASE)/tr/ 2>/dev/null || true; };)
-	@allobjs=$$(ls $(OBJ_BASE)/tr/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/tr && iix --gno link -P -o $(USRBIN_OUT)/tr $$allobjs
 
 usrbin_wall:
 	@echo "=== wall ==="
@@ -401,18 +561,25 @@ usr_orca_bin:
 SBIN_SIMPLE := mkso renram5
 
 # Skipped (missing BSD headers: sys/sysctl.h, sys/reboot.h, sys/resource.h):
-#   init (sbin/init), reboot (sbin/reboot), shutdown (sbin/shutdown)
-# These are not in the GNO include tree; reference disk fallback covers them.
+#   reboot (sbin/reboot), shutdown (sbin/shutdown)
+# initd: reconstructed from disassembly of the reference binary (sbin/init/initd.c)
 
-.PHONY: sbin $(SBIN_SIMPLE:%=sbin_%)
-sbin: $(SBIN_SIMPLE:%=sbin_%)
+.PHONY: sbin $(SBIN_SIMPLE:%=sbin_%) sbin_initd
+sbin: $(SBIN_SIMPLE:%=sbin_%) sbin_initd
+
+sbin_initd:
+	@echo "=== initd ==="
+	@mkdir -p $(OBJ_BASE)/initd $(SBIN_OUT) $(USRSBIN_OUT)
+	cd $(SBIN_SRC)/init && iix --gno compile -P initd.c && mv initd.a $(OBJ_BASE)/initd/ && { mv initd.root $(OBJ_BASE)/initd/ 2>/dev/null || true; }
+	cd $(OBJ_BASE)/initd && iix --gno link -P -o $(USRSBIN_OUT)/initd initd.a
+	cp $(USRSBIN_OUT)/initd $(SBIN_OUT)/initd
 
 $(SBIN_SIMPLE:%=sbin_%):
 	$(call build_simple,$(SBIN_SRC),$(SBIN_OUT),$(@:sbin_%=%))
 
 # ── usr.sbin/ ─────────────────────────────────────────────────────────────────
 
-USRSBIN_SIMPLE := cron
+USRSBIN_SIMPLE := cron mktmp runover
 
 .PHONY: usr_sbin $(USRSBIN_SIMPLE:%=usrsbin_%) usrsbin_newuser usrsbin_getty \
 	usrsbin_login usrsbin_nogetty
@@ -469,12 +636,15 @@ aroff: bin_aroff
 chtyp: bin_chtyp
 cmp: bin_cmp
 df: bin_df
+false: bin_false
 ls: bin_ls
 more: bin_more
 rm: bin_rm
 rmdir: bin_rmdir
 tail: bin_tail
 test: bin_test
+tr: bin_tr
+true: bin_true
 
 $(USRBIN_SIMPLE): %: usrbin_%
 cksum: usrbin_cksum
@@ -482,9 +652,13 @@ ctags: usrbin_ctags
 fmt: usrbin_fmt
 sed: usrbin_sed
 sort: usrbin_sort
-tr: usrbin_tr
+sum: usrbin_sum
 wall: usrbin_wall
 
+asml: usrbin_asml
+assemble: usrbin_assemble
+cmpl: usrbin_cmpl
+setvers: usrbin_setvers
 describe: usrbin_describe
 udl: usrbin_udl
 mkso renram5: %: sbin_%
@@ -498,6 +672,10 @@ cpp: usrbin_cpp
 nroff: usrbin_nroff
 man apropos whatis catman makewhatis: usrbin_man_suite
 mkdir: bin_mkdir
+echo: bin_echo
+hostname: bin_hostname
+mktmp: usrsbin_mktmp
+runover: usrsbin_runover
 ps: bin_ps
 
 # ── Validate vs reference ─────────────────────────────────────────────────────

@@ -66,7 +66,7 @@ bash goldengate/setup.sh    # verifies iix, GG_ROOT, python3; creates output dir
 
 #### iix compile (ORCA/C 2.2.2)
 
-The installed compiler is now **ORCA/C 2.2.2**, built from source at `/Users/smentzer/source/iigs-official-repos/byteworksinc-orca-c/` and installed to `~/Library/GoldenGate/Languages/cc`. A 2.2.1 backup is at `cc.bak`.
+Installed from source at `/Users/smentzer/source/iigs-official-repos/byteworksinc-orca-c/` to `~/Library/GoldenGate/Languages/cc`. A 2.2.1 backup is at `cc.bak`.
 
 ```bash
 iix compile foo.c            # standard ORCA SDK (no __GNO__)
@@ -101,9 +101,14 @@ iix --gno compile foo.c      # GNO SDK (__GNO__ defined via defaults.h)
 **CRITICAL — GNO SDK:** Must use `iix --gno compile` for all GNO code. Without `--gno`, `__GNO__` is not defined and GNO-specific code paths (guarded by `#ifdef __GNO__`) are excluded. This causes missing types (`GSStringPtr`, `ResultBufPtr`) and missing errno values.
 
 **Known compiler bugs:**
-- None currently. All previously known bugs are fixed in 2.2.2:
-  - `vfprintf.c` SPLIT_FILE_2 "too many local labels" (error 58, `maxLabel=3275` limit) — **fixed in 2.2.2**. `vfprintf2.c` now compiles directly without any clang preprocessing workaround.
-  - The four back-end bugs fixed during 2.2.1 build (GenCall table, cgQuad, cnv variant record, cgString isByteSeq) remain fixed.
+- **OPEN — inline asm `sep`/`rep` + absolute-long LDA**: After `sep #0x30` (or `sep #0x20`) in an `asm {}` block, ORCA/C 2.2.2 inserts an extra `$00` byte before any `$AF` opcode (LDA absolute long). Result: the code emits `00 AF addr` (BRK #$AF) instead of `AF addr` (LDA $addr), crashing on hardware.
+  - **Affected files in this repo**: `kern/gno/main.c:334` and `kern/gno/sys.c:615` — both contain the exact same pattern:
+    ```c
+    asm { lda 0xE0C035; sta state; sep #0x30; lda 0xE0C02D; sta slot; ... rep #0x30; }
+    ```
+  - **Root cause**: ORCA/C's inline asm emitter tracks M/X mode from raw `sep`/`rep` instructions and incorrectly emits a prefix byte for absolute-long loads when M=1. The 4-byte encoding `AF addr` is always correct regardless of M — no prefix needed.
+  - **Fix location**: ORCA/C source at `/Users/smentzer/source/iigs-official-repos/byteworksinc-orca-c/` — find the inline-asm code generator path that fires when emitting `LDA` with a 24-bit operand while M=1.
+  - **Do NOT work around in kernel source** — fix the compiler and rebuild.
 
 #### iix assemble (ORCA/M Asm65816 2.1.0)
 
@@ -212,52 +217,65 @@ Generates `.mac` files containing only macros used by the source. Pre-generated 
 
 ORCA macro libraries: `~/Library/GoldenGate/Libraries/ORCAInclude/m16.Tools`, `m16.ORCA`, etc.
 
-### Disk Image / Archive Tools
+### cowdiff — Canonical Disk Image Comparison Tool
 
-**Tool selection by format:**
+**`goldengate/tools/cowdiff.py`** is the definitive tool for comparing GNO disk image content. Use it any time you need to understand how a built image differs from the reference, or to extract and inspect any ProDOS disk image.
+
+**Inputs** (for both `reference` and `source`): `.po`/`.2mg`/`.hdv` disk image, an extracted directory, or a `metadata.json` file directly. Disk images are extracted automatically and cached in `~/.cache/cowdiff/<sha256>/` — re-running on the same image is instant.
+
+**Comparison categories:**
+- `IDENTICAL` — same path, type, auxtype, data SHA-256, rsrc SHA-256
+- `CONTENT DIFFERS` — same path+type, different binary content (shows size delta)
+- `TYPE/AUXTYPE DIFFERS` — same path, different ProDOS type or auxtype
+- `RESOURCE FORK CHANGED` — data identical, rsrc added/removed/changed
+- `PATH MISMATCH` — same filename + identical SHA-256, found at wrong path (basename + SHA-256 must both match)
+- `MISSING` — in reference, not in source
+- `EXTRA` — in source, not in reference
+- `EXEMPT` — known GoldenGate SDK entries (`/lib/ORCALib`, `/lib/SysFloat`)
+
+**Key flags:** `--types B5,B3,B2,BB` (binary types only), `-q` (summary), `--missing`, `--different`, `--json`, `--no-omf` (suppress OMF segment diff), `extract <image> [--out dir]`, `cache --list/--clear`
+
+**cadius** (`~/source/cadius/cadius`) is the underlying extraction engine. Build from source if missing:
+```bash
+git clone https://github.com/mach-kernel/cadius.git ~/source/cadius && cd ~/source/cadius && make
+```
+
+### Disk Image / Archive Tools
 
 | Format | Tool | Command | Notes |
 |--------|------|---------|-------|
-| `.2mg`, `.po`, `.hdv` (ProDOS) | **cadius** | `cadius EXTRACTVOLUME image.2mg /output/` | **Preferred** for ProDOS. Handles extended/forked files (type $05). Install: `brew install cadius` |
+| `.2mg`, `.po`, `.hdv` (ProDOS) | **cowdiff** / **cadius** | `cowdiff extract image.po` or `cadius EXTRACTVOLUME image.po /out/` | cowdiff wraps cadius with caching + metadata |
 | `.iso` (hybrid Apple/ISO 9660) | **7z** | `7z x image.iso -o/output/` | Only tool that works on macOS 26.x for hybrid Apple/ISO 9660 images |
 | `.shk` (ShrinkIt) | **nulib2** | `nulib2 -xe archive.shk` | Extracts in CWD; `cd` to destination first |
 | `.zip` | **unzip** | `unzip archive.zip -d /output/` | Standard |
 
-| Tool | Location | Notes |
-|------|----------|-------|
-| cadius | `brew install cadius` | **Not yet installed** — install when needed |
-| 7z (p7zip) | `/opt/homebrew/bin/7z` | brew-installed |
-| nulib2 | `/Users/smentzer/source/nulib2/nulib2/nulib2` | Built from source |
-| AppleCommander | `~/Library/Mobile Documents/com~apple~CloudDocs/NotesAndStuff/IIgs/Apple Commander/AppleCommander-macosx-1.4.0.jar` | Java required; **listing only** — use `-ls` or `-l` to view directories |
-| Java (for AppleCommander) | `/opt/homebrew/opt/openjdk/bin/java` | brew-installed; not in default PATH |
+| Tool | Location |
+|------|----------|
+| **cowdiff** | `goldengate/tools/cowdiff.py` |
+| cadius | `~/source/cadius/cadius` |
+| 7z (p7zip) | `/opt/homebrew/bin/7z` |
+| nulib2 | `/Users/smentzer/source/nulib2/nulib2/nulib2` |
 
-**IMPORTANT — AppleCommander limitations:**
-- AppleCommander 1.4.0 can **list** ProDOS images but **fails to extract** binary files with extended/forked storage (type $05) — throws "Unknown ProDOS storage type!" and only extracts text files.
-- Cannot read ISO 9660 images at all (throws DiskUnrecognizedException).
-- Use only for quick directory listings. Use **cadius** for actual extraction.
+**IMPORTANT — AppleCommander:** listing only; fails on extended/forked files (type $05); cannot read ISO 9660.
+**IMPORTANT — ISO 9660 hybrid images:** `hdiutil attach` and `bsdtar` both fail on macOS 26.x. Use `7z x` (each file appears twice — data+rsrc fork).
 
-**IMPORTANT — ISO 9660 hybrid images:**
-- The Opus ][ CD ISOs are hybrid Apple partition map images with both ISO 9660 and classic HFS partitions.
-- `hdiutil attach` fails with "no mountable file systems" — macOS 26.x dropped classic HFS (non-Plus) mount support.
-- `bsdtar` fails with "Invalid location of extent of file".
-- **Use `7z x`** — but note each file appears twice (data fork + resource fork). Resource fork overwrites data fork on extraction. Fine for source/text; may be lossy for binaries. Prefer existing extractions when available.
+**Canonical reference disk image:** `/Volumes/Storage/IIgs/DocTemple/gno/2.0.6/dist/gno_206/gno.po` (ProDOS .po, 32MB)
+**Reference cache** (auto-populated by cowdiff on first use): `~/.cache/cowdiff/<sha256>/metadata.json`
 
-**Reference disk images:** `diskImages/gno_206/gno.po` (ProDOS, 32MB, 804 entries)
-**Extracted files:** `diskImages/extracted/` — all files from gno.po with `metadata.json`
-**Key reference sizes:**
+**Key reference sizes (from metadata.json):**
 | File | Bytes | Phase |
 |------|-------|-------|
-| `extracted/lib/libc` | 482,317 | Phase 3 |
-| `extracted/lib/orcalib` | 27,910 | Phase 2 |
-| `extracted/lib/sysfloat` | 28,175 | Phase 3 prereq |
-| `extracted/kern` | 140,754 | Phase 7 |
-| `extracted/usr/lib/libtermcap` | 40,386 | Phase 5 |
-| `extracted/usr/lib/libcurses` | 80,535 | Phase 5 |
-| `extracted/usr/lib/libnetdb` | 80,506 | Phase 5 |
-| `extracted/usr/lib/libcrypt` | 7,180 | Phase 5 |
-| `extracted/usr/lib/libutil` | 2,146 | Phase 5 |
-| `extracted/usr/lib/liby` | 660 | Phase 5 |
-| `extracted/usr/lib/libcontrib` | 19,889 | Phase 5 |
+| `/lib/libc` | 482,317 | Phase 3 |
+| `/lib/ORCALib` | 27,910 | Phase 2 (exempt) |
+| `/lib/SysFloat` | 28,175 | Phase 3 prereq (exempt) |
+| `/kern` | 140,754 | Phase 7 |
+| `/usr/lib/libtermcap` | 40,386 | Phase 5 |
+| `/usr/lib/libcurses` | 80,535 | Phase 5 |
+| `/usr/lib/libnetdb` | 80,506 | Phase 5 |
+| `/usr/lib/libcrypt` | 7,180 | Phase 5 |
+| `/usr/lib/libutil` | 2,146 | Phase 5 |
+| `/usr/lib/liby` | 660 | Phase 5 |
+| `/usr/lib/libcontrib` | 19,889 | Phase 5 |
 
 ### GNO Namespace Paths — DO NOT WORK in iix
 
@@ -297,204 +315,160 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 
 ### What is NOT Available
 - **dmake** — GNO's native build driver; replaced by GNU make
-- **catrez** — resource fork tool; source in `usr.orca.bin/catrez/`; must be bootstrapped
+- **catrez** — resource fork tool; replaced by `goldengate/tools/cowrez.py`
 - **gsh** — GNO shell; fails with version error in GoldenGate
 - **GNO namespace** — `/src`, `/obj`, `/lang/orca` paths don't resolve in iix (see above)
+
+### Common Source Patterns (when porting new source)
+
+- **GNO namespace paths**: change `mcopy :obj:gno:...` → `mcopy file.mac`; symlink ORCA equate files from `Libraries/AINClude/`
+- **`#pragma lint -1`**: ENABLES all lint (= 0xFFFF) — opposite of expectation; remove these pragmas
+- **`-D MACRO` not supported**: add `#define` in a shared header included by all .c files
+- **Code bank overflow** ("Code exceeds code bank size"): add `#pragma memorymodel 1` to a shared header; generates JSL instead of JSR, allowing code to span multiple 64KB banks
+- **16-bit int overflow in shifts**: `int << N` where N≥16 is UB; cast: `(unsigned long)val << N`
+- **`static char sccsid[]`**: triggers lint "unused variable"; use `static const char sccsid[]`
+- **Library links**: `passwd`→libcrypt; `rmdir/removerez/whereis/newuser/install`→libcontrib; `tput/more`→libtermcap; `whois`→libnetdb; `printf`→SysFloat; `getty`→libutil
 
 ---
 
 ## Current Status
 
-### Completed
+### Completed Phases
 
-#### ORCA/C 2.2.2 ✓
-- Source: `/Users/smentzer/source/iigs-official-repos/byteworksinc-orca-c/`
-- Build: `GNUmakefile` using iix toolchain (Pascal + ORCA/M assembly modules)
-- Installed to: `~/Library/GoldenGate/Languages/cc` (2.2.1 backup at `cc.bak`)
-- **Test suite: 42/42 compile tests + 6/6 runtime tests + 12/12 ORCA/M tests — all pass**
-- Bugs fixed across 2.2.1 and 2.2.2 builds:
-  - Missing `GenCall` entries 78–98 (`~MUL8`, `~SHL8`, `~CDIV8`, etc. for `long long` ops)
-  - Missing `cgQuad`/`cgUQuad` constant handler (global `long long` initializers crashed)
-  - `cnv` variant record incomplete — added `qval`, `eval`, and `ival5` fields
-  - `cgString` missing `isByteSeq` branch — `char[] = "..."` emitted garbage bytes
-  - DAG2.pas: ~25 opcodes missing from case statement (`pc_rev`, `pc_fix`, quad ops, etc.)
-  - `maxLabel` limit (3275) causing "too many local labels" error 58 on `vfprintf.c` SPLIT_FILE_2
+| Phase | Status | Output |
+|-------|--------|--------|
+| ORCA/C 2.2.2 | ✓ built + installed | `~/Library/GoldenGate/Languages/cc` |
+| Phase 2 — ORCALib | ✓ | `~/Library/GoldenGate/lib/ORCALib` |
+| Phase 3 — libc | ✓ 99.6% symbol coverage (444/446) | `gno-obj/lib/libc` |
+| ORCA/M from source | ✓ | `goldengate/orca-m/Makefile` → Asm65816 2.1.0 |
+| Phase 5 — Support Libraries | ✓ 9 libs (incl. libsim) | `gno-obj/usr/lib/lib*` |
+| Phase 6 — Utilities | ✓ 147 built (incl. gsh, less, vi, grep, compress) | `gno-obj/bin/`, `gno-obj/usr/bin/` |
+| Phase 7 — Kernel | ✓ | `gno-obj/kern` (150,673B; ref 140,754 — ~7% larger, ksherlock additions) |
+| cowrez | ✓ | `goldengate/tools/cowrez.py` |
+| Phase 8a — Resource forks | ✓ | attached via `phase8_rez.mk` |
+| Phase 8b — ProDOS types | ✓ | set by iix linker automatically |
+| Phase 8c — Disk image | ✓ | `diskImages/gno-built.2mg` (32MB, 714 files) |
 
-#### Phase 2 — ORCALib ✓
-- Source: `/Users/smentzer/source/iigs-official-repos/byteworksinc-orcalib/` (`unified` branch)
-- Build: `make -f goldengate/Makefile TARGET=gno install` (in orcalib repo)
-- Installed to: `~/Library/GoldenGate/lib/ORCALib` (39,468 bytes, 166 segments)
-- Also installs `assert.A` → `~/Library/GoldenGate/lib/assert.A` (used by libc build)
-- GNO override: `gno/locale.asm` — C-standard `struct lconv` field order matching GNO `locale.h`
-- `lib/ORCALib/` removed from this repo — canonical source is `byteworksinc-orcalib` unified branch
+**Test suites:** ORCA/C 42/42 + 6/6 runtime + 12/12 ORCA/M — all pass.
 
-#### Phase 3 — libc ✓
-- **9 subdirectories built:** gen, gno, locale, regex, stdio, stdlib, stdtime, string, sys
-- **140 object modules** (6 asm + 134 C) → `gno-obj/lib/libc` (396,596 bytes)
-- **99.6% symbol coverage** vs reference 2.0.6 (444/446 symbols match)
-- 2 missing symbols (`_fnmatch_map`, `_getUserID`) — no source exists in GNO tree
+**Phase 3 libc notes:**
+- 2 missing symbols (`_fnmatch_map`, `_getUserID`) — no source in GNO tree
 - 36 extra symbols — ksherlock fork additions (strlcpy, strlcat, pread, pwrite, etc.)
-- Makefiles: `goldengate/build/libc.mk` (top-level) + `libc_{gen,gno,locale,regex,stdio,stdlib,stdtime,string,sys}.mk`
 
-**Source fixes applied during libc build:**
-- `lib/libc/gno/stack.asm`: changed `mcopy :obj:gno:lib:libc:gno:stack.mac` → `mcopy stack.mac`
-- `lib/libc/stdlib/fpspecnum.asm`: changed `copy :lang:orca:...:e16.sane` → `copy E16.SANE` (symlinked)
-- `lib/libc/sys/syscall.c`: fixed 6 missing semicolons in `pread`/`pwrite`
-- `lib/libc/regex/regcomp.c`: added `#define POSIX_MISTAKE`
-- `lib/libc/regex/regex2.h`: cast shift operands to `(sop)` — `int<<27` overflows 16-bit
-- `lib/libc/stdio/vfprintf1.c` + `vfprintf2.c`: wrapper files for SPLIT_FILE defines (compile cleanly with ORCA/C 2.2.2 — clang workaround no longer needed)
+**Phase 5 build notes:**
+- lsaneglue: `.mac` files pre-generated by `iix macgen`; committed in `lib/lsaneglue/`
+- libutil: only login.c, logintty.c, logwtmp.c compiled (not hexdump, pty, setproc, logout)
+- libcurses: scanw.c excluded; all 40 .c files require `#define _CURSES_PRIVATE` prepended
+- netdb: iso_addr.c, linkaddr.c, ns_addr.c, ns_ntoa.c, send.c, recv.c excluded
+- libsim: Serial Interrupt Manager library; source from old-gno/sys/sim/simlib.asm; built via `goldengate/build/libsim.mk`; `lib/libsim/` in this repo
 
-#### Test Suites ✓
-- **ORCA/C C99/C11** (against 2.2.2): 27 positive + 4 negative + 11 library compile tests = **42/42 pass**
-- **ORCA/C stdlib runtime**: 6 run tests — **6/6 pass**
-- **Stack/ABI**: 6 tests — all pass
-- **ORCA/M macros**: 11 positive + 1 negative — all 12 pass
-- Run: `make -f goldengate/orcac-tests/Makefile all-stdlib` and `make -f goldengate/orca-m-tests/Makefile`
+**Phase 6 utilities notes:**
+- `false`, `true`, `tr` output to `gno-obj/bin/` (source in `usr.bin/`) — explicit targets in phase6.mk
+- `awk`: 9 C files, pre-generated ytab.c/proctab.c — no yacc needed
+- `cpp`: 10 C files; `#pragma memorymodel 1` in `cpp.h` fixes code bank overflow
+- `nroff`: 9 C files; `isalpha(*optarg)` fix + `#pragma memorymodel 1` in `nroff.h`
+- `initd`: reconstructed from 65816 disassembly; GNO-native (`union wait`, `fork(NULL)`)
+- `date`, `purge`: ORCA/M assembly; `date` uses e16.ioctl equates
+- `gsh`: 22 ORCA/M .asm files; linked 74,340B. Three ORCA/M bugs fixed: `incad @xa` forward-branch failure (split into `incaxa`), `subroutine` loop off-by-one for >9 params, data segment label name mismatches. Built via `goldengate/build/phase6_gsh.mk`.
+- `grep`/`egrep`/`fgrep`: BSD port; single grep.c handles all three via symlinks
+- `compress`/`uncompress`/`freeze`: BSD compress.c + freeze.c; each gets its own rez file
+- `chmod`, `cp`, `echo`, `hostname`: simple C utilities written from scratch or ported
+- `mktmp`: written from scratch (~20 lines; creates unique tmp file via mktemp())
+- `runover`: written from scratch; runs a program over a tty (opens /dev/tty, redirects I/O)
+- `unshar`, `setvers`: ported from GNO sources
+- `vi`: Stevie vi editor, ported from old-gno — `#pragma memorymodel 1` in stevie.h; inline asm in fileio.c replaced with C; sys/ioctl.compat.h + sys/ttycom.h for sgttyb/TIOCSTI
+- `less`: ported from old-gno
+- Skipped — missing BSD headers: `init`, `reboot`, `shutdown`; network deps: `rcp`, `ftp`, `rlogin`, `rsh`, `inetd`, `syslogd`; no source in repo: `diff`, `dmake`
+- `libsim`: Serial Interrupt Manager library — source from old-gno/sys/sim/simlib.asm; built via `goldengate/build/libsim.mk`
 
-#### ORCA/M Build from Source ✓
-- `goldengate/orca-m/Makefile` — builds Asm65816 2.1.0 (54,297 bytes)
+**Phase 7 kernel notes:**
+- All 14 kern/gno C modules compiled with `#define KERNEL` before first include
+- `include/stdio.h` has `#ifdef KERNEL` guard — kernel uses ORCALib `stdout`, not GNO libc array
 
-#### Phase 5 — Support Libraries ✓
-- **8 libraries built:** lsaneglue, libcrypt, libutil, libtermcap, libcurses, liby, libnetdb, libcontrib
-- Makefiles: `goldengate/build/phase5.mk` (top-level) + individual `goldengate/build/<lib>.mk`
-- Output: `gno-obj/lib/lsaneglue`, `gno-obj/usr/lib/lib{crypt,util,termcap,curses,y,netdb,contrib}`
+**Phase 8c image notes:**
+- **STRICT SOURCE POLICY**: binary files ($B5, $B3, $B2, $BB) must come from `gno-obj/` — no reference fallback for executables/libraries; `--warn-missing` escape hatch during Phase 9 porting
+- Exemptions: `lib/sysfloat` (GoldenGate SDK) and `lib/orcalib` (byteworksinc-orcalib) via `GG_LOOKUP` map
+- verbatim/ files staged with LF→CR conversion for ProDOS text compatibility
 
-**Source fixes applied during Phase 5 build:**
-- `lib/lsaneglue/saneglue.asm`: changed `copy :lang:orca:...:e16.sane` → `copy E16.SANE` (symlinked)
-- `lib/libcurses/*.c` (all 40 files): prepended `#define _CURSES_PRIVATE` — ORCA/C CLI doesn't support `-D`
-- `lib/netdb/rcmd.c` + `res_send.c`: clang -E preprocessing workaround applied during Phase 5 build (the vfprintf label-count bug is fixed in 2.2.2, but these files may still benefit from preprocessing due to `struct iovec` forward-ref issue — verify when rebuilding Phase 5)
-- `lib/netdb/res_send.c`: uses `struct iovec` from `sys/uio.h` after forward ref in `sys/socket.h` — preprocessing resolves
-- `lib/libcontrib/Makefile` SRCS: errnoGS.c excluded (not in reference build; only copyfile, expandpath, strarray, xalloc)
-
-**Build notes:**
-- lsaneglue: requires `.mac` files generated by `iix macgen` before assembly; generated files committed in `lib/lsaneglue/`
-- libutil: only login.c, logintty.c, logwtmp.c compiled (not hexdump, pty, setproc, logout — not in reference)
-- libcurses: scanw.c excluded (noted as having trouble in original Makefile — `_SRCS`)
-- netdb: iso_addr.c, linkaddr.c, ns_addr.c, ns_ntoa.c, send.c, recv.c excluded (not in original Makefile SRCS)
-
-#### Phase 6 — Utilities ✓
-- Makefile: `goldengate/build/phase6.mk`
-- **100+ utilities built** across `bin/`, `usr.bin/`, `sbin/`, `usr.sbin/`, `usr.games/`
-- Output: `gno-obj/bin/`, `gno-obj/usr/bin/`, `gno-obj/usr/sbin/`, `gno-obj/usr/games/`
-- `more` and `tput` now link — fixed by adding `lib/libtermcap/getcap.c` (full BSD getcap)
-- Path fixes: `describe` → `usr/bin/describe`, `descc/descu` → `usr/sbin/`, `udl` → `usr/bin/udl` (matching reference metadata)
-
-**Source fixes applied during Phase 6 build:**
-- `bin/du/du.c`: removed `#pragma lint -1` (was enabling all lint); changed `sccsid` to `const`
-- `bin/passwd/passwd.c`: `pw_comment` → `pw_gecos` (old GNO 2.0.4 field name)
-- `bin/touch/touch.c`: wrapped local `GSString` struct in `#ifndef __appleiigs__`; `->string` → `->text`
-- `bin/df/df.c`: wrapped `struct ufs_args mdev;` in `#ifndef __GNO__` (type undefined in GNO)
-- `bin/cmp/regular.c`: added `#define getpagesize() 512` for GNO (unused in GNO mmap-free code path)
-- `bin/ls/ls.c`: removed conflicting `extern GSString255Ptr __C2GSMALLOC(char *)`; added cast
-- `include/types.h`: added `typedef struct GSString GSString;` value-type alias after GSStringPtr typedef
-- `include/getopt.h`: created (shim that includes `<stdlib.h>` where `getopt` is declared in GNO)
-- `include/gno/contrib.h`: created by copying from `lib/libcontrib/contrib.h`
-- `usr.bin/launch/launch.c`: changed `gs` from `GSString255Ptr` to `GSStringPtr` (matches `SetGNOQuitRec` arg type)
-- `usr.bin/env/env.c`: removed `#pragma lint -1`; removed unused `ResultBuf255 tmp`
-- `usr.bin/printenv/printenv.c`: removed `#pragma lint -1`; wrapped unused vars in `#ifndef __ORCAC__`
-- `usr.bin/catrez/catrez.c`: removed `#pragma lint -1`
-- `usr.bin/fmt/head.c`: added `#define BUILD_FMT` before `#include "def.h"` (prevents pathnames.h include)
-- `usr.bin/sort/dsort.c` + `msort.c`: changed `#include "/usr/include/getopt.h"` → `#include <getopt.h>`
-- `usr.bin/sort/tempnam.c`: wrapped `#define __GNO__ 1` in `#ifndef __GNO__` guard (was redefinition)
-- `usr.bin/cal/cal.c`: removed `extern int _INITGNOSTDIO(void)` and call (not in modern libc; handled by runtime)
-- `usr.orca.bin/udl/common.h`: added `#include <errno.h>` (needed for strerror)
-
-**Phase 6 build patterns:**
-- Simple utilities: `cd srcdir && iix --gno compile -P prog.c && mv prog.a objdir/ && { mv prog.root objdir/ 2>/dev/null || true; }`, then `iix --gno link -P -o outdir/prog prog`
-- Multi-file utilities: compile each .c, then link all together
-- Utilities with multiple mains (sort, describe): each program linked separately
-- Library links: `passwd`→libcrypt; `rmdir`,`removerez`,`whereis`,`newuser`,`install`→libcontrib; `newuser`→libcrypt+libcontrib; `tput`,`more`→libtermcap; `whois`→libnetdb; `printf`→SysFloat (`~/Library/GoldenGate/Libraries/SysFloat`); `getty`→libutil
-- **`~DOUBLEPRECISION`** runtime label: in `~/Library/GoldenGate/Libraries/SysFloat` (ORCA SDK, not GNO lib/)
-- **`#pragma lint -1`**: ENABLES all lint (= 0xFFFF); lint is OFF by default — remove these pragmas
-- **`const` on sccsid**: ORCA/C lint doesn't flag `static char const sccsid[]` as unused; plain `static char sccsid[]` IS flagged
-
-**Added in Phase 6 (expanded):**
-- `awk` (9 C files, pre-generated ytab.c/proctab.c — no yacc needed)
-- `cpp` (10 C files)
-- `nroff` (9 C files, links libtermcap; uses `#ifdef __GNO__` for portability)
-- `man`, `apropos`, `whatis` → `usr/bin/`; `catman`, `makewhatis` → `usr/sbin/` (from usr.bin/man/)
-- `mkdir` (mkdir.c only — ORCALib provides startup; mkdir2.asm not needed for GoldenGate)
-- `ps` (1 C, kernel-dependent at runtime, compiles cleanly)
-- `login` (1 C, links libutil + libcrypt; `sys/resource.h` guarded with `#ifndef __GNO__`)
-- `nogetty` (1 C)
-- `calendar` → `usr/games/calendar` (1 C)
-
-**Skipped utilities:**
-- Missing BSD headers: `init`, `reboot`, `shutdown` (need `sys/sysctl.h`, `sys/reboot.h` — not in GNO include tree)
-- Network deps: `rcp`, `ftp`, `rlogin`, `rsh`, `inetd`, `syslogd`
-- Asm-only: `gsh`, `date`, `purge`, `getvers`, `help`, `setvers`
-- C+asm real dep: `binprint` (`doline.asm` implements `doline()` — ASM function, not just startup)
-- Complex (deferred): `vi`, `less`
-- No source in repo: ~14 utilities (diff, dmake, script, sum, apropos index tools, etc.)
-
-#### Phase 7 — Kernel ✓
-- Makefile: `goldengate/build/phase7.mk` — `make -f goldengate/build/phase7.mk`
-- **kern**: 150,673 bytes (reference 140,754 — ~7% larger due to ksherlock fork additions)
-- **Drivers**: `dev/null` (592 bytes), `dev/zero` (619), `dev/full` (620), `dev/console` (5,927)
-- 14 C modules + 16 kern/gno ASM + 4 driver ASM (linked into kern) + 4 standalone driver ASM
-
-**Source fixes applied during Phase 7 build:**
-- `kern/gno/*.c` (all 14): added `#define KERNEL` before first `#include`
-- `kern/gno/*.c`: replaced GNO namespace includes (`/lang/orca/...`) with standard `<stdio.h>` etc.
-- `kern/gno/fastfile.c`: removed `#pragma lint -1` (enables ALL lint — 7 unused-var errors)
-- `kern/gno/sys.c` fix 1: `if (h = (FindHandle(mem) == NULL))` → `if ((h = FindHandle(mem)) == NULL)`
-- `kern/gno/sys.c` fix 2: reordered includes — `kvm.h` before `gno.h` so `struct kvmt` is complete; `kvmt *` → `struct kvmt *` throughout
-- `kern/gno/queue.c`: `return (mptr - kp)` → `return (int)(mptr - kp->procTable)`
-- `kern/gno/signal.c`: `(sig->v_signal[signum] >> 16)` → `(word)((unsigned long)sig->v_signal[signum] >> 16)`
-- `kern/gno/ep.c`: strincmp signature → `short strincmp(const char *, const char *, unsigned)`
-- `kern/gno/inc/tty.inc`, `gsos.inc`, `kern.inc`: converted LF→CR (COPY directive requires CR)
-- `kern/drivers/*.equates`: converted LF→CR
-- `include/stdio.h`: added `#ifdef KERNEL` guard — kernel uses `extern FILE *stdout` (ORCALib) instead of `&__sF[1]` (GNO libc array); run `make -f goldengate/install-gno-headers.mk` after this change
-
-#### cowrez — Cross-Platform Rez Compiler ✓
-- **`goldengate/tools/cowrez.py`** — replaces `catrez` (which requires Apple IIgs Resource Manager toolbox, unavailable in GoldenGate)
-- Parses GNO `.rez` source files; writes Apple IIgs resource fork binary as `com.apple.ResourceFork` xattr
-- Supports: rVersion ($8029), rComment ($802A)
-- Handles: `#include`, `#define` macros (recursive), `BUILD_DATE`/`$$Date`, adjacent string concat, `\n`→CR
-- Verified byte-for-byte vs GNO 2.0.6 `catrez.rsrc` reference; all 80+ GNO `.rez` files parse cleanly
+**cowrez notes:**
+- Replaces `catrez` (requires Apple IIgs Resource Manager toolbox, unavailable in GoldenGate)
 - Usage: `python3 goldengate/tools/cowrez.py <file.rez> <target_binary> [-v] [--dry-run] [--output rsrc.bin]`
-
-**Apple IIgs resource fork binary format** (documented from reference analysis):
-- Header (140 bytes at offset 0): rFileVersion=0, rFileToMap=0x8C, rFileMapSize=mapSize
-- Map at 0x8C: 32-byte fixed header + 10×8-byte free list + 4-byte padding + N×20-byte index + 2-byte trail
-- `mapToIndex` = 0x74 (offset from map start to ref index)
-- ResRefRec (20 bytes each): type(2)+id(4)+absOffset(4)+attr(2)+size(4)+handle(4, zero on disk)
-- rVersion: ReverseBytes{nonfinal, stage, minor|bug, major} + country(2 LE) + pstring + pstring
-- rComment: raw string, NO null terminator (`string;` type is not C-terminated)
-- Free list sentinel: blkOffset=fileSize, blkSize=-(fileSize+1)
-
-#### Phase 8 — Distribution Packaging ✓
-- **Phase 8a** — Resource forks: `make -f goldengate/build/phase8_rez.mk` — resource forks attached as `com.apple.ResourceFork` xattr for all binaries with .rez files (updated to cover expanded Phase 6 builds: awk, cpp, nroff, man suite, login, calendar, describe/descc/descu/udl at correct paths)
-- **Phase 8b** — ProDOS file types: already set by iix linker/makelib — nothing to do
-- **Phase 8c** — Disk image: `diskImages/gno-built.2mg` — 32MB ProDOS `.2mg` volume
-  - Reference metadata pass + gno-obj extras; prefers built over reference; falls back for unbuilt (init/reboot/shutdown/gsh etc.)
-  - All ProDOS types correct: EXE+ $0100, S16+ $0000 (kern), DVR+ $7E01 (drivers), LIB $0000
-  - Resource forks embedded for all built binaries that have .rez files
-  - Script: `goldengate/build/phase8c_image.py` — prefers gno-obj/ over reference, falls back to diskImages/extracted/
-  - **Path fix**: describe → `usr/bin/`, descc/descu → `usr/sbin/`, udl → `usr/bin/` (match reference metadata, not usr/orca/bin/)
+- Supports: rVersion ($8029), rComment ($802A); handles `#include`, `#define`, `$$Date`
 
 **cadius notes (not in homebrew):**
-- Build: `git clone https://github.com/mach-kernel/cadius.git ~/source/cadius && cd ~/source/cadius && make`
-- cadius ADDFOLDER is **recursive** — one call from root adds the entire tree; do NOT loop per-directory or files get double-added
+- cadius ADDFOLDER is **recursive** — one call from root adds the entire tree; do NOT loop per-directory
 - Resource fork sidecar: `filename#TTAAAA_ResourceFork.bin` alongside `filename#TTAAAA`
-- File type in filename: `#TTAAAA` suffix where TT=hex type, AAAA=4-digit hex auxtype (e.g., `kern#B30000`, `cat#B50100`)
+- File type in filename: `#TTAAAA` suffix where TT=hex type, AAAA=4-digit hex auxtype
 
-### Next Steps (in order)
-- [x] **Phase 8a — Resource forks**: `phase8_rez.mk` — all binaries with .rez files covered; updated for expanded Phase 6 (awk, cpp, nroff, man suite, login, calendar, describe/udl at corrected paths)
-- [x] **Phase 8b — ProDOS file types**: already set by iix linker/makelib — nothing to do
-- [x] **Phase 8c — Disk image**: `diskImages/gno-built.2mg` — 32MB ProDOS volume; expanded Phase 6 builds more utilities from source (awk, cpp, nroff, man, mkdir, ps, login, calendar, etc.); reference fallback covers remaining (init, reboot, gsh, etc.)
-- [ ] **Rebuild Phase 6** to pick up new targets: `make -f goldengate/build/phase6.mk` (then re-run phase8_rez + phase8c_image.py for updated disk image)
-
-**ProDOS file type reference (from GNO 2.0.6 reference disk):**
-- `$B5` auxtype `$0001` — GS/OS application (all utilities: bin/, usr/bin/, sbin/, usr/sbin/, usr/orca/bin/)
+**ProDOS file type reference:**
+- `$B5` auxtype `$0001` — GS/OS application (all utilities: bin/, usr/bin/, sbin/, usr/sbin/)
 - `$B3` auxtype `$0000` — System file (kern only)
 - `$B2` auxtype `$0000` — OMF library (lib/libc, lib/lsaneglue, usr/lib/lib*)
 - `$BB` auxtype `$7E01` — Device driver (dev/null, dev/zero, dev/full, dev/console)
-- Note: iix linker sets FinderInfo automatically — no manual xattr patching needed for linked/makelib outputs
+
+---
+
+### Phase 9: Source Completeness (21 missing — all hard items, no source in repo)
+
+**Policy**: All binaries on the disk image must come from `gno-obj/` (built from source). Reference image fallback is disabled for executables and libraries. `--warn-missing` is the escape hatch while porting is in progress.
+
+**Authoritative source repos (in priority order):**
+1. This repo (`/Users/smentzer/source/gno`) — primary
+2. `~/source/ksherlock-gno` — secondary (ksherlock fork)
+3. `~/source/old-gno` — tertiary (pre-ksherlock CVS history; no initd or mktmp/runover source at any tag)
+4. `~/source/GNO-Extras` — quaternary; UNIX v7 ports already adapted for ORCA/C 2.2.0B3 (cal, dd, find, file, od, rev, units + 7 games: arithmetic, fish, fortune, hangman, quiz, wump + nl, sortdir). Files use `#TTAAAA` ProDOS suffix naming; needs GNU make targets replacing dmake. License: Caldera ancient-UNIX + BSD 2-clause.
+5. **Ask before using any other source** — GNO is not BSD; BSD ports require significant adaptation
+
+**init vs initd distinction (IMPORTANT):**
+- `/bin/init` (14,818B) = user-space run-level manager — sends messages TO initd to change run levels. Source unknown.
+- `/sbin/initd` = `/usr/sbin/initd` (17,907B) = PID 1 daemon — reads `/etc/inittab`, spawns processes. Source: `sbin/init/initd.c` (reconstructed). **Built.**
+- BSD `sbin/init/init.c` = BSD-derived PID 1 port that was never shipped; incompatible with GNO syscall set.
+
+**Boot sequence:** Kernel reads `9/initrc` → execs `initd` → `initd` reads `/etc/inittab` → starts `gsh`. All components built — boot should work on hardware.
+
+**Recently completed (Phase 9 progress):**
+- ✓ `gsh` — 22 ORCA/M .asm files; 74,340B. Three ORCA/M bugs fixed (see Phase 6 notes). Boot unblocked.
+- ✓ `grep` / `egrep` / `fgrep` — BSD port
+- ✓ `compress` / `uncompress` / `freeze` — BSD port
+- ✓ `chmod`, `cp`, `echo`, `hostname` — written/ported
+- ✓ `mktmp`, `runover` — written from scratch
+- ✓ `unshar`, `setvers` — ported
+- ✓ `vi` (Stevie), `less` — ported from old-gno
+- ✓ `libsim` — from old-gno/sys/sim/simlib.asm
+
+**STILL MISSING (21) — all require source from outside this repo:**
+- 4 drivers (no source): `dev/modem`, `dev/printer`, `system/drivers/fileport`, `system/drivers/nullport`
+- Network (no source): `ftp`, `rcp`, `rlogin`, `rsh`
+- No source found: `init` (user-space run-level manager), `su`, `diff`, `dmake`, `yankit`, `copycat`, `coff`, `occ`, `lpd`
+- Kernel-dependent (no source): `uptime`, `uptimed`
+- Complex (needs pty/fork/select): `script`
+- Low priority: `newuserv` (108KB GUI program)
+
+**External/ORCA toolchain wrappers:**
+- [ ] `asml`, `assemble`, `cmpl` — all 3 identical (51,485B each); ORCA/M GNO wrappers
+- [ ] `coff`, `occ` — ORCA tools
+- [ ] `dmake` — GNO's make; source was never open-sourced
+
+**OMF structural differences (found via cowdiff --different, needs investigation):**
+- [ ] **`~_STACK` segment missing from all our EXE builds** — reference binaries contain an `$12` (ABS bank) segment `~_STACK` (~1KB) present in every linked EXE. Likely from a different ORCALib startup or linker version. Investigate: compare `~/Library/GoldenGate/lib/ORCALib` vs `/lib/ORCALib` on reference disk.
+- [ ] **`~ExpressLoad` DATA segment smaller** (474B vs 632–711B in reference) — may be benign.
+- [ ] **`libc_gen__` / `libc_str__` missing from many bins** — small libc segments (163–390B) absent from our builds; linker dead-code elimination or different libc archive layout.
+- [ ] **`/bin/center` over-linked** (+34KB, 4 EXTRA libc segments) — reference used a stripped standalone libc.
+
+**Rebuild after Phase 9 fixes:**
+```bash
+make -f goldengate/build/phase6.mk
+make -f goldengate/build/phase8_rez.mk
+python3 goldengate/build/phase8c_image.py --warn-missing
+```
+Remove `--warn-missing` from `rebuild-all.sh` once all 21 missing binaries are sourced.
 
 ### Known Skips
-- `libedit` / `libsim` — not building in original
+- `libedit` — not building in original
 - `fudgeinstall` / `mkboot` / `mkdisk1` / `mkdisk2` — replaced by macOS packaging
+- `newuserv` — GUI new-user program; very large (108KB); low priority
+- `lpd` — BSD line printer daemon; network/IPC dependent; low priority
+- `yankit`, `copycat` — no source found; low priority
 
 ---
 
@@ -503,21 +477,16 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 ```bash
 # Build ORCA/C from source (in byteworksinc-orca-c repo)
 cd /Users/smentzer/source/iigs-official-repos/byteworksinc-orca-c
-make -f GNUmakefile          # compile only
 make -f GNUmakefile install  # compile + install to ~/Library/GoldenGate/Languages/cc
 
-# Build + install GNO ORCALib (prerequisite — done in byteworksinc-orcalib repo, not here)
-# cd ~/source/iigs-official-repos/byteworksinc-orcalib
-# make -f goldengate/Makefile TARGET=gno install  # installs liborca + assert.A to GoldenGate
+# Build + install GNO ORCALib (in byteworksinc-orcalib repo)
+# make -f goldengate/Makefile TARGET=gno install
 
 # Install GNO headers to GoldenGate (in this repo)
 make -f goldengate/install-gno-headers.mk
 
 # Build libc (all subdirs + combine)
 make -f goldengate/build/libc.mk
-
-# Build individual libc subdir
-make -f goldengate/build/libc_gen.mk
 
 # Validate libc against 2.0.6 reference
 make -f goldengate/build/libc.mk validate
@@ -537,15 +506,10 @@ python3 goldengate/orcac-tests/tools/omf_dis.py path/to/file.a
 # Build Phase 5 — all support libraries
 make -f goldengate/build/phase5.mk
 
-# Build individual Phase 5 library
-make -f goldengate/build/libtermcap.mk
-make -f goldengate/build/libcurses.mk
-make -f goldengate/build/netdb.mk
-
 # Validate Phase 5 sizes vs reference
 make -f goldengate/build/phase5.mk validate
 
-# Build Phase 6 — all utilities (skipped programs are absent from targets, not failures)
+# Build Phase 6 — all utilities
 make -f goldengate/build/phase6.mk
 
 # Build one Phase 6 utility
@@ -558,22 +522,34 @@ make -f goldengate/build/phase6.mk validate
 # Build Phase 7 — kernel + drivers
 make -f goldengate/build/phase7.mk
 
-# Attach resource fork to a built binary (cowrez)
-python3 goldengate/tools/cowrez.py kern/gno/kern.rez gno-obj/kern -v
-python3 goldengate/tools/cowrez.py bin/cat/cat.rez gno-obj/bin/cat -v
+# Full clean rebuild of everything (headers → libc → libs → utils → kern → rez → image)
+bash goldengate/build/rebuild-all.sh
 
-# Dry-run / inspect without writing
-python3 goldengate/tools/cowrez.py kern/gno/kern.rez --dry-run --verify -v
+# Incremental rebuild (skip clean)
+bash goldengate/build/rebuild-all.sh --no-clean
+
+# Rebuild specific phases only
+bash goldengate/build/rebuild-all.sh --no-clean phase7 phase8a phase8c
 
 # Phase 8a — attach all resource forks
 make -f goldengate/build/phase8_rez.mk
 
-# Phase 8c — build ProDOS disk image (cadius at ~/source/cadius/cadius)
+# Phase 8c — build ProDOS disk image
 python3 goldengate/build/phase8c_image.py             # → diskImages/gno-built.2mg
 python3 goldengate/build/phase8c_image.py --dry-run   # preview without writing
 python3 goldengate/build/phase8c_image.py -v          # verbose: show each file staged
-# cadius (not in homebrew — build from source)
-# git clone https://github.com/mach-kernel/cadius.git ~/source/cadius && cd ~/source/cadius && make
+
+# cowdiff — canonical disk image comparison
+REF=/Volumes/Storage/IIgs/DocTemple/gno/2.0.6/dist/gno_206/gno.po
+
+python3 goldengate/tools/cowdiff.py $REF diskImages/gno-built.2mg --types B5,B3,B2,BB -q
+python3 goldengate/tools/cowdiff.py $REF diskImages/gno-built.2mg --missing
+python3 goldengate/tools/cowdiff.py $REF diskImages/gno-built.2mg --different
+python3 goldengate/tools/cowdiff.py $REF diskImages/gno-built.2mg --json | jq '.summary'
+python3 goldengate/tools/cowdiff.py extract $REF
+python3 goldengate/tools/cowdiff.py extract $REF --out /my/extraction/dir/
+python3 goldengate/tools/cowdiff.py cache --list
+python3 goldengate/tools/cowdiff.py cache --clear
 ```
 
 ---
@@ -584,72 +560,47 @@ See `goldengate/index.html` for a full browsable index.
 
 ### DocTemple — `/Volumes/Storage/IIgs/DocTemple/`
 
-Canonical reference store for all Apple IIgs development materials. Organized by product and version, with `source/` and `dist/` subdirectories.
+Canonical reference store for all Apple IIgs development materials.
 
 #### Documentation — `docs/`
 
 | Subfolder | Contents |
 |-----------|---------|
-| `hardware/` | IIgs schematics, hardware refs (3 versions), firmware refs (2), debugger ref, 65816 CPU manual, LocalTalk, ZipGS registers, PEEKS/POKES ref |
-| `orca/` | ORCA/C 2.0, ORCA/M 2.0, disassembler, debugger, sublib source, Merlin→ORCA/M, Prog Ref 6.0/6.0.1, MPW IIgs, floating point libs, shell reference, Utility Pack, Talking Tools |
+| `hardware/` | IIgs schematics, hardware refs (3 versions), firmware refs (2), debugger ref, 65816 CPU manual, LocalTalk, ZipGS registers |
+| `orca/` | ORCA/C 2.0, ORCA/M 2.0, Prog Ref 6.0/6.0.1, shell reference, floating point libs |
 | `gsos/` | GS/OS Reference Volume 1, ProDOS 16 Reference Manual |
-| `apw/` | Apple Programmer's Workshop reference, APW C language/assembler references, APW C release notes |
-| `c-programming/` | LTP C, Toolbox C, Small C, IIgs asm programming, IIgs C+asm programming, Morgan Davis Toolbox book |
+| `apw/` | Apple Programmer's Workshop reference, APW C language/assembler references |
+| `c-programming/` | LTP C, Toolbox C, IIgs C+asm programming, Morgan Davis Toolbox book |
 | `networking/` | Marinetti TCP/IP stack, Uthernet II manual, W5100/W5500 datasheets |
-| `opus-ii/` | Opus ][ about + overview |
-| `misc/` | SuperScribe II reference |
 
-#### Source Code — by product & version
+#### Source Code — `source/` (by product)
 
-| Product | Versions | Source |
-|---------|----------|--------|
-| `orca-c/` | 2.1.0, 2.1.1-b3, 2.2.0-b2, 2.2.0-b3 | ORCA/C compiler (Pascal + asm) |
-| `orca-m/` | 2.1.0, 4.1 | ORCA/M assembler; 4.1 has full multi-build (editor, monitor, host, 6502 asm, linker, utilities, libraries) |
-| `orca-linker/` | 2.0.3 | Linker source |
-| `orca-shell/` | 2.0.4, 2.0.5-b2 | Shell source |
-| `orca-editor/` | 2.1.0, 2.2.0-b1 | Editor source |
-| `orca-macgen/` | 2.0.3 | Macro generator source |
-| `orca-makelib/` | 2.0 | Library builder source |
-| `orca-makebin/` | 2.0 | Binary builder source |
-| `orca-dumpobj/` | 2.0.1, 2.0.2.1 | Object dumper source |
-| `orca-debugger/` | 1.1 | Source + dist (.2mg) |
-| `orca-crunch/` | 2.0 | Source compressor |
-| `orca-entab/` | 2.0 | Tab utility |
-| `orca-prizm/` | 2.1.0, 2.1.1-b1 | Resource editor source |
-| `orca-pascal/` | 2.2.0, 2.2.1-b1 | Pascal compiler source |
-| `orcalib/` | beta | Runtime library source |
-| `sysfloat/` | beta | Floating point library source |
-| `sysfpe-float/` | beta | FPE float library source |
-| `applesoft/` | — | AppleSoft BASIC source (.shk) |
+ORCA/C (2.1.0–2.2.0-b3), ORCA/M (2.1.0, 4.1), ORCA linker/shell/editor/macgen/makelib/debugger/pascal, ORCALib (beta), SysFloat (beta), AppleSoft BASIC.
 
 #### Binary Distributions
 
-| Product | Location | Contents |
-|---------|----------|---------|
-| `orca-c/2.2.0-b3/dist/` | 4 archives + extracted | ORCA/C compiler + linker + headers + ORCALib |
-| `orca-debugger/1.1/dist/` | .2mg + extracted | ORCA Debugger |
-| `orca-suite/opus-ii/dist/` | 2,070 files | Complete ORCA binary suite from Opus ][ CD |
-| `gno/2.0.0/dist/` | 3 disk images + extracted | GNO/ME base distribution (3-disk set) |
-| `gno/2.0.2+2.0.3-updates/dist/` | .2mg + extracted | Combined GNO updates |
-| `gno/2.0.4-update/dist/` | .2mg + extracted | GNO 2.0.4 patch |
-| `gno/2.0.6/dist/` | .zip → gno.po + full extraction (803 files) | GNO 2.0.6 consolidated |
-| `goldengate/2.0.0/dist/` | .zip → full GoldenGate install tree (1,938 files) | GoldenGate runtime image |
-| `goldengate/installer-2018/dist/` | .zip → .pkg + docs | GoldenGate installer |
-| `goldengate/2.0.2/source/` | .zip | GoldenGate + profuse source |
-| `goldengate/2.0.4/source/` | .zip | GoldenGate source |
+Key distributions (see DocTemple directly for full listing):
+- `gno/2.0.6/dist/gno.po` — canonical GNO 2.0.6 reference image (803 files)
+- `orca-suite/opus-ii/dist/` — complete ORCA binary suite (2,070 files)
+- `goldengate/2.0.0/dist/` — full GoldenGate install tree (1,938 files)
 
 ### Local Canonical Repo Clones — `/Users/smentzer/source/iigs-official-repos/`
 
 | Directory | Contents |
 |-----------|---------|
-| `byteworksinc-orca-c` | **Official** ByteWorks ORCA/C 2.2.2 compiler source (Pascal + asm). Built via `GNUmakefile`. |
-| `byteworksinc-orcalib` | **Official** ByteWorks ORCALib. `unified` branch = current work (GNO + non-GNO). GNO build uses `TARGET=gno`; adds `gno/locale.asm` override for C-standard `struct lconv` field order. |
+| `byteworksinc-orca-c` | **Official** ByteWorks ORCA/C 2.2.2 compiler source. Built via `GNUmakefile`. |
+| `byteworksinc-orcalib` | **Official** ByteWorks ORCALib. `unified` branch. GNO build uses `TARGET=gno`. |
 | `gno-original` | Original Devin Reade GNO/ME v2.0.6 source |
 | `goldengate` | GoldenGate iix emulator source (C++) |
-| `goldengate-documentation` | GoldenGate docs |
 | `ksherlock-gno` | ksherlock fork of GNO/ME (upstream, unmaintained) |
 | `ksherlock-orca-c` | ksherlock fork of ORCA/C |
-| `nulib2` | nulib2 — ShrinkIt archive tool source |
+| `nulib2` | ShrinkIt archive tool source |
+
+### Additional Source Repos — `/Users/smentzer/source/`
+
+| Directory | Contents |
+|-----------|---------|
+| `old-gno` | Pre-ksherlock GNO sources with full CVS history back to 1996. Tags: `v1_0`, `v1_1`, `gsh_v1_1`, `beta_970304`, `beta_971222`. **3rd priority** source for missing GNO files. No initd or mktmp/runover source at any tag. |
 
 ---
 
@@ -660,12 +611,12 @@ Canonical reference store for all Apple IIgs development materials. Organized by
 | `NOTES/devel/doing.builds` | **Authoritative build sequence** |
 | `goldengate/build/*.mk` | GNU Makefiles for each build target |
 | `goldengate/tools/compare_libc.py` | Symbol comparison between built and reference libc |
-| `goldengate/tools/cowrez.py` | Cross-platform Rez compiler: parses .rez → resource fork xattr (replaces catrez) |
+| `goldengate/tools/cowrez.py` | Cross-platform Rez compiler: parses .rez → resource fork xattr |
+| `goldengate/tools/cowdiff.py` | Canonical disk image comparison + extraction tool |
 | `goldengate/orcac-tests/tools/omf_dis.py` | OMF v2 parser + 65816 disassembler |
-| `diskImages/extracted/` | All files from GNO 2.0.6 reference disk image |
-| `diskImages/extracted/metadata.json` | File types, sizes, dates for all extracted files |
-| `diskImages/gno-built.2mg` | Built GNO/ME ProDOS disk image (32MB, 738 files) |
-| `goldengate/build/phase8_rez.mk` | Attach resource forks to all 72 built binaries (via cowrez.py) |
+| `sbin/init/initd.c` | PID 1 daemon — reconstructed from 65816 disassembly of reference binary |
+| `diskImages/gno-built.2mg` | Built GNO/ME ProDOS disk image (32MB, 688 files) |
+| `goldengate/build/phase8_rez.mk` | Attach resource forks to all built binaries (via cowrez.py) |
 | `goldengate/build/phase8c_image.py` | Build ProDOS .2mg disk image from gno-obj/ + reference |
 
 ### goldengate/build/ Makefiles
@@ -686,6 +637,7 @@ Canonical reference store for all Apple IIgs development materials. Organized by
 | `phase5.mk` | Top-level: invokes all Phase 5 libs | all Phase 5 outputs |
 | `lsaneglue.mk` | `lib/lsaneglue/` (2 asm) | `gno-obj/lib/lsaneglue` |
 | `libcrypt.mk` | `lib/libcrypt/` (1 asm + 1 C) | `gno-obj/usr/lib/libcrypt` |
+| `libsim.mk` | `lib/libsim/` (1 asm) | `gno-obj/usr/lib/libsim` |
 | `libutil.mk` | `lib/libutil/` (3 C) | `gno-obj/usr/lib/libutil` |
 | `libtermcap.mk` | `lib/libtermcap/` (5 C) | `gno-obj/usr/lib/libtermcap` |
 | `libcurses.mk` | `lib/libcurses/` (42 C) | `gno-obj/usr/lib/libcurses` |

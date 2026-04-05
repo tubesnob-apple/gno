@@ -16,16 +16,16 @@
 #   alongside the binary to allow make dependency tracking.
 #
 # Skipped (no built binary):
-#   binprint, gsh, rcp              — C+asm mixed / asm-only / network
+#   binprint, rcp                   — C+asm mixed / network
 #   ftp, rlogin, rsh, inetd, syslogd — network daemons, not built
 #   getvers, help, date, purge      — asm-only
 #   init, reboot, shutdown          — missing BSD headers (sys/sysctl.h, sys/reboot.h)
 #   modem, printer (drivers)        — not built in Phase 7
-#   sys/sim/{sim,simlib}            — libedit/libsim, not built
+#   sys/sim/sim                     — GNO SIM driver, not built (kernel module)
 #   rinclude/, goldengate/orca-m/   — include files / external tool
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-OBJ_BASE  := $(abspath $(REPO_ROOT)/../gno-obj)
+OBJ_BASE  := $(abspath $(REPO_ROOT)/gno-obj)
 COWREZ    := python3 $(REPO_ROOT)/goldengate/tools/cowrez.py
 
 # ── Helper macro ──────────────────────────────────────────────────────────────
@@ -66,6 +66,7 @@ libs: $(OBJ_BASE)/lib/libc.rsrc.done \
       $(OBJ_BASE)/lib/lsaneglue.rsrc.done \
       $(OBJ_BASE)/usr/lib/libcontrib.rsrc.done \
       $(OBJ_BASE)/usr/lib/libcrypt.rsrc.done \
+      $(OBJ_BASE)/usr/lib/libsim.rsrc.done \
       $(OBJ_BASE)/usr/lib/libtermcap.rsrc.done \
       $(OBJ_BASE)/usr/lib/libutil.rsrc.done \
       $(OBJ_BASE)/usr/lib/liby.rsrc.done \
@@ -83,6 +84,9 @@ $(OBJ_BASE)/usr/lib/libcontrib.rsrc.done: $(REPO_ROOT)/lib/libcontrib/libcontrib
 $(OBJ_BASE)/usr/lib/libcrypt.rsrc.done: $(REPO_ROOT)/lib/libcrypt/libcrypt.rez $(OBJ_BASE)/usr/lib/libcrypt
 	$(call REZ,lib/libcrypt/libcrypt.rez,usr/lib/libcrypt)
 
+$(OBJ_BASE)/usr/lib/libsim.rsrc.done: $(REPO_ROOT)/lib/libsim/simlib.rez $(OBJ_BASE)/usr/lib/libsim
+	$(call REZ,lib/libsim/simlib.rez,usr/lib/libsim)
+
 $(OBJ_BASE)/usr/lib/libtermcap.rsrc.done: $(REPO_ROOT)/lib/libtermcap/libtermcap.rez $(OBJ_BASE)/usr/lib/libtermcap
 	$(call REZ,lib/libtermcap/libtermcap.rez,usr/lib/libtermcap)
 
@@ -98,8 +102,12 @@ $(OBJ_BASE)/usr/lib/libnetdb.rsrc.done: $(REPO_ROOT)/lib/netdb/libnetdb.rez $(OB
 # ── bin/ ─────────────────────────────────────────────────────────────────────
 
 .PHONY: bin
-bin: $(OBJ_BASE)/bin/aroff.rsrc.done \
+bin: $(OBJ_BASE)/bin/gsh.rsrc.done \
+     $(OBJ_BASE)/bin/aroff.rsrc.done \
      $(OBJ_BASE)/bin/cat.rsrc.done \
+     $(OBJ_BASE)/bin/compress.rsrc.done \
+     $(OBJ_BASE)/bin/freeze.rsrc.done \
+     $(OBJ_BASE)/bin/uncompress.rsrc.done \
      $(OBJ_BASE)/bin/center.rsrc.done \
      $(OBJ_BASE)/bin/chtyp.rsrc.done \
      $(OBJ_BASE)/bin/cmp.rsrc.done \
@@ -120,13 +128,25 @@ bin: $(OBJ_BASE)/bin/aroff.rsrc.done \
      $(OBJ_BASE)/bin/test.rsrc.done \
      $(OBJ_BASE)/bin/uname.rsrc.done \
      $(OBJ_BASE)/bin/uniq.rsrc.done \
+     $(OBJ_BASE)/bin/false.rsrc.done \
+     $(OBJ_BASE)/bin/tr.rsrc.done \
+     $(OBJ_BASE)/bin/true.rsrc.done \
      $(OBJ_BASE)/bin/wc.rsrc.done \
-     $(OBJ_BASE)/bin/yes.rsrc.done
+     $(OBJ_BASE)/bin/yes.rsrc.done \
+     $(OBJ_BASE)/bin/vi.rsrc.done
 
+$(OBJ_BASE)/bin/gsh.rsrc.done:     $(REPO_ROOT)/bin/gsh/gsh.rez       $(OBJ_BASE)/bin/gsh
+	$(call REZ,bin/gsh/gsh.rez,bin/gsh)
 $(OBJ_BASE)/bin/aroff.rsrc.done:   $(REPO_ROOT)/bin/aroff/aroff.rez   $(OBJ_BASE)/bin/aroff
 	$(call REZ,bin/aroff/aroff.rez,bin/aroff)
 $(OBJ_BASE)/bin/cat.rsrc.done:     $(REPO_ROOT)/bin/cat/cat.rez        $(OBJ_BASE)/bin/cat
 	$(call REZ,bin/cat/cat.rez,bin/cat)
+$(OBJ_BASE)/bin/compress.rsrc.done:  $(REPO_ROOT)/bin/compress/compress.rez   $(OBJ_BASE)/bin/compress
+	$(call REZ,bin/compress/compress.rez,bin/compress)
+$(OBJ_BASE)/bin/freeze.rsrc.done:    $(REPO_ROOT)/bin/compress/freeze.rez     $(OBJ_BASE)/bin/freeze
+	$(call REZ,bin/compress/freeze.rez,bin/freeze)
+$(OBJ_BASE)/bin/uncompress.rsrc.done: $(REPO_ROOT)/bin/compress/uncompress.rez $(OBJ_BASE)/bin/uncompress
+	$(call REZ,bin/compress/uncompress.rez,bin/uncompress)
 $(OBJ_BASE)/bin/center.rsrc.done:  $(REPO_ROOT)/bin/center/center.rez  $(OBJ_BASE)/bin/center
 	$(call REZ,bin/center/center.rez,bin/center)
 $(OBJ_BASE)/bin/chtyp.rsrc.done:   $(REPO_ROOT)/bin/chtyp/chtyp.rez   $(OBJ_BASE)/bin/chtyp
@@ -169,8 +189,16 @@ $(OBJ_BASE)/bin/uniq.rsrc.done:    $(REPO_ROOT)/bin/uniq/uniq.rez     $(OBJ_BASE
 	$(call REZ,bin/uniq/uniq.rez,bin/uniq)
 $(OBJ_BASE)/bin/wc.rsrc.done:      $(REPO_ROOT)/bin/wc/wc.rez         $(OBJ_BASE)/bin/wc
 	$(call REZ,bin/wc/wc.rez,bin/wc)
+$(OBJ_BASE)/bin/false.rsrc.done:   $(REPO_ROOT)/usr.bin/false/false.rez $(OBJ_BASE)/bin/false
+	$(call REZ,usr.bin/false/false.rez,bin/false)
+$(OBJ_BASE)/bin/tr.rsrc.done:      $(REPO_ROOT)/usr.bin/tr/tr.rez       $(OBJ_BASE)/bin/tr
+	$(call REZ,usr.bin/tr/tr.rez,bin/tr)
+$(OBJ_BASE)/bin/true.rsrc.done:    $(REPO_ROOT)/usr.bin/true/true.rez   $(OBJ_BASE)/bin/true
+	$(call REZ,usr.bin/true/true.rez,bin/true)
 $(OBJ_BASE)/bin/yes.rsrc.done:     $(REPO_ROOT)/bin/yes/yes.rez       $(OBJ_BASE)/bin/yes
 	$(call REZ,bin/yes/yes.rez,bin/yes)
+$(OBJ_BASE)/bin/vi.rsrc.done:      $(REPO_ROOT)/bin/vi/vi.rez          $(OBJ_BASE)/bin/vi
+	$(call REZ,bin/vi/vi.rez,bin/vi)
 
 # ── sbin/ ────────────────────────────────────────────────────────────────────
 
@@ -201,7 +229,6 @@ usr_bin: \
      $(OBJ_BASE)/usr/bin/describe.rsrc.done \
      $(OBJ_BASE)/usr/bin/dirname.rsrc.done \
      $(OBJ_BASE)/usr/bin/env.rsrc.done \
-     $(OBJ_BASE)/usr/bin/false.rsrc.done \
      $(OBJ_BASE)/usr/bin/fmt.rsrc.done \
      $(OBJ_BASE)/usr/bin/install.rsrc.done \
      $(OBJ_BASE)/usr/bin/last.rsrc.done \
@@ -213,8 +240,6 @@ usr_bin: \
      $(OBJ_BASE)/usr/bin/printenv.rsrc.done \
      $(OBJ_BASE)/usr/bin/removerez.rsrc.done \
      $(OBJ_BASE)/usr/bin/sed.rsrc.done \
-     $(OBJ_BASE)/usr/bin/tr.rsrc.done \
-     $(OBJ_BASE)/usr/bin/true.rsrc.done \
      $(OBJ_BASE)/usr/bin/udl.rsrc.done \
      $(OBJ_BASE)/usr/bin/wall.rsrc.done \
      $(OBJ_BASE)/usr/bin/whatis.rsrc.done \
@@ -250,8 +275,6 @@ $(OBJ_BASE)/usr/bin/dirname.rsrc.done:   $(REPO_ROOT)/usr.bin/dirname/dirname.re
 	$(call REZ,usr.bin/dirname/dirname.rez,usr/bin/dirname)
 $(OBJ_BASE)/usr/bin/env.rsrc.done:       $(REPO_ROOT)/usr.bin/env/env.rez             $(OBJ_BASE)/usr/bin/env
 	$(call REZ,usr.bin/env/env.rez,usr/bin/env)
-$(OBJ_BASE)/usr/bin/false.rsrc.done:     $(REPO_ROOT)/usr.bin/false/false.rez         $(OBJ_BASE)/usr/bin/false
-	$(call REZ,usr.bin/false/false.rez,usr/bin/false)
 $(OBJ_BASE)/usr/bin/fmt.rsrc.done:       $(REPO_ROOT)/usr.bin/fmt/fmt.rez             $(OBJ_BASE)/usr/bin/fmt
 	$(call REZ,usr.bin/fmt/fmt.rez,usr/bin/fmt)
 $(OBJ_BASE)/usr/bin/install.rsrc.done:   $(REPO_ROOT)/usr.bin/install/inst.rez        $(OBJ_BASE)/usr/bin/install
@@ -274,10 +297,6 @@ $(OBJ_BASE)/usr/bin/removerez.rsrc.done: $(REPO_ROOT)/usr.bin/removerez/removere
 	$(call REZ,usr.bin/removerez/removerez.rez,usr/bin/removerez)
 $(OBJ_BASE)/usr/bin/sed.rsrc.done:       $(REPO_ROOT)/usr.bin/sed/sed.rez             $(OBJ_BASE)/usr/bin/sed
 	$(call REZ,usr.bin/sed/sed.rez,usr/bin/sed)
-$(OBJ_BASE)/usr/bin/tr.rsrc.done:        $(REPO_ROOT)/usr.bin/tr/tr.rez               $(OBJ_BASE)/usr/bin/tr
-	$(call REZ,usr.bin/tr/tr.rez,usr/bin/tr)
-$(OBJ_BASE)/usr/bin/true.rsrc.done:      $(REPO_ROOT)/usr.bin/true/true.rez           $(OBJ_BASE)/usr/bin/true
-	$(call REZ,usr.bin/true/true.rez,usr/bin/true)
 $(OBJ_BASE)/usr/bin/udl.rsrc.done:       $(REPO_ROOT)/usr.orca.bin/udl/udl.rez        $(OBJ_BASE)/usr/bin/udl
 	$(call REZ,usr.orca.bin/udl/udl.rez,usr/bin/udl)
 $(OBJ_BASE)/usr/bin/wall.rsrc.done:      $(REPO_ROOT)/usr.bin/wall/wall.rez           $(OBJ_BASE)/usr/bin/wall
@@ -350,8 +369,10 @@ validate:
 	    kern/drivers/full.rez kern/drivers/console.rez \
 	    lib/libc/libc.rez lib/lsaneglue/lsaneglue.rez \
 	    lib/libcontrib/libcontrib.rez lib/libcrypt/libcrypt.rez \
+	    lib/libsim/simlib.rez \
 	    lib/libtermcap/libtermcap.rez lib/libutil/libutil.rez \
 	    lib/liby/liby.rez lib/netdb/libnetdb.rez \
+	    bin/gsh/gsh.rez \
 	    bin/aroff/aroff.rez bin/cat/cat.rez bin/center/center.rez \
 	    bin/chtyp/chtyp.rez bin/cmp/cmp.rez bin/df/df.rez \
 	    bin/head/head.rez bin/kill/kill.rez bin/ls/ls.rez \
@@ -359,7 +380,7 @@ validate:
 	    bin/rmdir/rmdir.rez bin/sleep/sleep.rez bin/split/split.rez \
 	    bin/strings/strings.rez bin/stty/stty.rez bin/tail/tail.rez \
 	    bin/tee/tee.rez bin/test/test.rez bin/uname/uname.rez \
-	    bin/uniq/uniq.rez bin/wc/wc.rez bin/yes/yes.rez \
+	    bin/uniq/uniq.rez bin/wc/wc.rez bin/yes/yes.rez bin/vi/vi.rez \
 	    sbin/mkso/mkso.rez sbin/renram5/renram5.rez \
 	    usr.bin/awk/awk.rez usr.bin/basename/basename.rez \
 	    usr.bin/calendar/calendar.rez \

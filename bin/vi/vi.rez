@@ -1,0 +1,32 @@
+/*
+ * Resources for version and comment
+ * vi (STEVIE) for GNO/ME
+ */
+#define PROG "vi"
+#define DESC "STEVIE vi editor for GNO/ME."
+
+#include "Types.rez"
+#include "builddate.rez"
+
+/*
+ * Version
+ */
+resource rVersion (1, purgeable3) {
+	{ 3, 7, 0,	/* Version 3.7A */
+	  release,	/* development|alpha|beta|final|release */
+	  0 },		/* non-final release number */
+	verUS,	/* Country */
+	PROG,	/* Program name */
+        DESC
+        BUILD_DATE
+};
+
+/*
+ * Comment
+ */
+resource rComment (1, purgeable3) {
+	PROG " v3.7A\n"
+	DESC "\n"
+	"By Tim Thompson, Tony Andrews, G.R. Walter, Jawaid Bayzar.\n"
+	BUILD_DATE
+};
