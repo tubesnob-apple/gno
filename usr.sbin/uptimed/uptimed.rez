@@ -1,0 +1,18 @@
+/*
+ * uptimed.rez -- resource fork for uptimed(8)
+ */
+
+#include "Types.Rez"
+
+#define PROG "uptimed"
+#define DESC "Uptime daemon: records boot time and serves uptime queries."
+
+resource rVersion (0x1, purgeable3, nocrossbank) {
+	{ 1, 0, 0,
+	  release,
+	  0
+	},
+	verUS,
+	PROG,
+	DESC
+};

@@ -440,7 +440,7 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - 4 drivers (no source): `dev/modem`, `dev/printer`, `system/drivers/fileport`, `system/drivers/nullport`
 - Network (no source): `ftp`, `rcp`, `rlogin`, `rsh`
 - No source found: `init` (user-space run-level manager), `su`, `diff`, `dmake`, `yankit`, `copycat`, `coff`, `occ`, `lpd`
-- Kernel-dependent (no source): `uptime`, `uptimed`
+- No source found: `uptime`, `uptimed`
 - Complex (needs pty/fork/select): `script`
 - Low priority: `newuserv` (108KB GUI program)
 

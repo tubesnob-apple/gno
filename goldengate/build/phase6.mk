@@ -361,6 +361,7 @@ USRBIN_SIMPLE := \
 	usrbin_asml usrbin_assemble usrbin_cmpl \
 	usrbin_cksum usrbin_ctags usrbin_fmt usrbin_getvers usrbin_install usrbin_printf usrbin_sed \
 	usrbin_sort usrbin_sum usrbin_tput usrbin_removerez \
+	usrbin_uptime \
 	usrbin_wall usrbin_whereis usrbin_whois \
 	usrbin_awk usrbin_cpp usrbin_nroff usrbin_man_suite \
 	usrbin_describe usrbin_udl
@@ -369,6 +370,7 @@ usr_bin: $(USRBIN_SIMPLE:%=usrbin_%) \
 	usrbin_asml usrbin_assemble usrbin_cmpl \
 	usrbin_cksum usrbin_ctags usrbin_fmt usrbin_getvers usrbin_install usrbin_printf usrbin_sed \
 	usrbin_sort usrbin_sum usrbin_tput usrbin_removerez \
+	usrbin_uptime \
 	usrbin_wall usrbin_whereis usrbin_whois \
 	usrbin_awk usrbin_cpp usrbin_nroff usrbin_man_suite \
 	usrbin_describe usrbin_udl
@@ -406,6 +408,13 @@ usrbin_printf:
 	@mkdir -p $(OBJ_BASE)/printf $(USRBIN_OUT)
 	$(call cc1,$(USRBIN_SRC)/printf,printf,$(OBJ_BASE)/printf)
 	$(call ld1,$(OBJ_BASE)/printf,$(USRBIN_OUT),printf,printf,$(SYSFLOAT))
+
+# uptime: uses %.2f for load averages → needs SysFloat
+usrbin_uptime:
+	@echo "=== uptime ==="
+	@mkdir -p $(OBJ_BASE)/uptime $(USRBIN_OUT)
+	$(call cc1,$(USRBIN_SRC)/uptime,uptime,$(OBJ_BASE)/uptime)
+	$(call ld1,$(OBJ_BASE)/uptime,$(USRBIN_OUT),uptime,uptime,$(SYSFLOAT))
 
 # install source is inst.c (not install.c); uses LC_ExpandPath/LC_CopyFileGS from libcontrib
 usrbin_install:
@@ -579,7 +588,7 @@ $(SBIN_SIMPLE:%=sbin_%):
 
 # ── usr.sbin/ ─────────────────────────────────────────────────────────────────
 
-USRSBIN_SIMPLE := cron mktmp runover
+USRSBIN_SIMPLE := cron mktmp runover uptimed
 
 .PHONY: usr_sbin $(USRSBIN_SIMPLE:%=usrsbin_%) usrsbin_newuser usrsbin_getty \
 	usrsbin_login usrsbin_nogetty
@@ -676,6 +685,8 @@ echo: bin_echo
 hostname: bin_hostname
 mktmp: usrsbin_mktmp
 runover: usrsbin_runover
+uptimed: usrsbin_uptimed
+uptime: usrbin_uptime
 ps: bin_ps
 
 # ── Validate vs reference ─────────────────────────────────────────────────────

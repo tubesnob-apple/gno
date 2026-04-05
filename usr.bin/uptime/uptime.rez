@@ -1,0 +1,18 @@
+/*
+ * uptime.rez -- resource fork for uptime(1)
+ */
+
+#include "Types.Rez"
+
+#define PROG "uptime"
+#define DESC "Display system uptime, user count, and load averages."
+
+resource rVersion (0x1, purgeable3, nocrossbank) {
+	{ 1, 2, 0,
+	  release,
+	  0
+	},
+	verUS,
+	PROG,
+	DESC
+};

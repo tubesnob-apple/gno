@@ -244,6 +244,7 @@ usr_bin: \
      $(OBJ_BASE)/usr/bin/wall.rsrc.done \
      $(OBJ_BASE)/usr/bin/whatis.rsrc.done \
      $(OBJ_BASE)/usr/bin/whereis.rsrc.done \
+     $(OBJ_BASE)/usr/bin/uptime.rsrc.done \
      $(OBJ_BASE)/usr/bin/who.rsrc.done \
      $(OBJ_BASE)/usr/bin/whois.rsrc.done
 
@@ -305,6 +306,8 @@ $(OBJ_BASE)/usr/bin/whatis.rsrc.done:    $(REPO_ROOT)/usr.bin/man/whatis.rez    
 	$(call REZ,usr.bin/man/whatis.rez,usr/bin/whatis)
 $(OBJ_BASE)/usr/bin/whereis.rsrc.done:   $(REPO_ROOT)/usr.bin/whereis/whereis.rez     $(OBJ_BASE)/usr/bin/whereis
 	$(call REZ,usr.bin/whereis/whereis.rez,usr/bin/whereis)
+$(OBJ_BASE)/usr/bin/uptime.rsrc.done:    $(REPO_ROOT)/usr.bin/uptime/uptime.rez      $(OBJ_BASE)/usr/bin/uptime
+	$(call REZ,usr.bin/uptime/uptime.rez,usr/bin/uptime)
 $(OBJ_BASE)/usr/bin/who.rsrc.done:       $(REPO_ROOT)/usr.bin/who/who.rez             $(OBJ_BASE)/usr/bin/who
 	$(call REZ,usr.bin/who/who.rez,usr/bin/who)
 $(OBJ_BASE)/usr/bin/whois.rsrc.done:     $(REPO_ROOT)/usr.bin/whois/whois.rez         $(OBJ_BASE)/usr/bin/whois
@@ -327,7 +330,8 @@ usr_sbin: \
      $(OBJ_BASE)/usr/sbin/getty.rsrc.done \
      $(OBJ_BASE)/usr/sbin/login.rsrc.done \
      $(OBJ_BASE)/usr/sbin/makewhatis.rsrc.done \
-     $(OBJ_BASE)/usr/sbin/newuser.rsrc.done
+     $(OBJ_BASE)/usr/sbin/newuser.rsrc.done \
+     $(OBJ_BASE)/usr/sbin/uptimed.rsrc.done
 
 $(OBJ_BASE)/usr/sbin/catman.rsrc.done:     $(REPO_ROOT)/usr.bin/man/catman.rez              $(OBJ_BASE)/usr/sbin/catman
 	$(call REZ,usr.bin/man/catman.rez,usr/sbin/catman)
@@ -343,6 +347,8 @@ $(OBJ_BASE)/usr/sbin/makewhatis.rsrc.done: $(REPO_ROOT)/usr.bin/man/makewhatis.r
 	$(call REZ,usr.bin/man/makewhatis.rez,usr/sbin/makewhatis)
 $(OBJ_BASE)/usr/sbin/newuser.rsrc.done:    $(REPO_ROOT)/usr.sbin/newuser/newuser.rez        $(OBJ_BASE)/usr/sbin/newuser
 	$(call REZ,usr.sbin/newuser/newuser.rez,usr/sbin/newuser)
+$(OBJ_BASE)/usr/sbin/uptimed.rsrc.done:    $(REPO_ROOT)/usr.sbin/uptimed/uptimed.rez        $(OBJ_BASE)/usr/sbin/uptimed
+	$(call REZ,usr.sbin/uptimed/uptimed.rez,usr/sbin/uptimed)
 
 # ── usr/games/ ───────────────────────────────────────────────────────────────
 
