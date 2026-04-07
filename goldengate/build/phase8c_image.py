@@ -34,7 +34,7 @@ from pathlib import Path
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-GNO_OBJ   = REPO_ROOT / 'gno-obj'
+GNO_OBJ   = REPO_ROOT / 'gno_obj'
 EXTRACTED = REPO_ROOT / 'diskImages' / 'extracted'
 VERBATIM  = REPO_ROOT / 'verbatim'
 METADATA  = EXTRACTED / 'metadata.json'

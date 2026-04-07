@@ -1,5 +1,5 @@
 # Build output
-/gno-obj/
+/gno_obj/
 *.sym
 *.root
 *.ROOT

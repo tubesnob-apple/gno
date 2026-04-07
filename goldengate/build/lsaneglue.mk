@@ -17,7 +17,7 @@
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
 GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
-LIB_OUT   ?= $(abspath $(REPO_ROOT)/../gno-obj/lib/lsaneglue)
+LIB_OUT   ?= $(abspath $(REPO_ROOT)/gno_obj/lib/lsaneglue)
 
 SRC_DIR   := $(REPO_ROOT)/lib/lsaneglue
 AINCLUDE  := $(GG_ROOT)/Libraries/AINClude

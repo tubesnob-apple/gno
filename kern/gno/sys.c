@@ -760,7 +760,7 @@ extern void enableBuf(void);
     if (restart) {
 	r_rec = Restart(newID);
     } else {
-	il_rec = InitialLoad2(newID, (Pointer)&resBuf->bufString, 1, 1);
+	il_rec = InitialLoad(newID, (Pointer)&resBuf->bufString, 1);
     }
     if ((e = toolerror())) {
 	switch(e) {

@@ -51,6 +51,7 @@ $(OBJ_DIR)/%.a: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	cd $(SRC_DIR) && $(CC) $(CFLAGS) $*.c
 	mv $(SRC_DIR)/$*.a $@
 	mv $(SRC_DIR)/$*.root $(OBJ_DIR)/$*.root 2>/dev/null || true
+	-rm -f $(SRC_DIR)/$*.sym 2>/dev/null || true
 
 # vfprintf2.c: ORCA/C 2.2.0 hits an internal "compiler error" on the
 # SPLIT_FILE_2 half of vfprintf.c (same bug as 2.1.1b2, just doesn't crash).

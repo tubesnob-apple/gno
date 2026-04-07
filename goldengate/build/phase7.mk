@@ -30,7 +30,7 @@
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
 GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
-OBJ_BASE  := $(abspath $(REPO_ROOT)/../gno-obj)
+OBJ_BASE  := $(abspath $(REPO_ROOT)/gno_obj)
 KERN_OBJ  := $(OBJ_BASE)/kern_obj
 DRV_OBJ   := $(OBJ_BASE)/drv_obj
 KERN_OUT  := $(OBJ_BASE)/kern
@@ -70,13 +70,17 @@ ALL_KERN_OBJS := $(foreach m,$(ALL_KERN_MODS),$(KERN_OBJ)/$(m).a)
 
 # ── Top-level targets ─────────────────────────────────────────────────────────
 
-.PHONY: all kern drivers validate clean
+.PHONY: all kern drivers validate clean clean-kern
 
 all: kern drivers
 
 # ── Kernel ────────────────────────────────────────────────────────────────────
 
-kern: $(KERN_OUT)
+# Always clean objects before rebuilding to prevent stale binary issues.
+clean-kern:
+	rm -f $(KERN_OBJ)/*.a $(KERN_OBJ)/*.root $(KERN_OUT)
+
+kern: clean-kern $(KERN_OUT)
 
 $(KERN_OUT): $(ALL_KERN_OBJS) | $(OBJ_BASE)
 	cd $(KERN_OBJ) && $(LD) -o $(KERN_OUT) $(ALL_KERN_MODS)
@@ -85,10 +89,17 @@ $(KERN_OUT): $(ALL_KERN_OBJS) | $(OBJ_BASE)
 
 # ── Compile C modules ─────────────────────────────────────────────────────────
 
+# Regenerate build_time.h (always fresh — clean-kern ensures main.a is rebuilt)
+$(KERN_SRC)/build_time.h:
+	python3 -c "from datetime import datetime; dt=datetime.now(); print('#define BUILD_TIMESTAMP \"' + dt.strftime('%Y-%m-%d %H:%M:%S.') + f'{dt.microsecond//1000:03d}' + '\"')" > $(KERN_SRC)/build_time.h
+
+$(KERN_OUT): $(KERN_SRC)/build_time.h $(ALL_KERN_OBJS) | $(OBJ_BASE)
+
 $(KERN_OBJ)/%.a: $(KERN_SRC)/%.c | $(KERN_OBJ)
 	cd $(KERN_SRC) && $(CC) $(CFLAGS) $<
 	mv $(KERN_SRC)/$*.a $(KERN_OBJ)/
 	-mv $(KERN_SRC)/$*.root $(KERN_OBJ)/ 2>/dev/null || true
+	-rm -f $(KERN_SRC)/$*.sym 2>/dev/null || true
 
 # ── Assemble kern/gno/ ASM modules ───────────────────────────────────────────
 

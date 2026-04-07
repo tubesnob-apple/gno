@@ -17,8 +17,8 @@
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
 GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
-LIB_OUT   ?= $(abspath $(REPO_ROOT)/../gno-obj/usr/lib/libcurses)
-OBJ_DIR   ?= $(abspath $(REPO_ROOT)/../gno-obj/libcurses_obj)
+LIB_OUT   ?= $(abspath $(REPO_ROOT)/gno_obj/usr/lib/libcurses)
+OBJ_DIR   ?= $(abspath $(REPO_ROOT)/gno_obj/libcurses_obj)
 
 SRC_DIR   := $(REPO_ROOT)/lib/libcurses
 
@@ -49,7 +49,7 @@ $(LIB_OUT): $(C_OBJS) | $(dir $(LIB_OUT))
 
 # Compile from SRC_DIR so local curses.h resolves
 $(OBJ_DIR)/%.a: $(SRC_DIR)/%.c | $(OBJ_DIR)
-	cd $(SRC_DIR) && $(CC) $(CCFLAGS) $*.c && mv $*.a $(OBJ_DIR)/
+	cd $(SRC_DIR) && $(CC) $(CCFLAGS) $*.c && mv $*.a $(OBJ_DIR)/ && rm -f $*.sym 2>/dev/null || true
 
 $(OBJ_DIR):
 	mkdir -p $@

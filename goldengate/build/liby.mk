@@ -13,8 +13,8 @@
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
 GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
-LIB_OUT   ?= $(abspath $(REPO_ROOT)/../gno-obj/usr/lib/liby)
-OBJ_DIR   ?= $(abspath $(REPO_ROOT)/../gno-obj/liby_obj)
+LIB_OUT   ?= $(abspath $(REPO_ROOT)/gno_obj/usr/lib/liby)
+OBJ_DIR   ?= $(abspath $(REPO_ROOT)/gno_obj/liby_obj)
 
 SRC_DIR   := $(REPO_ROOT)/lib/liby
 

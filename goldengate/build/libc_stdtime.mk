@@ -31,6 +31,7 @@ $(OBJ_DIR)/%.a: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	cd $(SRC_DIR) && $(CC) $(CFLAGS) $*.c
 	mv $(SRC_DIR)/$*.a $@
 	mv $(SRC_DIR)/$*.root $(OBJ_DIR)/$*.root 2>/dev/null || true
+	-rm -f $(SRC_DIR)/$*.sym 2>/dev/null || true
 
 $(OBJ_DIR):
 	mkdir -p $@

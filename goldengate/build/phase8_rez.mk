@@ -25,7 +25,7 @@
 #   rinclude/, goldengate/orca-m/   — include files / external tool
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-OBJ_BASE  := $(abspath $(REPO_ROOT)/gno-obj)
+OBJ_BASE  := $(abspath $(REPO_ROOT)/gno_obj)
 COWREZ    := python3 $(REPO_ROOT)/goldengate/tools/cowrez.py
 
 # ── Helper macro ──────────────────────────────────────────────────────────────

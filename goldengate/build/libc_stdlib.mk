@@ -2,7 +2,7 @@
 # goldengate/build/libc_stdlib.mk — Build lib/libc/stdlib/ (4 C + 1 ASM)
 #
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GNO_OBJ   ?= $(abspath $(REPO_ROOT)/../gno-obj)
+GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno_obj)
 SRC_DIR   := $(REPO_ROOT)/lib/libc/stdlib
 OBJ_DIR   := $(GNO_OBJ)/libc/stdlib
 LIB_OUT   := $(GNO_OBJ)/libc_stdlib.a

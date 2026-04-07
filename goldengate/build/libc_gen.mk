@@ -34,7 +34,7 @@
 #
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GNO_OBJ   ?= $(abspath $(REPO_ROOT)/../gno-obj)
+GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno_obj)
 SRC_DIR   := $(REPO_ROOT)/lib/libc/gen
 OBJ_DIR   := $(GNO_OBJ)/libc/gen
 LIB_OUT   := $(GNO_OBJ)/libc_gen.a

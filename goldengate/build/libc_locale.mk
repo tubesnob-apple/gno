@@ -2,7 +2,7 @@
 # goldengate/build/libc_locale.mk — Build lib/libc/locale/ (1 C file)
 #
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GNO_OBJ   ?= $(abspath $(REPO_ROOT)/../gno-obj)
+GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno_obj)
 SRC_DIR   := $(REPO_ROOT)/lib/libc/locale
 OBJ_DIR   := $(GNO_OBJ)/libc/locale
 LIB_OUT   := $(GNO_OBJ)/libc_locale.a

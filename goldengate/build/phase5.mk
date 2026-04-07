@@ -81,8 +81,8 @@ validate: all
 	@echo ""
 	@echo "=== Phase 5 Library Sizes ==="
 	@REF=$(REPO_ROOT)/diskImages/extracted/usr/lib; \
-	GNO_OBJ=$(abspath $(REPO_ROOT)/gno-obj/usr/lib); \
-	GNO_LIB=$(abspath $(REPO_ROOT)/gno-obj/lib); \
+	GNO_OBJ=$(abspath $(REPO_ROOT)/gno_obj/usr/lib); \
+	GNO_LIB=$(abspath $(REPO_ROOT)/gno_obj/lib); \
 	for lib in libcrypt libsim libutil libtermcap libcurses liby libnetdb libcontrib; do \
 	  built=$$GNO_OBJ/$$lib; \
 	  ref=$$REF/$$lib; \

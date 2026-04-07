@@ -2,7 +2,7 @@
 # goldengate/build/libc_string.mk — Build lib/libc/string/ (all C, SEGMENT=libc_str__)
 #
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GNO_OBJ   ?= $(abspath $(REPO_ROOT)/../gno-obj)
+GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno_obj)
 SRC_DIR   := $(REPO_ROOT)/lib/libc/string
 OBJ_DIR   := $(GNO_OBJ)/libc/string
 LIB_OUT   := $(GNO_OBJ)/libc_string.a

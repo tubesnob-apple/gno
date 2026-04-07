@@ -20,7 +20,7 @@
 #
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno-obj)
+GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno_obj)
 GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
 
 BIN_SRC     := $(REPO_ROOT)/bin
@@ -47,7 +47,7 @@ OBJ_BASE    := $(GNO_OBJ)/utils_obj
 # files with #pragma noroot don't generate a .root).
 # Usage: $(call cc1,srcdir,stem,objdir)
 define cc1
-cd $(1) && iix --gno compile -P $(2).c && mv $(2).a $(3)/ && { mv $(2).root $(3)/ 2>/dev/null || true; }
+cd $(1) && iix --gno compile -P $(2).c && mv $(2).a $(3)/ && { mv $(2).root $(3)/ 2>/dev/null || true; } && { rm -f $(2).sym 2>/dev/null || true; }
 endef
 
 # Link all objects in objdir, produce binary in outdir.
@@ -81,7 +81,7 @@ endef
 define build_multi
 	@echo "=== $(3) ==="
 	@mkdir -p $(OBJ_BASE)/$(3) $(2)
-	$(foreach s,$(4), cd $(1) && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/$(3)/ && { mv $(s).root $(OBJ_BASE)/$(3)/ 2>/dev/null || true; };)
+	$(foreach s,$(4), cd $(1) && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/$(3)/ && { mv $(s).root $(OBJ_BASE)/$(3)/ 2>/dev/null || true; } && { rm -f $(s).sym 2>/dev/null || true; };)
 	$(call ld1,$(OBJ_BASE)/$(3),$(2),$(3),$(4))
 endef
 
@@ -123,7 +123,7 @@ bin_binprint:
 	@echo "=== binprint ==="
 	@mkdir -p $(OBJ_BASE)/binprint $(BIN_OUT)
 	$(foreach s,binprint doline, \
-		cd $(BIN_SRC)/binprint && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/binprint/ && { mv $(s).root $(OBJ_BASE)/binprint/ 2>/dev/null || true; };)
+		cd $(BIN_SRC)/binprint && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/binprint/ && { mv $(s).root $(OBJ_BASE)/binprint/ 2>/dev/null || true; } && { rm -f $(s).sym 2>/dev/null || true; };)
 	cd $(OBJ_BASE)/binprint && iix --gno link -P -o $(BIN_OUT)/binprint binprint doline
 
 # cp: single-file GNO-native utility (from ksherlock-gno-sources)
@@ -131,7 +131,7 @@ bin_binprint:
 bin_cp:
 	@echo "=== cp ==="
 	@mkdir -p $(OBJ_BASE)/cp $(BIN_OUT)
-	cd $(BIN_SRC)/cp && iix --gno compile -P cp.c && mv cp.a $(OBJ_BASE)/cp/ && { mv cp.root $(OBJ_BASE)/cp/ 2>/dev/null || true; }
+	cd $(BIN_SRC)/cp && iix --gno compile -P cp.c && mv cp.a $(OBJ_BASE)/cp/ && { mv cp.root $(OBJ_BASE)/cp/ 2>/dev/null || true; } && { rm -f cp.sym 2>/dev/null || true; }
 	cd $(OBJ_BASE)/cp && iix --gno link -P -o $(BIN_OUT)/cp cp
 
 # grep/egrep/fgrep/chmod: BSD ports using POSIX regex (grep=4.3BSD Reno, egrep/fgrep=4.3BSD Reno, chmod=4.4BSD-Lite2)
@@ -314,8 +314,8 @@ bin_vi:
 	@mkdir -p $(OBJ_BASE)/vi $(BIN_OUT)
 	$(foreach s,$(VI_PLAIN), \
 		cd $(BIN_SRC)/vi && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/vi/ && { mv $(s).root $(OBJ_BASE)/vi/ 2>/dev/null || true; };)
-	cd $(BIN_SRC)/vi && iix --gno compile -P "format.l.c" && mv "format.l.a" $(OBJ_BASE)/vi/ && { mv "format.l.root" $(OBJ_BASE)/vi/ 2>/dev/null || true; }
-	cd $(BIN_SRC)/vi && iix --gno compile -P "s.io.c" && mv "s.io.a" $(OBJ_BASE)/vi/ && { mv "s.io.root" $(OBJ_BASE)/vi/ 2>/dev/null || true; }
+	cd $(BIN_SRC)/vi && iix --gno compile -P "format.l.c" && mv "format.l.a" $(OBJ_BASE)/vi/ && { mv "format.l.root" $(OBJ_BASE)/vi/ 2>/dev/null || true; } && { rm -f "format.l.sym" 2>/dev/null || true; }
+	cd $(BIN_SRC)/vi && iix --gno compile -P "s.io.c" && mv "s.io.a" $(OBJ_BASE)/vi/ && { mv "s.io.root" $(OBJ_BASE)/vi/ 2>/dev/null || true; } && { rm -f "s.io.sym" 2>/dev/null || true; }
 	rm -f $(BIN_OUT)/vi
 	cd $(OBJ_BASE)/vi && iix --gno link -P -o $(BIN_OUT)/vi $(VI_LINK_ORDER) $(LIBTERMCAP)
 
@@ -579,7 +579,7 @@ sbin: $(SBIN_SIMPLE:%=sbin_%) sbin_initd
 sbin_initd:
 	@echo "=== initd ==="
 	@mkdir -p $(OBJ_BASE)/initd $(SBIN_OUT) $(USRSBIN_OUT)
-	cd $(SBIN_SRC)/init && iix --gno compile -P initd.c && mv initd.a $(OBJ_BASE)/initd/ && { mv initd.root $(OBJ_BASE)/initd/ 2>/dev/null || true; }
+	cd $(SBIN_SRC)/init && iix --gno compile -P initd.c && mv initd.a $(OBJ_BASE)/initd/ && { mv initd.root $(OBJ_BASE)/initd/ 2>/dev/null || true; } && { rm -f initd.sym 2>/dev/null || true; }
 	cd $(OBJ_BASE)/initd && iix --gno link -P -o $(USRSBIN_OUT)/initd initd.a
 	cp $(USRSBIN_OUT)/initd $(SBIN_OUT)/initd
 

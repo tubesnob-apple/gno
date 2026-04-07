@@ -26,6 +26,16 @@ segment "KERN2     ";
 #include <shell.h>
 #include <sys/errno.h>
 #include <signal.h>
+#include "build_time.h"
+
+#define BOOT_TRACE
+#ifdef BOOT_TRACE
+#define KPRINT(s) WriteCString(s);
+#define BOOT_TRAP(n)  asm { wdm n }
+#else
+#define KPRINT(s) 
+#define BOOT_TRAP(n)
+#endif
 
 #ifndef udispatch
 #define udispatch 0xE10008
@@ -58,6 +68,8 @@ GSString32 ttyPath = { 6, ".ttyco" };
 OpenRecGS o;
 FILE *initf;
 
+KPRINT("doShell:Starting\n\r");
+
 #ifdef DEBUG_FIRST_FORK
     WriteCString("\n\rInside doShell\n\r");
     ReadChar(0);
@@ -74,6 +86,10 @@ FILE *initf;
     o.requestAccess = writeEnable;
     OpenGS(&o);  /* open stderr */
 
+    BOOT_TRAP(0x01);
+    
+    KPRINT("doShell:handling initrc\n\r");
+
     initf = fopen("9/initrc","r");
     if (initf) {
 	fgets(initX,80,initf);
@@ -83,13 +99,28 @@ FILE *initf;
 	fclose(initf);
     }
 
+    KPRINT("doShell:after initrc\n\r");
+
     cl[0] = 0;
     PUSH_VARIABLES(cl);
 #ifdef DEBUG_FIRST_FORK
     WriteCString("Calling Kexecve()\n\r");
     ReadChar(0);
 #endif
+
+    KPRINT("doShell:doing kernel exec\n\r");
+    KPRINT("doShell:initX\n\r");
+    KPRINT(initX);
+    KPRINT("\n\r");
+    KPRINT("doShell:initCmd\n\r");
+    KPRINT(initCmd);
+    KPRINT("\n\r");
+    
+    KPRINT("doShell:Doing kernel exec\n\r");
     Kexecve(&errno,initCmd,initX);
+    KPRINT("doShell:Finished Kernel Exec\n\r");
+    
+
     WriteCString("\n\rCould not locate: ");
     WriteCString(initX);
     WriteCString("\n\r");
@@ -121,6 +152,7 @@ extern void InstallDriver(int,int,void *);
 
 static void setuppty(void)
 {
+    WriteCString("Start setuppty()");
 char pty[] = ".ptyq0";
 char tty[] = ".ttyq0";
 const char conv[] = "0123456789abcdef";
@@ -137,10 +169,15 @@ extern PTYSlaveHeader;
     	InstallDriver(kp->userID, slotno+1, &PTYSlaveHeader);
 	slotno+=2;
     }
+
+    WriteCString("End setuppty()");
+
 }
 
 static void setuptty(void)
 {
+        WriteCString("Start setuptty()");
+
 static char line[80];
 char *line1;
 FILE *ttys;
@@ -176,7 +213,9 @@ extern ConsoleHeader;
 
         /* InitialLoad device file */
 	ILuserID = (kp->userID & 0xF0FF) | (((devNum+2) & 0xf) << 8);
-	il_rec = InitialLoad2(ILuserID, (Pointer)&filename, 1, 1);
+	BOOT_TRAP(0xda)    /* inspect filename before InitialLoad */
+	il_rec = InitialLoad(ILuserID, (Pointer)&filename, 1);
+	BOOT_TRAP(0xdb)    /* inspect il_rec.startAddr after InitialLoad */
     	if ((e = toolerror())) {
 	    printf("Could not load driver: %s, error: %04X\n",filename.text,e);
         } else {
@@ -185,6 +224,9 @@ extern ConsoleHeader;
         }
     }
     fclose(ttys);
+
+    WriteCString("Start setuptty()");
+
 }
 
 static char *pg = "\pProcyon~GNOME~";
@@ -234,6 +276,9 @@ word nargs = 0;
         InitTextDev(output);
         InitTextDev(errorOutput);
 
+                WriteCString("Start main()");
+
+
 	kernStatus();
 	if (!toolerror()) {
 		printf("GNO Kernel already active\n");
@@ -243,7 +288,7 @@ word nargs = 0;
         quitParms.pCount = 0;
         TLStartUp();
 
-        printf("%c\nGNO Kernel v2.0.6 (network)\n",12);
+        printf("%c\nGNO Kernel v2.0.6 (network) [" BUILD_TIMESTAMP "]\n",12);
 	printf("Copyright 1991-1998, Procyon, Inc.\n%c",6);
 	/* initialize kernel queues, etc */
 	SetTSPtr(0x8000, 3, (Pointer)kernTable);
@@ -403,7 +448,10 @@ word nargs = 0;
 	SetErrorDevice(pascalType,3l);
 	WriteCString("\n\r\n\r\n\r");
 
+    BOOT_TRAP(0xA0);
 	commonFork(doShell, 1024, 0, NULL, &nargs, &errno);
+
+    BOOT_TRAP(0xA1);
 
 /*
  * this is the kernel null process. it must NEVER call the assembly
