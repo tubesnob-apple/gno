@@ -5,7 +5,7 @@
 # Only strftime.c is built (matching the original 2.0.6 build).
 #
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GNO_OBJ   ?= $(abspath $(REPO_ROOT)/../gno-obj)
+GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno_obj)
 SRC_DIR   := $(REPO_ROOT)/lib/libc/stdtime
 OBJ_DIR   := $(GNO_OBJ)/libc/stdtime
 LIB_OUT   := $(GNO_OBJ)/libc_stdtime.a

@@ -23,7 +23,7 @@
 *
 * Interfaces defined in this file:
 *
-* InitDStack	
+* InitDStk	
 *
 * dirs	built-in command
 *
@@ -31,18 +31,17 @@
 *
 * popd	built-in command
 *
-* path2tilde	
+* pth2tild	
 *
-* getpfxstr	
+* getPfxS	
 *
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/dir.mac
+	mcopy gsh.mac
 
 dummydir	start		; ends up in .root
 	end
 
-	setcom 60
 
 MAXD	gequ	50
 
@@ -53,7 +52,7 @@ MAXD	gequ	50
 *
 **************************************************************************
 
-InitDStack	START
+InitDStk	START
 
 	using	DirData
 
@@ -89,7 +88,7 @@ space	equ	status+2
 	stz	status
 	lda	argc
 	dec	a
-	beq	showshort
+	beq	shwshrt
 	dec	a
 	bne	using
 
@@ -119,7 +118,7 @@ showlong	jsl	dotods	Set top of stack to current directory.
 	jsl	showdir
 	bra	exit
 
-showshort	jsl	dotods	Set top of stack to current directory.
+shwshrt	jsl	dotods	Set top of stack to current directory.
 	pea	1
 	jsl	showdir
 
@@ -234,8 +233,8 @@ roterr	ldx	#^err2	   Print error message:
 	lda	#err2	    Directory stack not that deep
 	jmp	prerrmsg
 
-badnum	ldx	#^errbadnum	Print error message:
-	lda	#errbadnum	  Invalid number
+badnum	ldx	#^errbdnm	Print error message:
+	lda	#errbdnm	  Invalid number
 	jmp	prerrmsg
 
 ;
@@ -311,7 +310,7 @@ stackok	anop
 	sta	dirstack+2,y
 	jsl	dotods	Set top of stack to current directory.
 
-done	lda	varpushdsil	If $PUSHDSILENT not defined,
+done	lda	varpsdsl	If $PUSHDSILENT not defined,
 	bne	exit
 	pea	1
 	jsl	showdir	  show the directory stack.
@@ -323,7 +322,7 @@ usagestr	dc	c'usage: pushd [+n | dir]',h'0d00'
 err1	dc	c'pushd: No other directory',h'0d00'
 err2	dc	c'pushd: Directory stack not that deep',h'0d00'
 errfull	dc	c'pushd: Directory stack full',h'0d00'
-errbadnum	dc	c'pushd: Invalid number',h'0d00'
+errbdnm	dc	c'pushd: Invalid number',h'0d00'
 
 
 	END
@@ -448,7 +447,7 @@ gototop	lda	tods
 	pha
 	jsl	gotodir
 
-	lda	varpushdsil
+	lda	varpsdsl
 	bne	exit
 
 	pea	1
@@ -564,7 +563,7 @@ loop	lda	flag	If parameter == 1,
 	pha
 	lda	dirstack,y
 	pha
-	jsl	path2tilde		 but first substitute "~"
+	jsl	pth2tild		 but first substitute "~"
 	phx			  for home directory.
 	pha
 	jsr	puts
@@ -623,7 +622,7 @@ space	equ	idx+2
 	jsl	nullfree		free it.
 
 setit	pea	0
-	jsl	getpfxstr	Get value of prefix 0.
+	jsl	getPfxS	Get value of prefix 0.
 	sta	p
 	stx	p+2
 
@@ -685,7 +684,7 @@ DirMutex	key
 *
 **************************************************************************
 
-path2tilde	START
+pth2tild	START
 	
 ptr	equ	0
 newpath	equ	ptr+4
@@ -711,16 +710,16 @@ space	equ	home+4
 	sta	home
 	stx	home+2
 	ora	home+2	If buffer wasn't allocated
-	jeq	notfound2	  cannot search for $HOME.
+	jeq	ntfnd2	  cannot search for $HOME.
 
 	ldy	#2	Get result length word.
 	lda	[home],y
-	beq	notfound2	If 0, just copy the rest.
+	beq	ntfnd2	If 0, just copy the rest.
 	tax		Use X to count down HOME chars.
 	ldy	#0	path index is based from 0.
-checkhome	lda	[path],y
+chkhome	lda	[path],y
 	and	#$FF	Isolate character in parameter,
-	beq	notfound2	 checking for end of string,
+	beq	ntfnd2	 checking for end of string,
 	jsr	tolower	  converting to lower-case
 	jsr	toslash	   and changing ":" to "/".
 	pha		Hold on stack for comparison.
@@ -735,7 +734,7 @@ checkhome	lda	[path],y
 	bne	notfound	 there is no match.
 	pla		Pop the parameter character off stack.
 	dex		Decrement $home length counter.
-	bne	checkhome	If more, stay in loop.
+	bne	chkhome	If more, stay in loop.
 
 ;
 ; First part of parameter matched $HOME
@@ -747,7 +746,7 @@ checkhome	lda	[path],y
 	beq	found
 	jsr	toslash	  '/', or ':', we have a match.
 	cmp	#'/'
-	bne	notfound2
+	bne	ntfnd2
 found	lda	#'~'	Store '~' as first character
 	sta	[ptr]	 in result buffer, and bump
 	incad	ptr	  result pointer.
@@ -757,7 +756,7 @@ found	lda	#'~'	Store '~' as first character
 ; First part of parameter does not match $HOME
 ;     
 notfound	pla		Get rid of comparison value on stack.
-notfound2	ldy	#0	Not found: copy from beginning.
+ntfnd2	ldy	#0	Not found: copy from beginning.
 
 ;
 ; Copy remainder of parameter (Y-reg marks start) to destination string
@@ -779,11 +778,11 @@ endcopy	sta	[ptr]
 	dec	ptr	If final character
 	lda	[ptr]	 was "/",
 	cmp	#'/'
-	bne	skipshorten
+	bne	skpshtn
 	lda	#0		obliterate it.
 	sta	[ptr]
 
-skipshorten	pei	(home+2)	Free memory allocated
+skpshtn	pei	(home+2)	Free memory allocated
 	pei	(home)	 for the value of $HOME.
 	jsl	nullfree
 
@@ -800,7 +799,7 @@ homename	gsstr	'home'	Env variable name
 *
 **************************************************************************
 
-getpfxstr	START
+getPfxS	START
 	
 p	equ	0
 space	equ	p+4
@@ -816,14 +815,14 @@ space	equ	p+4
 	beq	doboot	 use GetBootVol, not GetPrefix.
 	
 	sta	gpnum	Store prefix num in parameter block.
-	ld4	TempResultBuf,gppath
+	ld4	TmpRBuf,gppath
 	GetPrefix gpparm
 	bra	chklen
 
-doboot	ld4	TempResultBuf,gbpath
+doboot	ld4	TmpRBuf,gbpath
 	GetBootVol gbparm
 
-chklen	lda	TempRBlen	Use that length
+chklen	lda	TmpRBln	Use that length
 	clc		 plus five (for
 	adc	#5	  len words and terminator)
 	pea	0	   to allocate memory
@@ -838,7 +837,7 @@ chklen	lda	TempRBlen	Use that length
 	bra	rpterr	   return NULL to user.
 
 
-memok	lda	TempRBlen	Store result buf
+memok	lda	TmpRBln	Store result buf
 	inc2	a	 length at start
 	inc2	a	  of buffer.
 	sta	[p]
@@ -895,8 +894,8 @@ gbpath	dc	i4'0'	prefix returned to this GS/OS buffer.
 ;
 ; GS/OS result buffer for getting the full length of the prefix string
 ;
-TempResultBuf	dc	i2'5'	Only five bytes total.
-TempRBlen	ds	2	String's length returned here.
+TmpRBuf	dc	i2'5'	Only five bytes total.
+TmpRBln	ds	2	String's length returned here.
 	ds	1	Only 1 byte for value.
 
 ;

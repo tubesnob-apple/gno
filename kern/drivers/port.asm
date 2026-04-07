@@ -97,7 +97,7 @@ D_in_deq	START
 	phd
 	lda	>SerialDP
 	tcd
-	jsr	lowRead
+	jsr	>lowRead
 	pld
 	plb
 	rtl
@@ -161,7 +161,7 @@ D_out_enq	START
 	lda	>SerialDP
 	tcd
 	lda	7,s
-	jsr	WriteBuffer
+	jsr	>WriteBuffer
 	pld
 	plb
 	lda	2,s
@@ -214,8 +214,8 @@ GotIt	anop
 ;	plp		restore interrupts
 	lda	#-1
 	sta	blockProc
-	jsr	ReadBuffer
-	
+	jsr	>ReadBuffer
+
 intr	anop
 	rts
 	END
@@ -347,7 +347,7 @@ didAlloc	lda	[bufHand]
 	sta	[dTermioPtr],y
 	iny2	
 	sta	[dTermioPtr],y
-	jsr	ComInit	set the initial baud rate
+	jsr	>ComInit	set the initial baud rate
 
 	pld
 
@@ -552,7 +552,7 @@ TIOCSETP	anop
 	phd
 	lda	>SerialDP
 	tcd
-	jsr	SetWord	$$$ SETWORD SET BAUD RATE
+	jsr	>SetWord	$$$ SETWORD SET BAUD RATE
 	pld
 	stz	retval
 	jmp	goaway
@@ -602,16 +602,16 @@ TIOCSTART	anop
 	sta	retval
 	jmp	goaway	; we don't support these
 
-TIOCSDTR	jsr   DTRON	; these don't need DP
+TIOCSDTR	jsr   >DTRON	; these don't need DP
 	jmp   goaway
 
-TIOCCDTR	jsr   DTROFF
+TIOCCDTR	jsr   >DTROFF
 	jmp   goaway
 
-TIOCSBRK	jsr	BRKON
+TIOCSBRK	jsr	>BRKON
 	stz	retval
 	jmp	goaway
-TIOCCBRK	jsr	BRKOFF
+TIOCCBRK	jsr	>BRKOFF
 	stz	retval
 	jmp	goaway
 

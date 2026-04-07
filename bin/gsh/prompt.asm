@@ -21,22 +21,21 @@
 *	^	^	^	^	^	^	
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/prompt.mac
+	mcopy gsh.mac
 
-dummyprompt	start		; ends up in .root
+dmyprmt	start		; ends up in .root
 	end
 
-	setcom 60
 
-WritePrompt	START
+WrtPrmpt	START
 
-	using HistoryData
+	using HistData
 
 
 prompt	equ	0
-promptgsbuf	equ	prompt+4
-usergsbuf	equ	promptgsbuf+4
-hour	equ	usergsbuf+4
+pmtgsbf	equ	prompt+4
+usrgsbf	equ	pmtgsbf+4
+hour	equ	usrgsbf+4
 minute	equ	hour+2
 offset	equ	minute+2
 pfx	equ	offset+2
@@ -48,8 +47,8 @@ precmd	equ	prompt
 
 	subroutine (0:dummy),space
 
-	ph4	#precmdstr	If "precmd" alias is defined,
-	jsl	findalias
+	ph4	#precstr	If "precmd" alias is defined,
+	jsl	fndAlias
 	sta	precmd
 	stx	precmd+2
 	ora	precmd+2
@@ -63,34 +62,34 @@ precmd	equ	prompt
 ;
 ; Get value of $PROMPT environment variable
 ;
-getvar	ph4	#promptname
+getvar	ph4	#pmtname
 	jsl	getenv
 
 	php		Turn off interrupts: mutex
 	sei		 won't do what we want!
 
-	sta	promptgsbuf	Save pointer to GS/OS result buffer.
-	stx	promptgsbuf+2	If there is no memory to hold it,
-	ora	promptgsbuf+2	 it's undefined, or it has a
-	bne	parseprompt	  length of 0,
-	ldx	#^dfltPrompt
-	lda	#dfltPrompt
+	sta	pmtgsbf	Save pointer to GS/OS result buffer.
+	stx	pmtgsbf+2	If there is no memory to hold it,
+	ora	pmtgsbf+2	 it's undefined, or it has a
+	bne	prsepmt	  length of 0,
+	ldx	#^dfltPmt
+	lda	#dfltPmt
 	jsr	puts		print the default prompt
-	bra	donemark2		  and exit.
+	bra	dnmrk2		  and exit.
 
 ;
 ; Prompt string begins in result buffer after the two length words
 ;
-parseprompt	anop
+prsepmt	anop
 	clc
-	lda	promptgsbuf
+	lda	pmtgsbf
 	adc	#4
 	sta	prompt
-	lda	promptgsbuf+2
+	lda	pmtgsbf+2
 	adc	#0
 	sta	prompt+2
 
-promptloop	lda	[prompt]
+pmtloop	lda	[prompt]
 	incad	prompt
 	and	#$FF
 	beq	done
@@ -101,16 +100,16 @@ promptloop	lda	[prompt]
 	cmp	#'\'
 	jeq	quoteit
 _putchar	jsr	putchar
-	bra	promptloop
+	bra	pmtloop
 
 done	jsr	standend
 	jsr	cursoron
 
-donemark2	anop
+dnmrk2	anop
 	plp		Restore interrupts.
 
-	pei	(promptgsbuf+2)	Free $PROMPT value buffer
-	pei	(promptgsbuf)
+	pei	(pmtgsbf+2)	Free $PROMPT value buffer
+	pei	(pmtgsbf)
 	jsl	nullfree
 
 	jsr	flush
@@ -133,13 +132,13 @@ special	lda	[prompt]	Get character following "%".
 	cmp	#'@'	 or '@',
 	beq	ptime		print time (am/pm format)
 	cmp	#'S'	If 'S',
-	jeq	pstandout		turn inverse mode on.
+	jeq	pstdout		turn inverse mode on.
 	cmp	#'s'	If 's',
-	jeq	pstandend		turn inverse mode off.
+	jeq	pstdend		turn inverse mode off.
 	cmp	#'U'	If 'U',
-	jeq	punderline		turn underline mode on.
+	jeq	pundln		turn undline mode on.
 	cmp	#'u'	If 'u',
-	jeq	punderend		turn underline mode off
+	jeq	pundend		turn undline mode off
 	cmp	#'d'	If 'd'
 	jeq	pcwd
 	cmp	#'/'	 or '/',
@@ -158,7 +157,7 @@ special	lda	[prompt]	Get character following "%".
 	jeq	pdate2		print date (yy-mm-dd)
 	cmp	#'~'	If '~',
 	jeq	ptilde		print wrk dir with ~ subs.
-	jmp	promptloop	If none of these characters, ignore it.
+	jmp	pmtloop	If none of these characters, ignore it.
 
 ;
 ; Put history number
@@ -166,7 +165,7 @@ special	lda	[prompt]	Get character following "%".
 phist	lda	lasthist
 	inc	a
 	jsr	WriteNum
-	jmp	promptloop
+	jmp	pmtloop
 
 ;
 ; Print current time
@@ -204,34 +203,34 @@ ptime4	jsr	putchar
 ;
 ; Set Stand Out (turn on inverse mode)
 ;
-pstandout	jsr	standout
-	jmp	promptloop
+pstdout	jsr	standout
+	jmp	pmtloop
 ;
 ; UnSet Stand Out (turn off inverse mode)
 ;
-pstandend	jsr	standend
-	jmp	promptloop
+pstdend	jsr	standend
+	jmp	pmtloop
 ;
 ; Set Underline
 ;
-punderline	jsr	underline
-	jmp	promptloop
+pundln	jsr	undline
+	jmp	pmtloop
 ;
 ; UnSet Underline
 ;
-punderend	jsr	underend
-	jmp	promptloop
+pundend	jsr	underend
+	jmp	pmtloop
 ;		         
 ; Current working directory
 ;
 pcwd	anop
 	pea	0
-	jsl	getpfxstr	Get value of prefix 0.
+	jsl	getPfxS	Get value of prefix 0.
 	sta	pfx
 	stx	pfx+2
 
 	ora	pfx+2	If NULL pointer returned,
-	jeq	promptloop	 an error was reported.
+	jeq	pmtloop	 an error was reported.
 
 	ldy	#4	Text starts at byte 4.
 pcwd1	lda	[pfx],y	Get next
@@ -246,19 +245,19 @@ pcwd1	lda	[pfx],y	Get next
 
 freepfx	ph4	pfx	Free the current directory buffer.
 	jsl	nullfree
-	jmp	promptloop
+	jmp	pmtloop
 
 ;
 ; Tail of current working directory
 ;
 pcwdend	anop
 	pea	0
-	jsl	getpfxstr	Get value of prefix 0.
+	jsl	getPfxS	Get value of prefix 0.
 	sta	pfx
 	stx	pfx+2
 
 	ora	pfx+2	If NULL pointer returned,
-	jeq	promptloop	 an error was reported.
+	jeq	pmtloop	 an error was reported.
 
 	ldy	#2	Get string's length word
 	lda	[pfx],y	 from bytes 2 & 3.
@@ -289,12 +288,12 @@ pcwdend2	iny
 ;
 ptilde	anop
 	pea	0
-	jsl	getpfxstr	Get value of prefix 0.
+	jsl	getPfxS	Get value of prefix 0.
 	sta	pfx
 	stx	pfx+2
 
 	ora	pfx+2	If NULL pointer returned,
-	jeq	promptloop	 an error was reported.
+	jeq	pmtloop	 an error was reported.
 	lda	pfx	Otherwise, restore low-order address.
 
 	clc		Add 4 to start of buffer
@@ -303,7 +302,7 @@ ptilde	anop
 	inx
 pushad	phx
 	pha
-	jsl	path2tilde	Convert $HOME to "~"
+	jsl	pth2tild	Convert $HOME to "~"
 	phx		Push addr onto stack
 	pha		  for nullfree.
 	jsr	puts	Print tilde string.
@@ -316,23 +315,23 @@ pushad	phx
 ;
 puser	ph4	#username	Get value of $USER
 	jsl	getenv
-	sta	usergsbuf	If buffer wasn't allocated
-	stx	usergsbuf+2
-	ora	usergsbuf+2
+	sta	usrgsbf	If buffer wasn't allocated
+	stx	usrgsbf+2
+	ora	usrgsbf+2
 	beq	goploop	 ignore it.
 
 	clc
-	lda	usergsbuf	Text begins after
+	lda	usrgsbf	Text begins after
 	adc	#4	 four bytes of
 	bcc	printit	  length words.
 	inx
 printit	jsr	puts
 
-	pei	(usergsbuf+2)	Free $USER value buffer
-	pei	(usergsbuf)
+	pei	(usrgsbf+2)	Free $USER value buffer
+	pei	(usrgsbf)
 	jsl	nullfree
 
-goploop	jmp	promptloop
+goploop	jmp	pmtloop
 
 ;
 ; Write date as mm/dd/yy
@@ -355,7 +354,7 @@ pdate1	ReadTimeHex (@a,year,monday,@a)
 	and	#$FF00
 	xba
 	jsr	WriteNum
-	jmp	promptloop
+	jmp	pmtloop
 
 ;
 ; Write date as yy-mm-dd
@@ -378,7 +377,7 @@ pdate2	ReadTimeHex (@a,year,monday,@a)
 	and	#$FF
 	inc	a
 	jsr	WriteNum
-	jmp	promptloop
+	jmp	pmtloop
 
 ;
 ; check for \ quote
@@ -394,13 +393,13 @@ quoteit	lda	[prompt]
 	cmp	#'t'
 	beq	tab
 	cmp	#'b'
-	beq	backspace
+	beq	bkspc
 	jmp	_putchar
 newline	lda	#13
 	jmp	_putchar
 tab	lda	#9
 	jmp	_putchar
-backspace	lda	#8
+bkspc	lda	#8
 	jmp	_putchar
 ;	    
 ; Write a number between 0 and 9,999
@@ -431,14 +430,14 @@ write3	Int2Dec (@a,#num,#4,#0)
 
 
 ; Name of alias to execute before prompt
-precmdstr	dc	c'precmd',h'00'
+precstr	dc	c'precmd',h'00'
 
 ; Names of environment variables
-promptname	gsstr	'prompt'
+pmtname	gsstr	'prompt'
 username	gsstr	'user'
 
 ; Default prompt
-dfltPrompt	dc	c'% ',h'00'
+dfltPmt	dc	c'% ',h'00'
 
 num	dc	c'0000',h'00'
 

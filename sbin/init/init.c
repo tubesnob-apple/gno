@@ -47,7 +47,9 @@ static char sccsid[] = "@(#)init.c	8.1 (Berkeley) 7/15/93";
 #endif
 
 #include <sys/param.h>
+#ifndef __GNO__
 #include <sys/sysctl.h>
+#endif
 #include <sys/wait.h>
 
 #include <db.h>
@@ -61,7 +63,11 @@ static char sccsid[] = "@(#)init.c	8.1 (Berkeley) 7/15/93";
 #include <time.h>
 #include <ttyent.h>
 #include <unistd.h>
+#ifndef __GNO__
 #include <sys/reboot.h>
+#else
+#define RB_AUTOBOOT 0
+#endif
 
 #ifdef __STDC__
 #include <stdarg.h>
@@ -74,6 +80,18 @@ static char sccsid[] = "@(#)init.c	8.1 (Berkeley) 7/15/93";
 #endif
 
 #include "pathnames.h"
+
+#ifdef __GNO__
+/* GNO/ORCA-C compatibility */
+#include <types.h>        /* TRUE, FALSE */
+/* GNO fork() takes a void* arg (GNO extension); wrap for POSIX-style callers */
+static pid_t _init_fork(void) { return fork(NULL); }
+#define fork() _init_fork()
+/* GNO waitpid() takes union wait * not int *; cast transparently */
+#define waitpid(p,s,f) waitpid((p),(union wait *)(s),(f))
+/* ORCACDefs/types.h defines 'handle' as a typedef (ptr *handle); rename ours */
+#define handle init_handle
+#endif
 
 /*
  * Until the mythical util.h arrives...

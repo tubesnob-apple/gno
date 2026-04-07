@@ -33,9 +33,9 @@
 *		jsr toslash
 *		{if acc was ':', it's now '/'; otherwise no change}
 *
-*   lowercstr	Convert a c string to lower case
+*   lwrCstr	Convert a c string to lower case
 *		{push address of c string on stack}
-*		jsr lowercstr
+*		jsr lwrCstr
 *
 *   cstrlen	Get the length of a c string
 *		{push address of c string on stack}
@@ -72,12 +72,11 @@
 *
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/shellutil.mac
+	mcopy gsh.mac
 
-dummyshellutil	start		; ends up in .root
+dmyshlu	start		; ends up in .root
 	end
 
-	setcom 60
 
 ;=========================================================================
 ;
@@ -117,7 +116,7 @@ done	rts
 ;
 ;=========================================================================
 
-lowercstr	START
+lwrCstr	START
 
 space	equ	1
 p	equ	space+2
@@ -378,8 +377,8 @@ end	equ	cstr+4
 	~NEW
 	sta	gstr
 	stx	gstr+2
-	incad	@xa
-	incad	@xa
+	incaxa
+	incaxa
 	pei	(cstr+2)
 	pei	(cstr)
 	phx
@@ -525,7 +524,7 @@ newlineX	START
 
 	using	vardata
 
-	lda	varnewline
+	lda	varnewln
 	beq	newline
 	rts
 
@@ -576,12 +575,12 @@ end	equ	var+4
 ; Get the variable's length using ReadVariableGS
 ;			Set up parameter block:
 	mv4	var,RVname		Addr of name, from user.
-	ld4	TempResultBuf,RVresult	Use temporary result buf.
+	ld4	TmpRBuf,RVresult	Use temporary result buf.
 	ReadVariableGS ReadVar		Get length.
 ;
 ; Allocate memory for value string
 ;
-	lda	TempRBlen	Get length of value.
+	lda	TmpRBln	Get length of value.
 	bne	notnull	Return null if 0.
 	sta	retval
 	sta	retval+2
@@ -610,7 +609,7 @@ notnull	inc2	a	Add 4 bytes for result buf len words.
 ;
 ; Add null byte at end of text to make it work as a C string
 ;
-	ldy	TempRBlen	Get length of value,
+	ldy	TmpRBln	Get length of value,
 	iny4		 + 4 (for length words at start)
 	lda	#0	Store zero at end of string.
 	short	a
@@ -644,11 +643,11 @@ ReadVar	anop
 	dc	i2'3'	pCount
 RVname	ds	4	Pointer to name (passed by user)
 RVresult	ds	4	GS/OS Output buffer ptr
-RVexpflag	ds	2	export flag
+RVxflag	ds	2	export flag
 
 ; GS/OS result buffer for getting the full length of the PATH env var.
-TempResultBuf	dc	i2'5'	Only five bytes total.
-TempRBlen	ds	2	Value's length returned here.
+TmpRBuf	dc	i2'5'	Only five bytes total.
+TmpRBln	ds	2	Value's length returned here.
 	ds	1	Only 1 byte for value.
 
 	END

@@ -22,7 +22,7 @@
 *
 * Where historyRec is:
 *
-*   [+0] NextHistory: pointer to historyRec
+*   [+0] NextHist: pointer to historyRec
 *   [+4] HistoryCmd:	 string of characters
 *
 * Note: text set up for tabs at col 16, 22, 41, 49, 57, 65
@@ -32,33 +32,32 @@
 *
 * Interfaces defined in this file:
 *
-* InsertHistory 	
+* InsrtHst 	
 *
-* PrevHistory	
+* PrevHist	
 *
-* NextHistory	
+* NextHist	
 *
-* SaveHistory	
+* SaveHist	
 *
-* ReadHistory	
+* ReadHist	
 *
-* InitHistory	
+* InitHist	
 *
-* PrintHistory	
+* PrntHist	
 *
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/history.mac
+	mcopy gsh.mac
 
-dummyhistory	start		; ends up in .root
+dmyhist	start		; ends up in .root
 	end
 
-	setcom 60
 
 histNext	gequ	0
 histCmd	gequ	4
 
-cmdbuflen	gequ	1024
+cmdbflen	gequ	1024
 
 ;=========================================================================
 ;
@@ -66,16 +65,16 @@ cmdbuflen	gequ	1024
 ;
 ;=========================================================================
 
-InsertHistory	START
+InsrtHst	START
 	
-	using HistoryData
+	using HistData
 	using global
 
 ptr2	equ	0
 ptr	equ	ptr2+4
 len	equ	ptr+4
-histvalptr	equ	len+2
-space	equ	histvalptr+4
+histvptr	equ	len+2
+space	equ	histvptr+4
 
 	subroutine (4:cmd),space
 
@@ -96,12 +95,12 @@ space	equ	histvalptr+4
 	inc	lasthist
 	inc	numhist
 
-	lda	historyptr	;Set up linked list pointers
+	lda	histptr	;Set up linked list pointers
 	sta	[ptr]
 	ldy	#histNext+2
-	lda	historyptr+2
+	lda	histptr+2
 	sta	[ptr],y
-	mv4	ptr,historyptr
+	mv4	ptr,histptr
 
 	pei	(cmd+2)
 	pei	(cmd)
@@ -119,18 +118,18 @@ putdone	anop
 ;
 ; Get value of $HISTORY environment variable
 ;
-	ph4	#historyStr
+	ph4	#histStr
 	jsl	getenv
-	sta	histvalptr	Save pointer to GS/OS result buffer.
-	stx	histvalptr+2
-	ora	histvalptr+2	If buffer wasn't allocated,
+	sta	histvptr	Save pointer to GS/OS result buffer.
+	stx	histvptr+2
+	ora	histvptr+2	If buffer wasn't allocated,
 	jeq	goback	 all done.
 ;
 ; Call Dec2Int to convert value of string into an integer
 ;
 	pha		Reserve room on stack for result.
-	lda	histvalptr	Get pointer to $HISTORY value.
-	ldx	histvalptr+2
+	lda	histvptr	Get pointer to $HISTORY value.
+	ldx	histvptr+2
 	clc		Add 4 to address to skip
 	adc	#4	 over length words.
 	bcc	pushaddr
@@ -138,7 +137,7 @@ putdone	anop
 pushaddr	phx		Push address onto stack.
 	pha
 	ldy	#2
-	lda	[histvalptr],y
+	lda	[histvptr],y
 	pha		Push length.
 	pea	0	Push signedFlag = 0 (unsigned)
 	Tool	$280b	Dec2Int.
@@ -148,7 +147,7 @@ pushaddr	phx		Push address onto stack.
 ;
 ; Follow linked list until we reach size histories
 ;
-	mv4	historyptr,ptr
+	mv4	histptr,ptr
 	ldy	#histNext+2
 follow	lda	[ptr]
 	tax
@@ -191,8 +190,8 @@ dispose	lda	ptr2
 	ldy	#histNext+2
 	bra	dispose
 
-alldone	pei	(histvalptr+2)
-	pei	(histvalptr)
+alldone	pei	(histvptr+2)
+	pei	(histvptr)
 	jsl	nullfree
 
 goback	return
@@ -208,13 +207,13 @@ size	ds	2
 ;
 ;=========================================================================
 
-PrevHistory	START
+PrevHist	START
 
-	using HistoryData
+	using HistData
 	using global
 	using	termdata
 
-	ora2	historyptr,historyptr+2,@a	 ;If no history, then skip
+	ora2	histptr,histptr+2,@a	 ;If no history, then skip
 	jeq	ctl5a
 
 	ldx	cmdloc	;Move cursor to beginning of line
@@ -237,14 +236,14 @@ ctl5b	dex
 ctl5c	ldx	cmdlen
 	jsr	moveleft
 
-ctl5g	ora2	currenthist,currenthist+2,@a
+ctl5g	ora2	curhist,curhist+2,@a
 	bne	ctl5i	;If not set up for current hist then
-	lda	historyptr+2	;Set up at start.
-	ldx	historyptr
+	lda	histptr+2	;Set up at start.
+	ldx	histptr
 	ldy	#2
 	bra	ctl5j
 
-ctl5i	mv4	currenthist,0	;Otherwise move to previous history
+ctl5i	mv4	curhist,0	;Otherwise move to previous history
 	stz	cmdlen
 	stz	cmdloc
 	ldy	#HistNext+2
@@ -254,8 +253,8 @@ ctl5i	mv4	currenthist,0	;Otherwise move to previous history
 
 ctl5j	sta	0+2	;Save some pointers
 	stx	0
-	sta	currenthist+2
-	stx	currenthist
+	sta	curhist+2
+	stx	curhist
 	ora	0	;If ptr is 0 then at end, quit
 	beq	ctl5a
 
@@ -286,20 +285,20 @@ ctl5a	rts
 ;
 ;=========================================================================
 
-NextHistory	START
+NextHist	START
 
-	using HistoryData
+	using HistData
 	using global
 	using	termdata
 
-	ora2	historyptr,historyptr+2,@a	 ;No hist, then skip
+	ora2	histptr,histptr+2,@a	 ;No hist, then skip
 	jeq	ctl6a
 
 	stz	4          ;Walk through linked list searching
 	stz	4+2        ; for hist prior to last hist.
-	mv4	historyptr,0
-ctl6i	if2	0,ne,currenthist,ctl6j
-	if2	0+2,eq,currenthist+2,ctl6k
+	mv4	histptr,0
+ctl6i	if2	0,ne,curhist,ctl6j
+	if2	0+2,eq,curhist+2,ctl6k
 ctl6j	mv4	0,4
 	ldy	#HistNext+2
 	lda	[0]
@@ -331,7 +330,7 @@ ctl6c	ldx	cmdlen
 
 ctl6g	stz	cmdlen	;Get hist info.
 	stz	cmdloc
-	mv4	4,currenthist
+	mv4	4,curhist
 	ora2	4,4+2,@a
 	beq	ctl6a	;Whoops, back to end, quit
 
@@ -361,39 +360,39 @@ ctl6a	rts
 ;
 ;=========================================================================
 
-SaveHistory	START
+SaveHist	START
 
-	using HistoryData
+	using HistData
 	using global
 
-svhisvalptr	equ	0
-space	equ	svhisvalptr+4
+svhvptr	equ	0
+space	equ	svhvptr+4
 
 	subroutine ,space
 
-	lda	historyFN
-	sta	DestroyParm+2
-	sta	CreateParm+2
+	lda	histFN
+	sta	DstParm+2
+	sta	CrtParm+2
 	sta	OpenParm+4
-	lda	historyFN+2
-	sta	DestroyParm+4
-	sta	CreateParm+4
+	lda	histFN+2
+	sta	DstParm+4
+	sta	CrtParm+4
 	sta	OpenParm+6
 ;
 ; Get value of $SAVEHISTORY environment variable
 ;
-	ph4	#savehistStr
+	ph4	#svhstStr
 	jsl	getenv
-	sta	svhisvalptr	Save pointer to GS/OS result buffer.
-	stx	svhisvalptr+2
-	ora	svhisvalptr+2	If buffer wasn't allocated,
+	sta	svhvptr	Save pointer to GS/OS result buffer.
+	stx	svhvptr+2
+	ora	svhvptr+2	If buffer wasn't allocated,
 	jeq	goback	 all done.
 ;
 ; Call Dec2Int to convert value of string into an integer
 ;
 	pha		Reserve room on stack for result.
-	lda	svhisvalptr	Get pointer to $HISTORY value.
-	ldx	svhisvalptr+2
+	lda	svhvptr	Get pointer to $HISTORY value.
+	ldx	svhvptr+2
 	clc		Add 4 to address to skip
 	adc	#4	 over length words.
 	bcc	pushaddr
@@ -401,7 +400,7 @@ space	equ	svhisvalptr+4
 pushaddr	phx		Push address onto stack.
 	pha
 	ldy	#2
-	lda	[svhisvalptr],y
+	lda	[svhvptr],y
 	pha		Push length.
 	pea	0	Push signedFlag = 0 (unsigned)
 	Tool	$280b	Dec2Int
@@ -411,14 +410,14 @@ pushaddr	phx		Push address onto stack.
 ;
 ; Create and write history to file
 ;
-	Destroy DestroyParm
-	Create CreateParm
+	Destroy DstParm
+	Create CrtParm
 	jcs	done
 	Open	OpenParm
 	bcs	done
-	mv2	OpenRef,(WriteRef,WriteCRRef,CloseRef)
+	mv2	OpenRef,(WriteRef,WrtCRRf,CloseRef)
 
-loop1	mv4	historyptr,0
+loop1	mv4	histptr,0
 	mv2	size,count
 	ldy	#histNext+2
 loop2	lda	0
@@ -444,48 +443,48 @@ write	clc
 	phx
 	jsr	cstrlen
 	sta	WriteReq
-	Write WriteParm
-	bcs	doneclose
+	Write WrtParm
+	bcs	donclos
 	Write WriteCR
-	bcs	doneclose
+	bcs	donclos
 next	dec	size
 	bne	loop1
 
-doneclose	Close CloseParm
+donclos	Close ClsParm
 
-done	pei	(svhisvalptr+2)	Free $SAVEHISTORY value buffer
-	pei	(svhisvalptr)
+done	pei	(svhvptr+2)	Free $SAVEHISTORY value buffer
+	pei	(svhvptr)
 	jsl	nullfree
 
 goback	return
 
 
-DestroyParm	dc	i2'1'
-	dc	a4'historyFN'
+DstParm	dc	i2'1'
+	dc	a4'histFN'
 
-CreateParm	dc	i2'3'
-	dc	a4'historyFN'
+CrtParm	dc	i2'3'
+	dc	a4'histFN'
 	dc	i2'$C3'
 	dc	i2'0'
 
 OpenParm	dc	i2'2'
 OpenRef	ds	2
-	dc	a4'historyFN'
+	dc	a4'histFN'
 
-WriteParm	dc	i2'4'
+WrtParm	dc	i2'4'
 WriteRef	ds	2
 WriteBuf	dc	a4'cmdline'
 WriteReq	ds	4
 	ds	4
 
 WriteCR	dc	i2'4'
-WriteCRRef	ds	2
+WrtCRRf	ds	2
 	dc	a4'CRBuf'
 	dc	i4'1'
 	ds	4
 CRBuf	dc	i1'13'
 
-CloseParm	dc	i2'1'
+ClsParm	dc	i2'1'
 CloseRef	ds	2
 
 size	ds	2
@@ -499,45 +498,45 @@ count	ds	2
 ;
 ;=========================================================================
 
-ReadHistory	START
+ReadHist	START
 
-	using HistoryData
+	using HistData
 	using global
 
-	lda	historyFN
+	lda	histFN
 	sta	OpenParm+4
-	lda	historyFN+2
+	lda	histFN+2
 	sta	OpenParm+6
 
 	lda	#0
-	sta	historyptr
-	sta	historyptr+2
+	sta	histptr
+	sta	histptr+2
 
 	Open	OpenParm
 	bcs	done
 	mv2	OpenRef,(ReadRef,NLRef,CloseRef)
 	NewLine NLParm
-	bcs	doneclose
+	bcs	donclos
 
 loop	anop
 	Read	ReadParm
-	bcs	doneclose
-	ldy	ReadTrans
-	beq	doneclose
+	bcs	donclos
+	ldy	RdTrans
+	beq	donclos
 	dey
 	lda	#0
 	sta	cmdline,y
 	ph4	#cmdline
-	jsl	InsertHistory
+	jsl	InsrtHst
 	bra	loop
 
-doneclose	Close CloseParm
+donclos	Close ClsParm
 
 done	rts
 
 OpenParm	dc	i2'2'
 OpenRef	ds	2
-	dc	a4'historyFN'
+	dc	a4'histFN'
 
 NLParm	dc	i2'4'
 NLRef	ds	2
@@ -549,10 +548,10 @@ NLTable	dc	i1'13'
 ReadParm	dc	i2'4'
 ReadRef	ds	2
 	dc	a4'cmdline'
-	dc	i4'cmdbuflen'
-ReadTrans	ds	4
+	dc	i4'cmdbflen'
+RdTrans	ds	4
 
-CloseParm	dc	i2'1'
+ClsParm	dc	i2'1'
 CloseRef	ds	2
 
 size	ds	2
@@ -564,13 +563,13 @@ size	ds	2
 ; Init History
 ;
 ;=========================================================================
-InitHistory	START
-	using	HistoryData
+InitHist	START
+	using	HistData
 
 	ph4	#histName	Create string
-	jsl	AppendHome	 $HOME/history
-	stx	historyFN+2	Store pointer to it
-	sta	historyFN	 in historyFN
+	jsl	AppHome	 $HOME/history
+	stx	histFN+2	Store pointer to it
+	sta	histFN	 in histFN
 	rts
 	END
 
@@ -580,9 +579,9 @@ InitHistory	START
 ;
 ;=========================================================================
 
-PrintHistory	START
+PrntHist	START
 
-	using HistoryData
+	using HistData
 	using global
 
 ptr	equ	0
@@ -603,13 +602,13 @@ space	equ	status+2
 	inc	status	Return status = 1.
 	bra	done
 
-chkptr	lda	historyptr
-	ora	historyptr+2
+chkptr	lda	histptr
+	ora	histptr+2
 	beq	done
 
 	lda	numhist
 	sta	num
-loop1	mv4	historyptr,ptr
+loop1	mv4	histptr,ptr
 	lda	num
 	bmi	done
 	sta	count
@@ -657,15 +656,15 @@ usage	dc	c'Usage: history',h'0d00'
 ;
 ;=========================================================================
 
-HistoryData	DATA
+HistData	DATA
 
 lasthist	dc	i2'0'
 numhist	dc	i2'0'
-currenthist	ds	4
-historyptr	dc	i4'0'
-historyStr	gsstr	'HISTORY'
-savehistStr	gsstr	'SAVEHIST'
+curhist	ds	4
+histptr	dc	i4'0'
+histStr	gsstr	'HISTORY'
+svhstStr	gsstr	'SAVEHIST'
 histName	dc	c'/history',i1'0'
-historyFN	ds	4
+histFN	ds	4
 
 	END

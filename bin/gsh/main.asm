@@ -21,9 +21,8 @@
 *	^	^	^	^	^	^	
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/main.mac
+	mcopy gsh.mac
 
-	setcom 60
 
 **************************************************************************
 
@@ -95,14 +94,14 @@ argloop	dec	argc	Decrement argument count.
 	lda	[arg]	Get first character
 	and	#$FF	 of argument.
 	cmp	#'-'	If it's a "-",
-	beq	intoption	 handle as an option.
+	beq	intopt	 handle as an option.
 
 
 ; Parse remaining args as a command to run (in ExecCmd)
 
 	inc	ExecFlag
 	inc	FastFlag
-	ph4	maxline_size
+	ph4	mxlnsz
 	~NEW
 	sta	ExecCmd
 	sta	p
@@ -141,7 +140,7 @@ go_start	bra	start
 
 ; Parse an argument as an option (first character is "-")
 
-intoption	ldy	#1
+intopt	ldy	#1
 optloop	lda	[arg],y
 	and	#$FF
 	beq	nextarg
@@ -151,7 +150,7 @@ optloop	lda	[arg],y
 	beq	parsec
 
 ; Option is not recognized.
-showusage	ErrWriteCString #usage
+shwusge	ErrWriteCString #usage
 	bra	done
 
 
@@ -162,7 +161,7 @@ nextopt	iny
 	bra	optloop
 
 nextarg	cpy	#1
-	beq	showusage
+	beq	shwusge
 	jmp	argloop
 
 ; Option = "-c": execute shell commands found in file named by next argument
@@ -171,7 +170,7 @@ parsec	clc
 	adc	#4
 	sta	argv
 	dec	argc
-	beq	showusage
+	beq	shwusge
 	inc	CmdFlag
 	inc	FastFlag
 	mv4	argv,CmdArgV

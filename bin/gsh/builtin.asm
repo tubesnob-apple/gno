@@ -26,7 +26,7 @@
 *   builtin	subroutine (2:argc,4:argv)
 *	Returns completion status in Accumulator
 *		
-*   IsBuiltin	subroutine (4:name)
+*   IsBltin	subroutine (4:name)
 *	return 2:tbl
 *
 * Remainder are interfaces to builtin commands with interface
@@ -48,22 +48,21 @@
 *
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/builtin.mac
+	mcopy gsh.mac
 
-dummybuiltin	start		; ends up in .root
+dmybltn	start		; ends up in .root
 	end
 
-	setcom 60
 
 p_next	gequ	0	;next in global proclist
-p_friends	gequ	p_next+4	;next in job list
-p_flags	gequ	p_friends+4	;various job status flags
+p_frnds	gequ	p_next+4	;next in job list
+p_flags	gequ	p_frnds+4	;various job status flags
 p_reason	gequ	p_flags+2	;reason for entering this state
 p_index	gequ	p_reason+2	;job index
 p_pid	gequ	p_index+2	;process id
 p_jobid	gequ	p_pid+2	;process id of job leader
-p_command	gequ	p_jobid+2	;command (how job invoked)
-p_space	gequ	p_command+4	;space for structure
+p_cmd	gequ	p_jobid+2	;command (how job invoked)
+p_space	gequ	p_cmd+4	;space for structure
 
 **************************************************************************
 *
@@ -73,7 +72,7 @@ p_space	gequ	p_command+4	;space for structure
 
 builtin	START
 
-	using BuiltinData
+	using BltnData
 
 val	equ	1
 file	equ	val+2
@@ -97,7 +96,7 @@ end	equ	argc+2
 	sta	file
 	lda	[argv],y
 	sta	file+2
-	ld4	builtintbl,tbl
+	ld4	blttbl,tbl
 	ld2	-1,val
 	lda	argc
 	beq	done
@@ -176,17 +175,17 @@ done	ldy	val	Y-reg = return value.
 *
 **************************************************************************
 
-IsBuiltin	START
+IsBltin	START
 
-	using	BuiltinData
+	using	BltnData
 
 tbl	equ	0
 space	equ	tbl+4
 
 	subroutine (4:name),space
 
-	ld4	builtintbl,tbl
-builtinloop	ldy	#2
+	ld4	blttbl,tbl
+bltloop	ldy	#2
 	lda	[tbl]
 	ora	[tbl],y
 	beq	nofile
@@ -200,13 +199,13 @@ builtinloop	ldy	#2
 	beq	foundit
 	bpl	nofile
 	add2	tbl,#10,tbl
-	bra	builtinloop
+	bra	bltloop
 foundit	ldy	#8	Get the fork/nofork flag
 	lda	[tbl],y	 and use it as return value.
-	bra	foundbuiltin
+	bra	fndbltn
 
 nofile	lda	#-1	Set not-found return value.
-foundbuiltin	sta	tbl
+fndbltn	sta	tbl
 
 	return 2:tbl
 
@@ -218,59 +217,59 @@ foundbuiltin	sta	tbl
 *
 **************************************************************************
 
-BuiltinData	DATA
+BltnData	DATA
 ;
 ; First address is a pointer to the name, the second is a pointer to the
 ; command. Third value is fork flag (0 to fork, 1 for no fork).
 ; TABLE MUST BE SORTED BY COMMAND NAME.
 ;
-builtintbl	dc	a4'aliasname,alias',i2'0'
+blttbl	dc	a4'aliasnm,alias',i2'0'
 	dc	a4'bgname,bg',i2'1'
-	dc	a4'bindkeyname,bindkey',i2'0'
+	dc	a4'bndkynm,bindkey',i2'0'
 	dc	a4'cdname,cd',i2'1'
-	dc	a4'chdirname,chdir',i2'1'
-	dc	a4'clearname,clear',i2'1'		Changed to unforked
+	dc	a4'chdrnm,chdir',i2'1'
+	dc	a4'clrnm,clear',i2'1'		Changed to unforked
 	dc	a4'cmdname,cmdbi',i2'0'
 	dc	a4'dirsname,dirs',i2'0'
 	dc	a4'echoname,echo',i2'0'
 	dc	a4'editname,edit',i2'1'
 	dc	a4'exitname,exit',i2'1'
-	dc	a4'exportname,export',i2'1'
+	dc	a4'exptnm,export',i2'1'
 	dc	a4'fgname,fg',i2'1'
 	dc	a4'hashname,hashbi',i2'0'
-	dc	a4'hname,PrintHistory',i2'0'
+	dc	a4'hname,PrntHist',i2'0'
 	dc	a4'jobsname,jobs',i2'1'
 	dc	a4'killname,kill',i2'1'
 	dc	a4'popdname,popd',i2'1'
 	dc	a4'pfxname,prefix',i2'1'
 	dc	a4'psname,psbi',i2'0'
-	dc	a4'pushdname,pushd',i2'1'
+	dc	a4'psdname,pushd',i2'1'
 	dc	a4'pwdname,pwd',i2'1'
-	dc	a4'rehashname,rehash',i2'1'
+	dc	a4'rhashnm,rehash',i2'1'
 	dc	a4'setname,set',i2'0'
-	dc	a4'setbugname,setdebug',i2'0'
-	dc	a4'setenvname,setenv',i2'0'
-	dc	a4'sourcename,source',i2'1' 	Changed to unforked
+	dc	a4'setbugnm,setdebug',i2'0'
+	dc	a4'setenvnm,setenv',i2'0'
+	dc	a4'srcnm,source',i2'1' 	Changed to unforked
 	dc	a4'stopname,stop',i2'1'
 	dc	a4'tsetname,tset',i2'1'
-	dc	a4'unaliasname,unalias',i2'1'
-	dc	a4'unhashname,unhash',i2'1'
-	dc	a4'unsetname,unset',i2'1'
-	dc	a4'whichname,which',i2'0'
+	dc	a4'unlsnm,unalias',i2'1'
+	dc	a4'unhashnm,unhash',i2'1'
+	dc	a4'unsetnm,unset',i2'1'
+	dc	a4'whichnm,which',i2'0'
 	dc	i4'0,0'
 
-aliasname	dc	c'alias',h'00'
+aliasnm	dc	c'alias',h'00'
 bgname	dc	c'bg',h'00'
-bindkeyname	dc	c'bindkey',h'00'
-chdirname	dc	c'chdir',h'00'
+bndkynm	dc	c'bindkey',h'00'
+chdrnm	dc	c'chdir',h'00'
 cdname	dc	c'cd',h'00'
-clearname	dc	c'clear',h'00'
+clrnm	dc	c'clear',h'00'
 cmdname	dc	c'commands',h'00'
 dirsname	dc	c'dirs',h'00'
 echoname	dc	c'echo',h'00'
 editname	dc	c'edit',h'00'
 exitname	dc	c'exit',h'00'
-exportname	dc	c'export',h'00'
+exptnm	dc	c'export',h'00'
 fgname	dc	c'fg',h'00'
 hashname	dc	c'hash',h'00'
 hname	dc	c'history',h'00'
@@ -279,19 +278,19 @@ killname	dc	c'kill',h'00'
 pfxname	dc	c'prefix',h'00'
 popdname	dc	c'popd',h'00'
 psname	dc	c'ps',h'00'
-pushdname	dc	c'pushd',h'00'
+psdname	dc	c'pushd',h'00'
 pwdname	dc	c'pwd',h'00'
-rehashname	dc	c'rehash',h'00'
-setbugname	dc	c'setdebug',h'00'
+rhashnm	dc	c'rehash',h'00'
+setbugnm	dc	c'setdebug',h'00'
 setname	dc	c'set',h'00'
-setenvname	dc	c'setenv',h'00'
-sourcename	dc	c'source',h'00'
+setenvnm	dc	c'setenv',h'00'
+srcnm	dc	c'source',h'00'
 stopname	dc	c'stop',h'00'
 tsetname	dc	c'tset',h'00'
-unaliasname	dc	c'unalias',h'00'
-unhashname	dc	c'unhash',h'00'
-unsetname	dc	c'unset',h'00'
-whichname	dc	c'which',h'00'
+unlsnm	dc	c'unalias',h'00'
+unhashnm	dc	c'unhash',h'00'
+unsetnm	dc	c'unset',h'00'
+whichnm	dc	c'which',h'00'
 
 	END
 
@@ -340,7 +339,7 @@ end	equ	argv+4
 ;
 ; Illegal parameters: print usage string
 ;
-showusage	inc	status	Return status = 1.
+shwusge	inc	status	Return status = 1.
 	lda	[argv]
 	tax
 	ldy	#2
@@ -396,10 +395,10 @@ paramcd	anop
 
 	lda	[dpg]
 	and	#$FF
-	if2	@a,ne,#'-',setprefix
-	jmp	showusage
+	if2	@a,ne,#'-',setprfx
+	jmp	shwusge
 
-setprefix	pei	(dpg+2)
+setprfx	pei	(dpg+2)
 	pei	(dpg)
 	jsr	c2gsstr
 	sta	PRecPath
@@ -516,7 +515,7 @@ end	equ	argv+4
 	ldy	#1	Return status = 1.
 	bra	exit
 
-clearit	jsr	clearscrn
+clearit	jsr	clrscn
 	jsr	flush
 	ldy	#0	Return status = 0.
 
@@ -594,7 +593,7 @@ end	equ	argv+4
 	and	#$FF	  character.
 	if2	@a,eq,#'n',gotn	If != 'n', it's a bad one.
 
-showusage	ldx	#^Usage	Incorrect parameter usage:
+shwusge	ldx	#^Usage	Incorrect parameter usage:
 	lda	#Usage	 display the usage string.
 	jsr	errputs
 	inc	status	Return status = 1.
@@ -603,7 +602,7 @@ showusage	ldx	#^Usage	Incorrect parameter usage:
 gotn	iny
 	lda	[ptr],y	Get third
 	and	#$FF	  character.
-	bne	showusage	If != 0, it's a bad one.
+	bne	shwusge	If != 0, it's a bad one.
 	inc	nl	Set the -n flag.
 	add2	argv,#4,argv	Bump argument pointer.
 	dec	argc	Decrement argument counter.
@@ -633,7 +632,7 @@ putloop	lda	[ptr]	Get first
 	jsr	moveleft			moveleft
 	bra	didit
 esc02	if2	@a,ne,#'f',esc03		"f"
-	jsr	clearscrn			clearscreen
+	jsr	clrscn			clearscreen
 	bra	didit
 esc03	if2	@a,ne,#'n',esc04		"n"
 	lda	#13			print newline
@@ -740,7 +739,7 @@ end	equ	argv+4
 	bra	exit
 
 wait	pea	0
-	jsl	getpfxstr	Get value of prefix 0.
+	jsl	getPfxS	Get value of prefix 0.
 	sta	ptr
 	stx	ptr+2
 
@@ -841,11 +840,11 @@ loop	add2	argv,#4,argv
 ;
 	pei	(file+2)
 	pei	(file)
-	jsl	findalias
+	jsl	fndAlias
 	sta	ptr
 	stx	ptr+2
 	ora	ptr+2
-	beq	chkbuiltin
+	beq	chkbltn
 	ldx	#^aliasstr
 	lda	#aliasstr
 	jsr	puts
@@ -856,12 +855,12 @@ loop	add2	argv,#4,argv
 ;
 ; was it a built-in?
 ;
-chkbuiltin	pei	(file+2)
+chkbltn	pei	(file+2)
 	pei	(file)
-	jsl	IsBuiltin	
+	jsl	IsBltin	
 	cmp	#-1
 	beq	tryhash
-foundbuiltin	ldx	#^builtstr
+fndbltn	ldx	#^builtstr
 	lda	#builtstr
 	jsr	puts
 	jmp	nextarg
@@ -870,17 +869,17 @@ foundbuiltin	ldx	#^builtstr
 ;
 tryhash	pei	(file+2)
 	pei	(file)
-	ph4	hash_table
-	ph4	#hash_paths
+	ph4	hshtbl
+	ph4	#hshpths
 	jsl	search
 	cmp	#0
-	bne	foundhash
+	bne	fndhash
 	cpx	#0
 	beq	thispfx
 ;
 ; It was hashed, so say so.
 ;
-foundhash	sta	sptr
+fndhash	sta	sptr
 	stx	sptr+2
 	jsr	puts
 	pei	(sptr+2)	Free memory allocated
@@ -890,7 +889,7 @@ foundhash	sta	sptr
 ;
 ; It must be in the current prefix, so check it out.
 ;
-thispfx	lock	whichmutex
+thispfx	lock	whchmtx
 ;
 ; check for existence of file
 ;
@@ -912,7 +911,7 @@ showcwd	pei	(ptr+2)
 	jsl	nullfree
 
 	pea	0
-	jsl	getpfxstr	Get value of prefix 0.
+	jsl	getPfxS	Get value of prefix 0.
 	sta	ptr
 	stx	ptr+2
 
@@ -945,7 +944,7 @@ freebuf	ph4	ptr	Free the buffer.
 nofile	ldx	#^cantdoit
 	lda	#cantdoit
 	jsr	puts
-donecwd	unlock whichmutex
+donecwd	unlock whchmtx
 	pei	(ptr+2)
 	pei	(ptr)
 	jsl	nullfree
@@ -975,13 +974,13 @@ builtstr	dc	c'Shell Built-in Command',h'00'
 cantdoit	dc	c'Command Not Found',h'00'
 aliasstr	dc	c'Aliased as ',h'00'
 
-whichmutex	key
+whchmtx	key
 
 GRec	dc	i'4'
 GRecPath	ds	4
 	ds	2
-GRecFileType	ds	2
-GRecAuxType	ds	4
+GRecFT	ds	2
+GRecAux	ds	4
 
 	END
 
@@ -1014,7 +1013,7 @@ end	equ	argv+4
 	phd
 	tcd
 
-	lock	prefixmutex
+	lock	prfxmtx
 
 	stz	status	Clear return status.
 	lda	argc	Get number of arguments.
@@ -1023,7 +1022,7 @@ end	equ	argv+4
 	dec	a
 	jeq	showone	If one, show one.
 	dec	a
-	jeq	setprefix	If two, set a prefix.
+	jeq	setprfx	If two, set a prefix.
 
 	ldx	#^usage
 	lda	#usage
@@ -1039,7 +1038,7 @@ showall	anop
 	sta	pfxnum	First prefix # will be 0.
 
 	pha		Get the boot volume string.
-	jsl	getpfxstr
+	jsl	getPfxS
 	sta	dir
 	stx	dir+2
 
@@ -1052,7 +1051,7 @@ showall	anop
 
 allloop	lda	pfxnum
 	pha
-	jsl	getpfxstr
+	jsl	getPfxS
 	sta	dir
 	stx	dir+2
 
@@ -1103,7 +1102,7 @@ showone	ldy	#1*4+2	Put pointer to
 	jmp	done
 
 getpfx	pha		Get that prefix value.
-	jsl	getpfxstr
+	jsl	getPfxS
 	sta	dir
 	stx	dir+2
 
@@ -1114,7 +1113,7 @@ getpfx	pha		Get that prefix value.
 
 	ldy	#2	Get length word.
 	lda	[dir],y
-	beq	donewline	If zero, just print newline.
+	beq	dnnwln	If zero, just print newline.
 	ldx	dir+2
 	lda	dir	X/A = address of
 	clc		 text (four bytes
@@ -1122,7 +1121,7 @@ getpfx	pha		Get that prefix value.
 	bcc	doputs3
 	inx
 doputs3	jsr	puts	Print the directory name
-donewline	jsr	newline
+dnnwln	jsr	newline
 	ph4	dir	Free the GS/OS result buffer
 	jsl	nullfree	 allocated for pathname.
 	jmp	done
@@ -1131,7 +1130,7 @@ donewline	jsr	newline
 ;
 ; Two parameters provided: set a prefix
 ;
-setprefix	ldy	#1*4+2	Put pointer to
+setprfx	ldy	#1*4+2	Put pointer to
 	lda	[argv],y	 first command
 	sta	numstr+2	  argument (prefix
 	pha		   num) in numstr, and
@@ -1194,7 +1193,7 @@ finish	ph4	PRecPath	Free the name string buffer.
 ;
 ; Exit through here if PRecPath wasn't used
 ;
-done	unlock prefixmutex
+done	unlock prfxmtx
 
 	ldy	status
 
@@ -1212,7 +1211,7 @@ done	unlock prefixmutex
 
 	rtl	  
 
-prefixmutex	key
+prfxmtx	key
 
 errorstr	dc	c'prefix: could not set prefix, pathname may not exist.'
 	dc	h'0d00'
@@ -1283,11 +1282,11 @@ space	equ	status+2
 	lda	[argv]
 	jsr	errputs
 	lda	#13
-	jsr	errputchar
+	jsr	errptch
 	inc	status	Return status = 1.
 	bra	exit
 
-doit	jsr	dispose_hash	;remove old table
+doit	jsr	dsp_hash	;remove old table
 	lda	[argv]
 	tax
 	ldy	#2
@@ -1324,7 +1323,7 @@ space	equ	0
 
 	subroutine (4:argv,2:argc),space
 
-	inc	exit_requested
+	inc	exitreq
 
 	return 2:#0
 
@@ -1354,14 +1353,14 @@ space	equ	status+2
 	lda	argc
 	dec	a
 	bne	ok
-showusage	ldx	#^usage
+shwusge	ldx	#^usage
 	lda	#usage
 	jsr	errputs
 	inc	status	Return status = 1.
 	jmp	return
 
 ok	stz	mode
-	mv2	globaldebug,newdebug
+	mv2	glbldbg,newdebug
 	dec	argc
 	add2	argv,#4,argv
 loop	lda	[argv]
@@ -1374,12 +1373,12 @@ loop	lda	[argv]
 	if2	@a,eq,#'-',turnoff
 	if2	@a,eq,#'+',turnon
 	ldx	mode
-	bne	showusage
+	bne	shwusge
 	ldx	argc
 	dex	
-	bne	showusage
-	if2	@a,cc,#'0',showusage
-	if2	@a,cs,#'9'+1,showusage
+	bne	shwusge
+	if2	@a,cc,#'0',shwusge
+	if2	@a,cs,#'9'+1,shwusge
 	pei	(arg+2)
 	pei	(arg)
 	jsr	cstrlen
@@ -1402,7 +1401,7 @@ turnnext	sta	newdebug
 	jmp	loop
 
 done	setdebug newdebug
-	mv2	newdebug,globaldebug
+	mv2	newdebug,glbldbg
 return	return 2:status
 
 findflag	incad	arg
@@ -1438,7 +1437,7 @@ nofind	pla
 	jsr	errputs
 	lda	#-1
 	pla		;rts address
-	jmp	showusage
+	jmp	shwusge
 
 usage	dc	c'Usage: setdebug (value | [+|-]flag ... )',h'0d0d'
 	dc	c'Flags: gsostrace  - Trace GS/OS calls',h'0d'
@@ -1473,9 +1472,9 @@ bittbl	dc	i2'%000001'
 	dc	i2'%10000000'
 
 * >> Next line is temporary
-check4debug	ENTRY
+chkdbug	ENTRY
 
-globaldebug	dc	i2'0'
+glbldbg	dc	i2'0'
 
 	END
 
@@ -1508,7 +1507,7 @@ space	equ	status+2
 	lda	argc
 	dec	a
 	beq	ok
-showusage	ldx	#^usage
+shwusge	ldx	#^usage
 	lda	#usage
 	jsr	errputs
 	inc	status	Return status = 1.
@@ -1521,8 +1520,8 @@ ok	getuid
 	stx	ps+2
 	ora2	@a,ps+2,@a
 	bne	ok2
-	ldx	#^kvmerrstr
-	lda	#kvmerrstr
+	ldx	#^kvmers
+	lda	#kvmers
 	jsr	errputs
 	inc	status	Return status = 1.
 	jmp	done
@@ -1657,10 +1656,10 @@ jobloop	sta	pr2
 	cmp	[ps],y	;ps->pid
 	bne	loop2
 
-	ldy	#p_command+2
+	ldy	#p_cmd+2
 	lda	[pr2],y
 	tax
-	ldy	#p_command
+	ldy	#p_cmd
 	lda	[pr2],y
 	jsr	puts
 	bra	next
@@ -1713,7 +1712,7 @@ done	kvm_close ps
 return	return 2:status
 
 usage	dc	c'Usage: ps',h'0d00'
-kvmerrstr	dc	c'ps: error in kvm_open()',h'0d00'
+kvmers	dc	c'ps: error in kvm_open()',h'0d00'
 header	dc	c'   ID  STATE   TT MMID  UID   TIME COMMAND',h'0d00'
 pidstr	dc	c'00000  ',h'00'
 userstr	dc	c' 0000 ',h'00'
@@ -1776,12 +1775,12 @@ dohash	ph2	t_size	Get size of hash table.
 	sta	sv
 	stx	sv+2
 
-	lda	hash_table	If no hash table
-	ora	hash_table+2	 has been allocated,
+	lda	hshtbl	If no hash table
+	ora	hshtbl+2	 has been allocated,
 	beq	exit	  exit.
 
-	mv4	hash_table,p	Move address to dir pg variable.
-	lda	hash_numexe	Get the number of executable files.
+	mv4	hshtbl,p	Move address to dir pg variable.
+	lda	hshnumex	Get the number of executable files.
 	beq	doneadd	Done if 0.
 ; 
 ; loop through every hashed file and add it the string vector
@@ -1829,11 +1828,11 @@ doneadd	anop
 
 	pei	(sv+2)
 	pei	(sv)
-	jsl	sv_colprint	Print the string vector in columns.
+	jsl	sv_col	Print the string vector in columns.
 
 	pei	(sv+2)
 	pei	(sv)
-	jsl	sv_dispose	Dispose of the string vector memory.
+	jsl	sv_disp	Dispose of the string vector memory.
 
 exit	return 2:status
 
@@ -1871,7 +1870,7 @@ ok	stz	retval
 
 	add2	argv,#4,argv
 
-*   ShellExec	subroutine (4:path,2:argc,4:argv,2:jobflag)
+*   ShlExec	subroutine (4:path,2:argc,4:argv,2:jobflag)
 
 	ldy	#2	path is filename argument
 	lda	[argv],y
@@ -1882,7 +1881,7 @@ ok	stz	retval
 	pei	(argv+2)	reuse argv
 	pei	(argv)
 	pea	0	jobflag = 0
-	jsl	ShellExec
+	jsl	ShlExec
 	sta	retval
 
 exit	return 2:retval
@@ -1902,7 +1901,7 @@ usage	dc	c'usage: source file [arguments...]',h'0d00'
 
 cmdbi	START
 
-	using	BuiltinData
+	using	BltnData
 
 sv	equ	0
 status	equ	sv+4
@@ -1932,15 +1931,15 @@ docmds	ph2	#50
 ; 
 ; loop through every hashed file and add it the string vector
 ;
-addloop	lda	builtintbl,x
-	ora	builtintbl+2,x
+addloop	lda	blttbl,x
+	ora	blttbl+2,x
 	beq	doneadd
 	phx	
 	pei	(sv+2)
 	pei	(sv)
-	lda	builtintbl+2,x
+	lda	blttbl+2,x
 	pha
-	lda	builtintbl,x
+	lda	blttbl,x
 	pha
 	pea	1
 	jsl	sv_add
@@ -1956,11 +1955,11 @@ doneadd	anop
 	jsl	sv_sort
 	pei	(sv+2)
 	pei	(sv)
-	jsl	sv_colprint			
+	jsl	sv_col			
 
 	pei	(sv+2)
 	pei	(sv)
-	jsl	sv_dispose
+	jsl	sv_disp
 
 exit	return 2:status
 

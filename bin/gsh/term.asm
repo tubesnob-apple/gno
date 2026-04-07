@@ -21,12 +21,11 @@
 *	^	^	^	^	^	^	
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/term.mac
+	mcopy gsh.mac
 
-dummyterm	start		; ends up in .root
+dmyterm	start		; ends up in .root
 	end
 
-	setcom 60
 
 TIOCGETP	gequ	$40067408
 
@@ -44,7 +43,7 @@ InitTerm	START
 ;
 ; See if $TERM exists
 ;
-	ReadVariableGS ReadVarPB
+	ReadVariableGS RdVarPB
 
 	lda	term_len	Get length of $TERM
 	bne	allocate	If 0,
@@ -67,15 +66,15 @@ allocate	anop		Allocate termcap buffers.
 ;
 ; Parameter block for shell ReadVariableGS call (p 423 in ORCA/M manual)
 ;
-ReadVarPB	anop
+RdVarPB	anop
 	dc	i2'3'	pCount
 	dc	i4'term'	Name  (pointer to GS/OS string)
-	dc	i4'dummyresult'	GS/OS Output buffer ptr
+	dc	i4'dmyres'	GS/OS Output buffer ptr
 	ds	2	export flag
 ;
 ; GS/OS result buffer for getting length of TERM env var.
 ;
-dummyresult	dc	i2'5'	Only five bytes total.
+dmyres	dc	i2'5'	Only five bytes total.
 term_len	ds	2	Value's length returned here.
 	ds	1	Only 1 byte for value.
 
@@ -103,13 +102,13 @@ readterm	START
 
 	using	termdata
 
-backward_char	equ	3
-forward_char	equ	4
-up_history	equ	5
-down_history	equ	6
+bkwdch	equ	3
+fwdch	equ	4
+uphist	equ	5
+dwnhist	equ	6
 
 	lda	#1
-	sta	didReadTerm
+	sta	didRdTm
 
 	ph4	#termname
 	jsl	getenv
@@ -117,10 +116,10 @@ down_history	equ	6
 	pha		 for later call to nullfree.
 	clc		Add 4 to GS/OS result buffer
 	adc	#4	 to get pointer to text.
-	bcc	val_addr_set
+	bcc	valadset
 	inx
-val_addr_set	sta	hold_term_val
-	stx	hold_term_val+2
+valadset	sta	hldtval
+	stx	hldtval+2
 	tgetent (bp,@xa)	;xa is pushed first
 	beq	noentry
 	dec	a
@@ -137,12 +136,12 @@ noentry	anop
 	ldx	#^error2
 	lda	#error2	Print error message:
 	jsr	errputs	  'Termcap entry not found for '
-	lda	hold_term_val	Get text from buffer allocated
-	ldx	hold_term_val+2	 by getenv
+	lda	hldtval	Get text from buffer allocated
+	ldx	hldtval+2	 by getenv
 	jsr	errputs	  and print it.
 	jsl	nullfree	Free buffer allocated by getenv.
 	lda	#13
-	jmp	errputchar
+	jmp	errptch
 
 ok	jsl	nullfree	Free buffer allocated by getenv.
 	lda	#1
@@ -197,29 +196,29 @@ ok	jsl	nullfree	Free buffer allocated by getenv.
 	tgetstr (#klid,#area)
 	phx
 	pha
-	ph2	#backward_char
-	jsl	bindkeyfunc
+	ph2	#bkwdch
+	jsl	bndkyfn
 	tgetstr (#krid,#area)
 	phx
 	pha
-	ph2	#forward_char
-	jsl	bindkeyfunc
+	ph2	#fwdch
+	jsl	bndkyfn
 	tgetstr (#kuid,#area)
 	phx
 	pha
-	ph2	#up_history
-	jsl	bindkeyfunc
+	ph2	#uphist
+	jsl	bndkyfn
 	tgetstr (#kdid,#area)
 	phx
 	pha
-	ph2	#down_history
-	jsl	bindkeyfunc
+	ph2	#dwnhist
+	jsl	bndkyfn
 
 ; the following is VERY important. It doesn't seem so, but I actually tested
 ; a terminal that dropped characters w/o it.
             
 	ioctl	(#1,#TIOCGETP,#sgtty)
-	lda	sg_ospeed	;let termcap know our speed
+	lda	sg_ospd	;let termcap know our speed
 	case	on
 	sta	>ospeed
 	case	off
@@ -253,13 +252,13 @@ kdid	dc	c'kd',h'00'	Down key
 
 sgtty	anop
 	dc	i1'0'
-sg_ospeed	dc	i1'0'
+sg_ospd	dc	i1'0'
 	dc	i1'0'
 	dc	i1'0'
 sg_flags	dc	i2'0'
 
 ; Hold the address of the value of $TERM
-hold_term_val	ds	4
+hldtval	ds	4
 
 	END
 		        
@@ -312,7 +311,7 @@ done	rts
 *
 **************************************************************************
 
-moveright	START
+movergt	START
 
 	using	termdata
 
@@ -336,7 +335,7 @@ done	rts
 *
 **************************************************************************
 
-cursoroff	START
+cursoff	START
 
 	using	termdata
 
@@ -361,7 +360,7 @@ cursoron	START
 
 	lda	termok
 	beq	done
-	lda	insertflag
+	lda	insflag
 	beq	dovs
 
 	lda	vecap
@@ -386,7 +385,7 @@ beep	START
 	using	vardata
 	using	termdata
 
-	lda	varnobeep
+	lda	varnobt
 	bne	beepdone
 	lda	termok
 	beq	beepdone
@@ -401,7 +400,7 @@ beepdone	rts
 *
 **************************************************************************
 
-clearscrn	START
+clrscn	START
 
 	using	termdata
 
@@ -452,11 +451,11 @@ done	rts
 
 **************************************************************************
 *
-* begin underline mode
+* begin undline mode
 *
 **************************************************************************
 
-underline	START
+undline	START
 
 	using	termdata
 	
@@ -471,7 +470,7 @@ done	rts
 
 **************************************************************************
 *
-* end underline mode
+* end undline mode
 *
 **************************************************************************
 
@@ -533,10 +532,10 @@ usage	dc	c'Usage: tset',h'0d00'
 
 termdata	DATA
 
-didReadTerm	dc	i2'0'
+didRdTm	dc	i2'0'
 
 termok	dc	i2'0'
-insertflag	dc	i2'1'
+insflag	dc	i2'1'
 
 bp	ds	4
 areabuf	ds	4

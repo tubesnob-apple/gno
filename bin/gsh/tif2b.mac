@@ -1,0 +1,1 @@
+	MACRO	testif2	&val	lclc	&char1&char1	amid	&val,1,1	dc	c'char1='	dc	c'&char1'	cmp	&val	MEND

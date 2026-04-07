@@ -11,7 +11,7 @@
 #define MAINSEG
 #include <stdio.h>
 #include <gno/gno.h>
-#include <gno/signal.h>
+#include <signal.h>
 #endif
 
 #ifdef AMIGA

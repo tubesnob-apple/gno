@@ -29,31 +29,30 @@
 *	return 4:table
 *
 * search	subroutine (4:file,4:table,4:paths)
-*	return 4:full_path
+*	return 4:fullpth
 *
-* dispose_table subroutine (4:table)
+* dsp_tbl subroutine (4:table)
 *	 return
 *
-* free_files	subroutine (4:files)
+* frfiles	subroutine (4:files)
 *	return
 * 
-* dir_search	subroutine (4:dir,2:dirNum,4:files)
+* dirsch	subroutine (4:dir,2:dirNum,4:files)
 *	return
 * 
 * hashpath	jsl with no parameters
 *	no returned value
 *
-* dispose_hash	jsr with no parameters
+* dsp_hash	jsr with no parameters
 *	no returned value
 *		                
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/hash.mac
+	mcopy gsh.mac
 
-dummyhash	start		; ends up in .root
+dmyhash	start		; ends up in .root
 	end
 
-	setcom 60
 
 C1	gequ	11
 C2	gequ	13
@@ -67,8 +66,8 @@ TAB_MULT	gequ	4
 ;		char       name[32];
 ;		filenode  *next;
 ;		};
-fn_dirNum	gequ	0
-fn_name	gequ	fn_dirNum+2
+fn_dnum	gequ	0
+fn_name	gequ	fn_dnum+2
 fn_next	gequ	fn_name+32
 fn_size	gequ	fn_next+4
 
@@ -79,8 +78,8 @@ fn_size	gequ	fn_next+4
 ;		short      dirnum;
 ;		char      *name[32];
 ;		};
-tn_dirNum	gequ	0
-tn_name	gequ	tn_dirNum+2
+tn_dnum	gequ	0
+tn_name	gequ	tn_dnum+2
 tn_size	gequ	tn_name+32
 
 **************************************************************************
@@ -98,7 +97,7 @@ num	equ	space+2
 name	equ	num+2
 end	equ	name+4
 
-* NOTE: hash should only be called after hashmutex is locked
+* NOTE: hash should only be called after hashmtx is locked
 
 ;
 ; No local variables; just need to save old Dir Page pointer and set
@@ -215,7 +214,7 @@ end	equ	files+4
 	phd
 	tcd
 
-	lda	hash_numexe
+	lda	hshnumex
 	bne	mktsize
 
 	stz	table
@@ -379,8 +378,8 @@ search	START
 	
 ptr	equ	1
 name_len	equ	ptr+4
-full_path	equ	name_len+2
-qh	equ	full_path+4
+fullpth	equ	name_len+2
+qh	equ	fullpth+4
 space	equ	qh+2
 paths	equ	space+3
 table	equ	paths+4
@@ -396,11 +395,11 @@ end	equ	file+4
 	phd
 	tcd
 
-	lock	hashmutex
+	lock	hashmtx
 
 	stz	qh
-	stz	full_path	Set result to NULL.
-	stz	full_path+2
+	stz	fullpth	Set result to NULL.
+	stz	fullpth+2
 
 	lda	table	If hash table hasn't
 	ora	table+2	 been allocated,
@@ -408,7 +407,7 @@ end	equ	file+4
 
 	pei	(file+2)
 	pei	(file)
-	jsr	lowercstr
+	jsr	lwrCstr
 mainloop	pei	(file+2)	Get hash(qh,file)
 	pei	(file)
 	pei	(qh)
@@ -466,31 +465,31 @@ found	lda	[ptr]
 	pea	0
 	pha
 	~NEW		Allocate memory,
-	sta	full_path	 storing address at
-	stx	full_path+2	  functional return value.
+	sta	fullpth	 storing address at
+	stx	fullpth+2	  functional return value.
 
 	ldy	#2
 	lda	[ptr],y
 	pha
 	lda	[ptr]
 	pha
-	pei	(full_path+2)
-	pei	(full_path)
+	pei	(fullpth+2)
+	pei	(fullpth)
 	jsr	copycstr	Copy pathname into buffer.
 
 	pla		;length of path
 	pei	(file+2)
 	pei	(file)
-	pei	(full_path+2)
+	pei	(fullpth+2)
 	clc
-	adc	full_path
+	adc	fullpth
 	pha
 	jsr	copycstr	Put filename at end of pathname.
 
-done	unlock hashmutex
+done	unlock hashmtx
 
-	ldx	full_path+2	Load return value into Y- & X- regs
-	ldy	full_path
+	ldx	fullpth+2	Load return value into Y- & X- regs
+	ldy	fullpth
 
 ; Adjust stack in preparation for return
 	lda	space
@@ -515,7 +514,7 @@ done	unlock hashmutex
 *
 **************************************************************************
 
-dispose_table	START
+dsp_tbl	START
 
 	using hashdata
 
@@ -551,7 +550,7 @@ loop	ldy	#2
 *
 **************************************************************************
 
-free_files	START
+frfiles	START
 
 space	equ	0
 
@@ -581,20 +580,20 @@ done	return
 *
 **************************************************************************
 
-dir_search	START
+dirsch	START
 	
 	using	hashdata
 
 temp2	equ	0
 temp	equ	temp2+4
 entry	equ	temp+4
-numEntries	equ	entry+2
-ptr	equ	numEntries+2
+numEntr	equ	entry+2
+ptr	equ	numEntr+2
 space	equ	ptr+4
 
 	subroutine (4:dir,2:dirNum,4:files),space
 
-* NOTE: dir_search is only called from hashpath (after hashmutex locked)
+* NOTE: dirsch is only called from hashpath (after hashmtx locked)
 
 ;
 ; Open directory name passed as 1st parameter
@@ -622,14 +621,14 @@ goodopen	jsl	nullfree	Free the GS/OS string.
 	stz	DRecDisp	 displacement.
 	GetDirEntry DRec	Make DirEntry call.
 
-	mv2	DRecEntry,numEntries	Save number of entries.
+	mv2	DRecEnt,numEntr	Save number of entries.
 	ld2	1,(DRecBase,DRecDisp)
 	stz	entry		# processed entries = 0.
 ;
 ; Process each entry in the directory
 ;
 loop	lda	entry	If number of processed entries
-	cmp	numEntries	 equals the total number,
+	cmp	numEntr	 equals the total number,
 	jge	done	  we are all done.
 ;
 ; Get directory entry's information
@@ -637,7 +636,7 @@ loop	lda	entry	If number of processed entries
 	GetDirEntry DRec
 
 ; Check for filetype $B3: GS/OS Application (S16)
-	if2	DRecFileType,eq,#$B3,goodfile
+	if2	DRecFT,eq,#$B3,goodfile
 
 ; Check for filetype $B5: GS/OS Shell Application (EXE)
 	if2	@a,eq,#$B5,goodfile
@@ -645,26 +644,26 @@ loop	lda	entry	If number of processed entries
 ; Check for filetype $B0, subtype $0006: Shell command file (EXEC)
 	cmp	#$B0
 	jne	nextfile
-	lda	DRecAuxType
+	lda	DRecAux
 	cmp	#$06
 	bne	nextfile
-	lda	DRecAuxType+2
+	lda	DRecAux+2
 	bne	nextfile
 ;
 ; This directory entry points to an executable file.
 ; Included it in the file list.
 ;
-goodfile	inc	hash_numexe	Bump the (global) # files.
+goodfile	inc	hshnumex	Bump the (global) # files.
 
-	ldx	TempRBlen	Get length word from GS/OS string
+	ldx	TmpRBln	Get length word from GS/OS string
 	short	a
-	stz	TempRBname,x	 Store terminating null byte.
+	stz	TmpRBnm,x	 Store terminating null byte.
 	long	a
 
-	ph4	#TempRBname
-	jsr	lowercstr	Convert name to lower case.
+	ph4	#TmpRBnm
+	jsr	lwrCstr	Convert name to lower case.
 
-	ph4	#TempRBname	Push src addr for copycstr.
+	ph4	#TmpRBnm	Push src addr for copycstr.
 
 	ldy	#fn_next	temp = files->next.
 	lda	[files],y
@@ -719,7 +718,7 @@ exit	return
 ORec	dc	i'3'	pCount (3 for Open, 1 for Close)
 ORecRef	ds	2	refNum
 ORecPath	ds	4	pathname (result buf)
-ORecAccess	dc	i'1'	requested access = read
+ORecAcc	dc	i'1'	requested access = read
 
 ; Parameter block for GS/OS GetDirEntry call
 DRec	dc	i'13'	pCount
@@ -727,20 +726,20 @@ DRecRef	ds	2	refNum
 DRecFlag	ds	2	flags: extended/not
 DRecBase	dc	i'0'	base: displacement is absolute entry #
 DRecDisp	dc	i'0'	displacement: get tot # active entries
-DRecName	dc	i4'TempResultBuf'	name: result buf
-DRecEntry	ds	2	entryNum: entry # whose info is rtrned
-DRecFileType	ds	2	fileType
+DRecName	dc	i4'TmpRBuf'	name: result buf
+DRecEnt	ds	2	entryNum: entry # whose info is rtrned
+DRecFT	ds	2	fileType
 DRecEOF	ds	4	eof: # bytes in data fork
-DRecBlockCnt	ds	4	blockCount: # blocks in data fork
-DRecCreate	ds	8	createDateTime
+DRecBlk	ds	4	blockCount: # blocks in data fork
+DRecCrt	ds	8	createDateTime
 DRecMod	ds	8	modDateTime
-DRecAccess	ds	2	access attribute
-DRecAuxType	ds	4	auxType
+DRecAcc	ds	2	access attribute
+DRecAux	ds	4	auxType
 
 ; GS/OS result buffer for getting a directory entry's name
-TempResultBuf	dc	i2'68'	Total length = 64 bytes + 4 for length
-TempRBlen	ds	2	Value's length returned here
-TempRBname	ds	64	Allow 64 bytes for returned name
+TmpRBuf	dc	i2'68'	Total length = 64 bytes + 4 for length
+TmpRBln	ds	2	Value's length returned here
+TmpRBnm	ds	64	Allow 64 bytes for returned name
 	ds	1	Extra byte for null string termination
 
 	END
@@ -778,22 +777,22 @@ end	equ	space+3
 	phd
 	tcd
 
-	lock	hashmutex
+	lock	hashmtx
 ;
 ; Allocate special file node
 ;
 	ph4	#fn_size
 	~NEW
-	sta	hash_files
+	sta	hashfls
 	sta	files
-	stx	hash_files+2
+	stx	hashfls+2
 	stx	files+2
 
 ;
 ; Initialize counters and pointers
 ;
 	lda	#0
-	sta	hash_numexe
+	sta	hshnumex
 	sta	pathnum
 	ldy	#fn_next
 	sta	[files],y
@@ -811,8 +810,8 @@ end	equ	space+3
 	stx	gsosbuf+2
 	ora	gsosbuf+2	If null,
 	bne	setptr
-	ldx	#^nopatherr		print error message
-	lda	#nopatherr
+	ldx	#^noptherr		print error message
+	lda	#noptherr
 	jsr	errputs
 	jmp	noprint		  and exit.
 
@@ -839,10 +838,10 @@ loop	lda	[pathptr]
 	ldy	#0
 despace	lda	[pathptr],y
 	and	#$FF
-	beq	gotspace0    
-	if2	@a,eq,#' ',gotspace1
-	if2	@a,eq,#009,gotspace1
-	if2	@a,eq,#013,gotspace1
+	beq	gtspc0    
+	if2	@a,eq,#' ',gtspc1
+	if2	@a,eq,#009,gtspc1
+	if2	@a,eq,#013,gtspc1
 	if2	@a,eq,#'\',gotquote
 	iny
 	bra	despace
@@ -856,23 +855,23 @@ gotquote	anop
 	bra	despace
 
 ; Found null byte
-gotspace0	tyx			Why put Y-reg in X???
-	bra	gotspace3
+gtspc0	tyx			Why put Y-reg in X???
+	bra	gtspc3
 
 ; Found " ", tab, or creturn
-gotspace1	tyx			Why put Y-reg in X???
+gtspc1	tyx			Why put Y-reg in X???
 	short a
 	lda	#0
 	sta	[pathptr],y
 	long	a
-gotspace2	iny
+gtspc2	iny
 	lda	[pathptr],y
 	and	#$FF
-	if2	@a,eq,#' ',gotspace2
-	if2	@a,eq,#009,gotspace2
-	if2	@a,eq,#013,gotspace2
+	if2	@a,eq,#' ',gtspc2
+	if2	@a,eq,#009,gtspc2
+	if2	@a,eq,#013,gtspc2
 
-gotspace3	anop
+gtspc3	anop
 	clc		Bump pathptr by
 	tya		 the number of bytes
 	adc	pathptr	  indicated in Y-reg.
@@ -884,8 +883,8 @@ gotspace3	anop
 	lda	pathnum
 	cmp	#32*4
 	bcc	numok
-	ldx	#^toomanyerr
-	lda	#toomanyerr
+	ldx	#^tmnyerr
+	lda	#tmnyerr
 	jsr	errputs
 	jmp	pathdone
 
@@ -897,15 +896,15 @@ numok	pei	(ptr+2)
 	jsr	c2gsstr
 	phx		Push allocated address onto
 	pha		 stack for later deallocation.
-	sta	EPinputPath	Save address in ExpandPath
-	stx	EPinputPath+2	 parameter block.
+	sta	EPinPth	Save address in ExpandPath
+	stx	EPinPth+2	 parameter block.
 ;
 ; If any quoted characters were included, the "\" chars must be removed
 ;
 	ldy	qflag	Get quote flag (index to "\" char).
 	beq	xpandit	If no "\", go ahead with expansion.
 
-	sta	qptr	Save EPinputPath pointer in
+	sta	qptr	Save EPinPth pointer in
 	stx	qptr+2	 direct page variable.
 	lda	[qptr]	Store length + 2 (since we're indexing
 	inc2	a	 from before length word) in qflag.
@@ -939,12 +938,12 @@ storeit	phy		Push source index onto stack
 ; colons as separators. Use temp result buf this time, just to get length.
 ;
 xpandit	anop
-	ld4	TempResultBuf,EPoutputPath
+	ld4	TmpRBuf,EPoutPth
 	ExpandPath EPParm
 ;
 ; Allocate memory for ExpandPath GS/OS result string
 ;
-	lda	TempRBlen	Get length of value.
+	lda	TmpRBln	Get length of value.
 	inc2	a	Add 4 bytes for result buf len words.
 	inc2	a
 	sta	len	Save result buf len.
@@ -952,8 +951,8 @@ xpandit	anop
 	pea	0
 	pha
 	~NEW		Request the memory.
-	sta	EPoutputPath	Store address in ReadVariable
-	stx	EPoutputPath+2	 parameter block and
+	sta	EPoutPth	Store address in ReadVariable
+	stx	EPoutPth+2	 parameter block and
 	sta	ptr	  direct page pointer.
 	stx	ptr+2
 	ora	ptr+2	If address == NULL,
@@ -1001,9 +1000,9 @@ epok	anop
 
 	lda	ptr
 	ldy	pathnum
-	sta	hash_paths,y	Store address of this
+	sta	hshpths,y	Store address of this
 	lda	ptr+2	 path's address in the
-	sta	hash_paths+2,y	  hash path table.
+	sta	hshpths+2,y	  hash path table.
 
 	ldy	len
 	beq	bumppnum
@@ -1030,7 +1029,7 @@ next	jmp	loop	Stay in loop.
 ; in the expected order.
 ;
 pathdone	anop
-	lda	varoldpmode
+	lda	varopm
 	beq	neworder
 
 ;
@@ -1039,14 +1038,14 @@ pathdone	anop
 ;
 	stz	pathnum	Start at beginning of path table.
 
-nextpath1	ldy	pathnum	Get offset into hash table.
+nxtpth1	ldy	pathnum	Get offset into hash table.
 	cpy	#32*4
-	bcs	filesdone
-	lda	hash_paths,y	If address of this path
-	ora	hash_paths+2,y	 has not been set,
-	beq	filesdone	  all done.
-	lda	hash_paths,y	Get address of this
-	ldx	hash_paths+2,y	 path's address in the
+	bcs	filsdon
+	lda	hshpths,y	If address of this path
+	ora	hshpths+2,y	 has not been set,
+	beq	filsdon	  all done.
+	lda	hshpths,y	Get address of this
+	ldx	hshpths+2,y	 path's address in the
 	phx		  hash path table.
 	pha
 	tya		Directory number =
@@ -1054,19 +1053,19 @@ nextpath1	ldy	pathnum	Get offset into hash table.
 	pha
 	pei	(files+2)	Pointer to file list.
 	pei	(files)
-	jsl	dir_search	Add executables from this directory.
+	jsl	dirsch	Add executables from this directory.
 	add2	pathnum,#4,pathnum	 Bump path offset.
-	bra	nextpath1
+	bra	nxtpth1
 
 ;
 ; Search directories and add executables to file list starting at end
 ; of $PATH and working back to the beginning. (Note: Loop begins at
 ; "neworder", but structuring the code this ways saves an instruction.)
 ;
-nextpath2	dey4		Decrement path offset.
+nxtpth2	dey4		Decrement path offset.
 	sty	pathnum
-	lda	hash_paths,y	Get address of this
-	ldx	hash_paths+2,y	 path's address in the
+	lda	hshpths,y	Get address of this
+	ldx	hshpths+2,y	 path's address in the
 	phx		  hash path table.
 	pha
 	tya		Directory number =
@@ -1074,23 +1073,23 @@ nextpath2	dey4		Decrement path offset.
 	pha
 	pei	(files+2)	Pointer to file list.
 	pei	(files)
-	jsl	dir_search	Add executables from this directory.
+	jsl	dirsch	Add executables from this directory.
 neworder	ldy	pathnum	Get offset into hash table.
-	bne	nextpath2	When == 0, no more to do.
+	bne	nxtpth2	When == 0, no more to do.
 
 
 ;
 ; Executable files in $PATH have been added to the list. Print
 ; number of files, then build the hash table.
 ;
-filesdone	anop
+filsdon	anop
 	ph4	gsosbuf	Free memory allocated for
 	jsl	nullfree	 $PATH string.
 
-	lda	done_init	If initialization isn't complete,
+	lda	doneinit	If initialization isn't complete,
 	beq	noprint	 don't print the # of files.
 
-	Int2Dec (hash_numexe,#hashnum,#3,#0)
+	Int2Dec (hshnumex,#hashnum,#3,#0)
 	ldx	#^hashmsg
 	lda	#hashmsg
 	jsr	puts
@@ -1100,12 +1099,12 @@ noprint	anop
 ;
 ; Create the hash table from the file list.
 ;
-	ph4	hash_files
+	ph4	hashfls
 	jsl	dohash
-	sta	hash_table
-	stx	hash_table+2
+	sta	hshtbl
+	stx	hshtbl+2
 
-	unlock hashmutex
+	unlock hashmtx
 	
 	pld
 	tsc
@@ -1122,17 +1121,17 @@ hashnum	dc	c'000 files',h'0d00'
 
 ; Parameter block for GS/OS call ExpandPath
 EPParm	dc	i'2'	pCount = 2
-EPinputPath	ds	4	ptr to inputPath (GS/OS string)
-EPoutputPath	ds	4	ptr to outputPath (Result buffer)
+EPinPth	ds	4	ptr to inputPath (GS/OS string)
+EPoutPth	ds	4	ptr to outputPath (Result buffer)
 
 ; GS/OS result buffer for getting the full length of expanded name
-TempResultBuf	dc	i2'5'	Only five bytes total.
-TempRBlen	ds	2	Value's length returned here.
+TmpRBuf	dc	i2'5'	Only five bytes total.
+TmpRBln	ds	2	Value's length returned here.
 	ds	1	Only 1 byte for value.
 
 eperrstr	dc	c'rehash: Invalid pathname syntax.',h'0d00'
-toomanyerr	dc	c'rehash: Too many paths specified.',h'0d00'
-nopatherr	dc	c'rehash: PATH string is not set.',h'0d00'
+tmnyerr	dc	c'rehash: Too many paths specified.',h'0d00'
+noptherr	dc	c'rehash: PATH string is not set.',h'0d00'
 
 	END
 
@@ -1142,12 +1141,12 @@ nopatherr	dc	c'rehash: PATH string is not set.',h'0d00'
 *
 **************************************************************************
 
-dispose_hash	START
+dsp_hash	START
 
 	using hashdata
 
-	lock	hashmutex
-	ora2	hash_table,hash_table+2,@a
+	lock	hashmtx
+	ora2	hshtbl,hshtbl+2,@a
 	beq	done
 
 	ldx	#32	32 different paths, maximum
@@ -1155,13 +1154,13 @@ dispose_hash	START
 
 loop1	phx		Save path counter
 	phy		 and index.
-	lda	hash_paths+2,y	Put address for this
+	lda	hshpths+2,y	Put address for this
 	pha		 path table entry on
-	lda	hash_paths,y	  the stack.
+	lda	hshpths,y	  the stack.
 	pha
 	lda	#0	Zero out the table entry.
-	sta	hash_paths+2,y
-	sta	hash_paths,y
+	sta	hshpths+2,y
+	sta	hshpths,y
 	jsl	nullfree	Free the entry's memory.
 next1	ply		Restore path index
 	plx		 and counter.
@@ -1169,17 +1168,17 @@ next1	ply		Restore path index
 	dex		If more paths to process,
 	bne	loop1	 stay in the loop.
 
-	ph4	hash_files
-	jsl	free_files
-	stz	hash_files
-	stz	hash_files+2
+	ph4	hashfls
+	jsl	frfiles
+	stz	hashfls
+	stz	hashfls+2
 
-	ph4	hash_table
-	jsl	dispose_table
-	stz	hash_table
-	stz	hash_table+2
+	ph4	hshtbl
+	jsl	dsp_tbl
+	stz	hshtbl
+	stz	hshtbl+2
 
-done	unlock hashmutex
+done	unlock hashmtx
 	rts
 
 	END
@@ -1192,13 +1191,13 @@ done	unlock hashmutex
 
 hashdata	DATA
 
-hashmutex	key		Mutual exclusion key
+hashmtx	key		Mutual exclusion key
 
 t_size	ds	2	t_size = (TAB_MULT * numexe) - 1
 
-hash_paths	dc	32i4'0'	32 paths max for now.
-hash_files	dc	i4'0'
-hash_table	dc	i4'0'	Pointer to table (t_size entries)
-hash_numexe	dc	i2'0'	Number of hashed executables
+hshpths	dc	32i4'0'	32 paths max for now.
+hashfls	dc	i4'0'
+hshtbl	dc	i4'0'	Pointer to table (t_size entries)
+hshnumex	dc	i2'0'	Number of hashed executables
 
 	END

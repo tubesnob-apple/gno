@@ -1,0 +1,1 @@
+	MACRO	_proc_p	&elem	lclc	&p&p	setc	&elem	nop	mend

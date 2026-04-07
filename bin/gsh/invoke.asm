@@ -29,17 +29,16 @@
 *
 *  invoke	subroutine (2:argc,4:argv,4:sfile,4:dfile,4:efile,2:app,
 *		2:eapp,2:bg,4:cline,2:jobflag,2:pipein,2:pipeout,
-*		2:pipein2,2:pipeout2,4:pipesem,4:awaitstatus)
+*		2:pipein2,2:pipeout2,4:pipesem,4:awtstats)
 *	return 2:rtnval
 *
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/invoke.mac
+	mcopy gsh.mac
 
-dummyinvoke	start		; ends up in .root
+dmyinvk	start		; ends up in .root
 	end
 
-	setcom 60
 
 SIGINT	gequ	 2
 SIGKILL	gequ	 9
@@ -73,7 +72,7 @@ end	equ	sfile+4
 
 ;	subroutine (4:sfile,4:dfile,4:efile,2:app,2:eapp,2:pipein,2:pipeout,2:pipein2,2:pipeout2),space
 
-* NOTE: only called from invoke, after fork_mutex is locked
+* NOTE: only called from invoke, after forkmtx is locked
 
 	tsc
 	phd
@@ -87,13 +86,13 @@ end	equ	sfile+4
 	pei	(sfile+2)	Convert c-string
 	pei	(sfile)	 filename to
 	jsr	c2gsstr	  GS/OS string.
-	sta	RedirectFile	Store filename pointer
-	stx	RedirectFile+2	 in parameter block.
-	stz	RedirectDev	stdin devnum = 0.
-	stz	RedirectApp	Cannot append.
-	RedirectGS RedirectParm
+	sta	RdrFile	Store filename pointer
+	stx	RdrFile+2	 in parameter block.
+	stz	RdrDev	stdin devnum = 0.
+	stz	RdrApp	Cannot append.
+	RedirectGS RdrParm
 	php
-	ph4	RedirectFile	Free allocated GS/OS string.
+	ph4	RdrFile	Free allocated GS/OS string.
 	jsl	nullfree
 	plp
 	bcc	execa	If RedirectGS failed,
@@ -108,13 +107,13 @@ execa	ora2	dfile,dfile+2,@a
 	pei	(dfile+2)
 	pei	(dfile)
 	jsr	c2gsstr
-	sta	RedirectFile
-	stx	RedirectFile+2
-	ld2	1,RedirectDev	stdout devnum = 1
-	mv2	app,RedirectApp
-	RedirectGS RedirectParm
+	sta	RdrFile
+	stx	RdrFile+2
+	ld2	1,RdrDev	stdout devnum = 1
+	mv2	app,RdrApp
+	RedirectGS RdrParm
 	php
-	ph4	RedirectFile
+	ph4	RdrFile
 	jsl	nullfree
 	plp
 	bcc	execb
@@ -129,13 +128,13 @@ execb	ora2	efile,efile+2,@a
 	pei	(efile+2)
 	pei	(efile)
 	jsr	c2gsstr
-	sta	RedirectFile
-	stx	RedirectFile+2
-	ld2	2,RedirectDev
-	mv2	eapp,RedirectApp
-	RedirectGS RedirectParm
+	sta	RdrFile
+	stx	RdrFile+2
+	ld2	2,RdrDev
+	mv2	eapp,RdrApp
+	RedirectGS RdrParm
 	php
-	ph4	RedirectFile
+	ph4	RdrFile
 	jsl	nullfree
 	plp
 	bcc	execc
@@ -149,7 +148,7 @@ execc	lda	pipein
 	beq	execd
 	dup2	(pipein,#1)
 	mv2	pipein2,CloseRef
-	Close CloseParm
+	Close ClsParm
 	ldx	#0
 	lda	pipein
 	SetInputDevice (#3,@xa)
@@ -160,7 +159,7 @@ execd	lda	pipeout
 	beq	exece
 	dup2	(pipeout,#2)
 	mv2	pipeout2,CloseRef
-	Close CloseParm
+	Close ClsParm
 	ldx	#0
 	lda	pipeout
 	SetOutputDevice (#3,@xa)
@@ -193,15 +192,15 @@ exit	lda	space
 ;
 ; Parameter block for shell call to redirect I/O (ORCA/M manual p.425)
 ;
-RedirectParm	dc	i2'3'	pCount
-RedirectDev	ds	2	Dev num (0=stdin,1=stdout,2=errout)
-RedirectApp	ds	2	Append flag (0=delete)
-RedirectFile	ds	4	File name (GS/OS input string)
+RdrParm	dc	i2'3'	pCount
+RdrDev	ds	2	Dev num (0=stdin,1=stdout,2=errout)
+RdrApp	ds	2	Append flag (0=delete)
+RdrFile	ds	4	File name (GS/OS input string)
 
 ;
 ; Parameter block for GS/OS call to close a file
 ;
-CloseParm	dc	i'1'	pCount
+ClsParm	dc	i'1'	pCount
 CloseRef	dc	i'0'	refNum
 
 err1	dc	c'gsh: Error redirecting standard input.',h'0d00'
@@ -231,7 +230,7 @@ cpath	equ	rtnval+2
 hpath	equ	cpath+4
 space	equ	hpath+4
 
- subroutine (2:argc,4:argv,4:sfile,4:dfile,4:efile,2:app,2:eapp,2:bg,4:cline,2:jobflag,2:pipein,2:pipeout,2:pipein2,2:pipeout2,4:pipesem,4:awaitstatus),space
+ subroutine (2:argc,4:argv,4:sfile,4:dfile,4:efile,2:app,2:eapp,2:bg,4:cline,2:jobflag,2:pipein,2:pipeout,2:pipein2,2:pipeout2,4:pipesem,4:awtstats),space
 
 	ld2	-1,rtnval
 	stz	biflag	Clear built-in flag
@@ -259,19 +258,19 @@ chknull	ldy	#2	Move 1st argument
 ;
 ; Check command: is it builtin, in hash table, etc?
 ;
-	pei	(cpath+2)	IsBuiltin returns
+	pei	(cpath+2)	IsBltin returns
 	pei	(cpath)	 0 if forked built-in
-	jsl	IsBuiltin	 1 if non-forked built-in
+	jsl	IsBltin	 1 if non-forked built-in
 	cmp	#-1	 -1 if not a built-in
-	jne	trybuiltin
+	jne	trybltn
 
 ;
 ; Command is not listed in the built-in table. See if it was hashed
 ;
 	pei	(cpath+2)
 	pei	(cpath)
-	ph4	hash_table
-	ph4	#hash_paths
+	ph4	hshtbl
+	ph4	#hshpths
 	jsl	search
 	cmp	#0
 	bne	changeit
@@ -286,7 +285,7 @@ changeit	sta	cpath	Use full path from
 ;
 ; Get information about the command's filename
 ;
-noentry	lock	info_mutex
+noentry	lock	infomtx
 
 	pei	(cpath+2)
 	pei	(cpath)
@@ -297,16 +296,16 @@ noentry	lock	info_mutex
 	stx	ptr+2
 	GetFileInfo GRec
 
-	unlock info_mutex
+	unlock infomtx
 	jcs	notfound	If error getting info, print error.
 
 ; Is file type $B5: GS/OS Shell application (EXE)?
-	if2	GRecFileType,eq,#$B5,doExec
+	if2	GRecFT,eq,#$B5,doExec
 
 ; Is file type $B3: GS/OS application (S16)?
 	if2	@a,eq,#$B3,doExec
 
-	ldx	vardirexec	If $NODIREXEC isn't set, and
+	ldx	vardirx	If $NODIREXEC isn't set, and
 	bne	ft02
 	cmp	#$0F
 	jeq	doDir	 file is a directory: change to it.
@@ -314,8 +313,8 @@ noentry	lock	info_mutex
 ; Is file type $B0: source code file (SRC)?
 ft02	if2	@a,ne,#$B0,badfile
 ; Type $B0, Aux $00000006 is a shell command file (EXEC)
-	if2	GRecAuxType,ne,#6,badfile
-	if2	GRecAuxType+2,ne,#0,badfile
+	if2	GRecAux,ne,#6,badfile
+	if2	GRecAux+2,ne,#0,badfile
 	jmp	doShell
 
 ;
@@ -451,7 +450,7 @@ doDir	lock	cdmutex
 ;
 ; Rest of cleanup is shared with non-forked builtin
 ;
-	jmp	nfcleanup
+	jmp	nfclnup
 
 *
 * ---------------------------------------------------------------
@@ -491,7 +490,7 @@ exec0	anop
 	ph2	_argc
 	ph4	_argv
 
-	ph4	_cpath	ShellExec parameters
+	ph4	_cpath	ShlExec parameters
 	ph2	_argc
 	ph4	_argv
 	jsl	infork
@@ -499,7 +498,7 @@ exec0	anop
 	signal (#SIGCHLD,#0)
 	PushVariablesGS NullPB
 	pea	1	jobflag = 1
-	jsl	ShellExec
+	jsl	ShlExec
 	jsl	argfree
 	PopVariablesGS NullPB
 	rtl
@@ -526,21 +525,21 @@ NullPB	dc	i2'0'	pCount
 *
 * File name was found in the built-in table
 
-trybuiltin	inc	biflag	It's a built-in. Which type?
+trybltn	inc	biflag	It's a built-in. Which type?
 	cmp	#1	Either fork or don't fork.
-	beq	noforkbuiltin	
+	beq	nofrkbt	
 
 ;
 ; It's a forked builtin
 ;
 	jsr	prefork
-	fork	#forkbuiltin
+	fork	#frkbltn
 	jsr	postfork
 	jmp	done
 ;
 ; Control transfers here for a forked built-in command
 ;
-forkbuiltin	anop
+frkbltn	anop
 	cop	$7F	Give palloc a chance
 	ph2	_argc
 	ph4	_argv
@@ -562,7 +561,7 @@ fork0c	pla
 ;
 ; It's a non-forked builtin
 ;
-noforkbuiltin	anop
+nofrkbt	anop
 	pei	(argc)
 	pei	(argv+2)
 	pei	(argv)
@@ -570,14 +569,14 @@ noforkbuiltin	anop
 	and	#$00FF	Make return status look like result of
 	xba		 wait(): high-order byte = status.
 
-nfcleanup	anop
-	sta	[awaitstatus]	
+nfclnup	anop
+	sta	[awtstats]	
 	stz	rtnval	Return value (pid) = no fork done.
 ;
 ; There might be a process waiting on a pipe
 ;
 	lda	[pipesem]
-	sta	_semaphore
+	sta	_semph
 	bra	chkpipe
 
 *
@@ -602,8 +601,8 @@ chkpipe	lda	pipein
 
 ; Input being piped into a command that was not found.
 
-	ssignal _semaphore
-	sdelete _semaphore
+	ssignal _semph
+	sdelete _semph
 
 	mv4	pjoblist,p
 	ldy	#16	;p_jobid
@@ -617,7 +616,7 @@ chkpipe	lda	pipein
 
 done	cop	$7F
 	lda	biflag	If built-in flag is clear,
-	bne	skipfrarg
+	bne	skpfarg
 
 	pei	(hpath+2)	Free arguments.
 	pei	(hpath)
@@ -626,7 +625,7 @@ done	cop	$7F
 	pei	(argv)
 	jsl	argfree
 
-skipfrarg	pei	(cline+2)	Free command-line.
+skpfarg	pei	(cline+2)	Free command-line.
 	pei	(cline)
 	jsl	nullfree
 
@@ -642,7 +641,7 @@ skipfrarg	pei	(cline+2)	Free command-line.
 ;
 ; Tasks to do just before forking
 ;
-prefork	lock	fork_mutex	Lock the fork mutual exclusion.
+prefork	lock	forkmtx	Lock the fork mutual exclusion.
 	SetInGlobals (#$FF,#00)
 ;
 ; Move essential parameters from stack to mutual-exclusion protected memory
@@ -660,11 +659,11 @@ prefork	lock	fork_mutex	Lock the fork mutual exclusion.
 	mv2	pipein,_pipein
 	mv2	pipeout,_pipeout
 	mv2	pipein2,_pipein2
-	mv2	pipeout2,_pipeout2
+	mv2	pipeout2,_pipout2
 	mv2	bg,_bg
 	mv2	jobflag,_jobflag
 	lda	[pipesem]
-	sta	_semaphore
+	sta	_semph
 
 	lda	pipesem	Set address of
 	sta	putsem+1	 semaphone in
@@ -680,47 +679,47 @@ prefork	lock	fork_mutex	Lock the fork mutual exclusion.
 ;
 postfork	sta	rtnval	Save pid as return value.
 	lda	pipein	If pipein != 0,
-	beq	postfork2
+	beq	pstfrk2
 	sta	CloseRef
-	Close CloseParm		close pipein.
+	Close ClsParm		close pipein.
 
-postfork2	lda	pipeout	If pipeout != 0,
-	beq	postfork3
+pstfrk2	lda	pipeout	If pipeout != 0,
+	beq	pstfrk3
 	sta	CloseRef
-	Close CloseParm		close pipeout.
+	Close ClsParm		close pipeout.
 
-postfork3	lda	rtnval	If return value == -1,
+pstfrk3	lda	rtnval	If return value == -1,
 	cmp	#-1
-	bne	postfork4	
+	bne	pstfrk4	
 	ldx	#^deadstr	  Print error message:
 	lda	#deadstr	   'Cannot fork (too many processes?)'
 	jsr	errputs
-	unlock fork_mutex	  Unlock the fork mutual exclusion.
-	jmp	postfork6	  Return to caller.
+	unlock forkmtx	  Unlock the fork mutual exclusion.
+	jmp	pstfrk6	  Return to caller.
 
-postfork4	ldx	jobflag
+pstfrk4	ldx	jobflag
 	dex
-	beq	postfork5	If jobflag == 1,
+	beq	pstfrk5	If jobflag == 1,
 	pha		
 	pei	(bg)
 	pei	(cline+2)
 	pei	(cline)
 	lda	pipein	  if pipein == 0,
-	bne	postfork4a
+	bne	pstfrk4a
 	jsl	palloc		palloc(0,cline)
-	bra	postfork5	  else
-postfork4a	jsl	pallocpipe		pallocpipe(0,cline)
+	bra	pstfrk5	  else
+pstfrk4a	jsl	palcpipe		palcpipe(0,cline)
 
-postfork5	anop
+pstfrk5	anop
 ;
 ; Wait for fork mutual exclusion lock to clear (cleared by infork)
 ;
-	lda	>fork_mutex	;DANGER!!!!! Assumes knowledge of
-	beq	postfork6	;lock/unlock structure!!!!!!!!
+	lda	>forkmtx	;DANGER!!!!! Assumes knowledge of
+	beq	pstfrk6	;lock/unlock structure!!!!!!!!
 	cop	$7F
-	bra	postfork5
+	bra	pstfrk5
 
-postfork6	rts
+pstfrk6	rts
 
 * ---------------------------------------------------------------
 
@@ -741,7 +740,7 @@ infork	phk		Make sure data bank register
 	bne	infork0b
 
 optty	Open	ttyopen	Open tty.
-	jcs	errinfork
+	jcs	errfork
 
 	lda	_pipein
 	bne	infork0a	If not in pipeline,
@@ -759,11 +758,11 @@ infork0b	ph4	_sfile	Redirect I/O
 	ph2	_pipein
 	ph2	_pipeout
 	ph2	_pipein2
-	ph2	_pipeout2
+	ph2	_pipout2
 	jsl	redirect
-	jcs	errinfork
+	jcs	errfork
 
-	unlock fork_mutex
+	unlock forkmtx
 
 ;
 ; Wait on appropriate pipe semaphores
@@ -771,7 +770,7 @@ infork0b	ph4	_sfile	Redirect I/O
 	lda	_pipein
 	bne	infork0c
 	lda	_pipeout
-	beq	clean_exit
+	beq	clnexit
 
 ;
 ; _pipein == 0  &&  _pipeout != 0
@@ -779,39 +778,39 @@ infork0b	ph4	_sfile	Redirect I/O
 	screate #0	Create a semaphore with count=0.
 putsem	sta	>$FFFFFF	Store semaphore number in pipesem.
 	swait @a	Block on semaphore until ssignal.
-	bra	clean_exit
+	bra	clnexit
 
 infork0c	lda	_pipeout
-	bne	clean_exit
+	bne	clnexit
 ;
 ; _pipein != 0  &&  _pipeout != 0
 ;
-waitsemy	lda	_semaphore	While _semaphore == 0,
+waitsemy	lda	_semph	While _semph == 0,
 	bne	goodsemy
 	cop	$7F		allow other processes to run.
 	bra	waitsemy
-goodsemy	ssignal _semaphore	Release _semaphore
-	sdelete _semaphore	 and delete it.
+goodsemy	ssignal _semph	Release _semph
+	sdelete _semph	 and delete it.
 
-clean_exit	anop
+clnexit	anop
 	clc
 	bra	indone
 ;
-; Arrive at "errinfork" if ttyopen or redirect didn't work.
+; Arrive at "errfork" if ttyopen or redirect didn't work.
 ;
-errinfork	unlock fork_mutex
+errfork	unlock forkmtx
 ;	sec		Note: carry already set
 
 indone	rtl		Return to caller; status in carry.
 	   
 
 
-fork_mutex	key		Mutual exclusion for forking
-info_mutex	key		Mutual exclusion for GetFileInfo
+forkmtx	key		Mutual exclusion for forking
+infomtx	key		Mutual exclusion for GetFileInfo
 cdmutex	key		Mutual exclusion for SetPrefix
 
 ;
-; Variables protected by fork_mutex (set by parent, used by child process)
+; Variables protected by forkmtx (set by parent, used by child process)
 ;
 _argc	dc	i2'0'
 _argv	dc	i4'0'
@@ -826,10 +825,10 @@ _hpath	dc	i4'0'
 _pipein	dc	i2'0'
 _pipeout	dc	i2'0'
 _pipein2	dc	i2'0'
-_pipeout2	dc	i2'0'
+_pipout2	dc	i2'0'
 _bg	dc	i2'0'
 _jobflag	dc	i2'0'
-_semaphore	dc	i2'0'
+_semph	dc	i2'0'
 
 ;
 ; String constants
@@ -844,15 +843,15 @@ deadstr	dc	c'Cannot fork (too many processes?)',h'0d00' ;try a spoon
 GRec	dc	i'4'	pCount (# of parameters)
 GRecPath	ds	4	pathname (input; ptr to GS/OS string)
 	ds	2	access (access attributes)
-GRecFileType	ds	2	fileType (file type attribute)
-GRecAuxType	ds	4	auxType (auxiliary type attribute)
+GRecFT	ds	2	fileType (file type attribute)
+GRecAux	ds	4	auxType (auxiliary type attribute)
 
 
 PRec	dc	i'2'
 PRecNum	dc	i'0'
 PRecPath	ds	4
 
-CloseParm	dc	i2'1'
+ClsParm	dc	i2'1'
 CloseRef	dc	i2'0'
 
 Err	dc	i2'0'

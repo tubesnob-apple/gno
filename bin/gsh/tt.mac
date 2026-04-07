@@ -1,0 +1,1 @@
+	MACRO	_xxxxxxxxx	&elem,&work	lclc	&p	lclc	&len&p	setc	&elem	nop	mend	MACRO&lab	outer	&parms,&work	gbla	&totlen	gbla	&worklen	lcla	&nn&lab	anop	aif	c:&work,.a	lclc	&work&work	setc	0.a&worklen	seta	&work&totlen	seta	0&nn	seta	c:&parms	_xxxxxxxxx	&parms(&nn),&work.e	tsc	mend

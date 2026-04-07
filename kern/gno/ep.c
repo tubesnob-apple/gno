@@ -93,14 +93,14 @@ char *line,*pt,*pt1;
     np = fopen("9/etc/namespace","r");
     if (np != NULL) {
       while (!feof(np)) {
+        if (fgets(line,127,np) == NULL) break;
+        if ((line[0] == 0) || (line[0] == '\n') || (line[0] == '\r')) continue;
         if (pool_ind == NUM_NP) {
             printf("warning: more than 20 entries in the /etc/namespace file\n");
             break;
         }
         p = malloc(19);
         map = malloc(67);
-        fgets(line,127,np);
-        if ((line[0] == 0) || (line[0] == '\n')) continue;
         pt = line;
         /* find end of first string */
         while ((*pt != 0) && (!isspace(*pt))) pt++;

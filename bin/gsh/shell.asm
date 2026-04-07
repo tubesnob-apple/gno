@@ -26,7 +26,7 @@
 * shell	subroutine (0:dummy)
 *  NOTE: gnoloop is an entry defined in shell.
 *	
-* AppendHome	subroutine (4:str)
+* AppHome	subroutine (4:str)
 *	return 4:outPtr
 *
 * Dogshrc	jsr with no parameters
@@ -39,19 +39,18 @@
 *
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/shell.mac
+	mcopy gsh.mac
 
-dummyshell	start		; ends up in .root
+dmyshell	start		; ends up in .root
 	end
 
-	setcom 60
 
 SIGINT	gequ	 2
 SIGTSTP	gequ	18
 SIGCHLD	gequ	20
 SIGTTIN	gequ	21
 
-cmdbuflen	gequ	1024
+cmdbflen	gequ	1024
 
 **************************************************************************
 *
@@ -64,7 +63,7 @@ shell	start
 
 	using global
 	using	pdata
-	using	HistoryData
+	using	HistData
 	using	termdata
                
 p	equ	0	General pointer
@@ -74,7 +73,7 @@ space	equ	cflag+2
 	subroutine (0:dummy),space
 
 	tsc		Save stack pointer
-	sta	cmdcontext	 in cmdcontext
+	sta	cmdctx	 in cmdctx
 	tdc		  and direct page reg
 	sta	cmddp	   in cmddp.
 
@@ -97,14 +96,14 @@ settty	mv2	ttyref,gshtty
 	jsr	InitTerm
 
 	lda	FastFlag	If FastFlag is set,
-	bne	fastskip1	 skip copyright message.
+	bne	fskip1	 skip copyright message.
 	lda	gshpid	Only print the copyright msg
 	cmp	#2	 if not using login
-	bne	fastskip1
+	bne	fskip1
 	ldx	#^gnostr
 	lda	#gnostr
 	jsr	puts
-fastskip1	anop
+fskip1	anop
 
 ;
 ; Set up signal handlers
@@ -121,8 +120,8 @@ fastskip1	anop
 ;
 ; Initialize some stuff
 ;
-	jsr	initalias	Set all AliasTable entries to 0.
-	jsr	InitDStack	Zero out directory stack.
+	jsr	initals	Set all AliTbl entries to 0.
+	jsr	InitDStk	Zero out directory stack.
 	jsr	InitVars	Set value of all env var flags.
 ;
 ; Check for login shell (argv[0] starts with '-')
@@ -132,7 +131,7 @@ fastskip1	anop
 	lda	[p],y	 to get first char of
 	and	#$FF	  command name.
 	cmp	#'-'	If not '-',
-	bne	nologin_init	 skip over login initialization.
+	bne	nologin	 skip over login initialization.
 
 ; Change ":" to " " in $PATH if it doesn't start with ":" or contain a " "
 
@@ -141,23 +140,23 @@ fastskip1	anop
 	sta	p	Save address of allocated buffer.
 	stx	p+2	 in direct page variable
 	ora	p+2	If null,
-	beq	nopathconv	 no need to convert
+	beq	npthcnv	 no need to convert
 
 	stz	cflag	Initialize conversion flag = false.
 	ldy	#4	Index over GS/OS length fields.
 	short	m	Use 8-bit mode.
 	lda	[p],y
-	beq	endpathconv	If null string, or
+	beq	epthcnv	If null string, or
 	cmp	#':'	 if first character is ':',
-	beq	endpathconv	   don't do the conversion.
+	beq	epthcnv	   don't do the conversion.
 
 bumpit	iny
 	lda	[p],y
-	beq	endpathconv	If at end of string, all done.
+	beq	epthcnv	If at end of string, all done.
 	cmp	#' '	If $PATH contains a space,
 	bne	chkcolon
 	stz	cflag	 abort the conversion.
-	bra	endpathconv
+	bra	epthcnv
 chkcolon	cmp	#':'	If next character is ':',
 	bne	bumpit
 	lda	#' '	  change it to ' ', and
@@ -165,7 +164,7 @@ chkcolon	cmp	#':'	If next character is ':',
 	sta	cflag	  set conversion flag = true.
 	bra	bumpit
 
-endpathconv	long	m	Back to 16-bit mode.
+epthcnv	long	m	Back to 16-bit mode.
 	lda	cflag	If there was no conversion,
 	beq	freepath	 skip the setting of $PATH.
 
@@ -181,17 +180,17 @@ endpathconv	long	m	Back to 16-bit mode.
 freepath	ph4	p	Free the $PATH C string.
 	jsl	nullfree
 
-nopathconv	anop
+npthcnv	anop
 
 ; Read and execute /etc/glogin
-	ph4	#etcglogin	path = "/etc/glogin"
+	ph4	#etcglog	path = "/etc/glogin"
 	lda	#0
 	pha		argc = 0
 	pha		argv = NULL
 	pha
 	lda	#$8000
 	pha		jobflag = $8000
-	jsl	ShellExec
+	jsl	ShlExec
 	
 ; Read and execute $HOME/glogin
 	jsr	Doglogin
@@ -199,21 +198,21 @@ nopathconv	anop
 ;
 ; Initialization that is not specific to login shells
 ;
-nologin_init	anop
+nologin	anop
 	lda	FastFlag	If fast startup flag isn't set,
-	bne	fastskip2
-	jsr	InitHistory	 Init: historyFN->"$HOME/history",
-	jsr	ReadHistory	  read in history from disk,
+	bne	fskip2
+	jsr	InitHist	 Init: histFN->"$HOME/history",
+	jsr	ReadHist	  read in history from disk,
 	jsr	Dogshrc	   and read $HOME/gshrc.
 	jsr	newline
-fastskip2	anop
-	lda	didReadTerm
+fskip2	anop
+	lda	didRdTm
 	bne	didit
 	jsr	readterm
 didit	anop
-	jsr	dispose_hash	Remove old table (if set in
+	jsr	dsp_hash	Remove old table (if set in
 	jsl	hashpath	 login files) and hash $PATH.
-	ld2	1,done_init	Set initialization done flag.
+	ld2	1,doneinit	Set initialization done flag.
 
 ;
 ; Check for command-line arguments -c and -e
@@ -234,7 +233,7 @@ didit	anop
 	pei	(p+2)	argv
 	pei	(p)
 	pea	0	jobflag = 0
-	jsl	ShellExec
+	jsl	ShlExec
 	jmp	done1
 
 cmdskip	lda	ExecFlag
@@ -259,7 +258,7 @@ SetValue	ds	4	Value (pointer to GS/OS string)
 pathname	gsstr	'path'	GS/OS string
 
 
-etcglogin	dc	c'/etc/glogin',h'00'
+etcglog	dc	c'/etc/glogin',h'00'
 
 execskip	anop
 
@@ -269,7 +268,7 @@ execskip	anop
 *
 ****************************************************************
 
-	stz	lastabort
+	stz	labort
 
 gnoloop	entry
 
@@ -278,13 +277,13 @@ gnoloop	entry
 ;
 	phk		Copy Program Bank register
 	plb		 into Data Bank register.
-	lda	cmdcontext	Set Stack Pointer and
+	lda	cmdctx	Set Stack Pointer and
 	tcs		 Direct Page register
 	lda	cmddp	  to values saved when
 	tcd		   entering shell.
 
-	jsl	WritePrompt	Print prompt.
-	jsr	GetCmdLine	Get response.
+	jsl	WrtPrmpt	Print prompt.
+	jsr	GetCmdLn	Get response.
 	bcs	done
 	jsr	newline
 
@@ -298,10 +297,10 @@ gnoloop	entry
 	ph2	#0	jobflag = 0
 	jsl	execute
 
-	lda	exit_requested
+	lda	exitreq
 	bne	done1
 	jsr	newlineX
-	stz	lastabort
+	stz	labort
 	bra	gnoloop
 
 ;
@@ -311,21 +310,21 @@ done	jsr	newline
 	jsr	newlineX
 done1	ora2	pjoblist,pjoblist+2,@a
 	beq	done2
-	lda	lastabort
-	bne	donekiller
-	inc	lastabort
-	stz	exit_requested
+	lda	labort
+	bne	dkiller
+	inc	labort
+	stz	exitreq
 	ldx	#^stopstr	Print message:
 	lda	#stopstr	 "There are stopped jobs"
 	jsr	puts
 	jsr	newlineX
 	bra	gnoloop	Continue getting commands.
 
-donekiller	jsl	jobkiller
+dkiller	jsl	jobkill
 done2	lda	FastFlag
-	bne	fastskip5
-	jsl	SaveHistory
-fastskip5	jsr	dispose_hash
+	bne	fskip5
+	jsl	SaveHist
+fskip5	jsr	dsp_hash
 
 quit	PopVariablesGS NullPB
 	Quit	QuitParm
@@ -349,7 +348,7 @@ ttyname	gsstr	'.tty'
 
 exitstr	dc	c'000000',h'0d00'
 
-lastabort	ds	2
+labort	ds	2
 
 	END		 
 
@@ -364,15 +363,15 @@ lastabort	ds	2
 
 Dogshrc	START
 
-	ph4	#gshrcName
+	ph4	#gshrcNm
 	bra	doit
 
 ; Alternate entry point: execute $HOME/glogin
 
 Doglogin	ENTRY
-	ph4	#gloginName
+	ph4	#glogNm
 
-doit	jsl	AppendHome
+doit	jsl	AppHome
 	phx		Save pointer to GS/OS input
 	pha		 string for later.
 
@@ -383,7 +382,7 @@ doit	jsl	AppendHome
 no_ovf	phx
 	pha
 
-*   ShellExec	subroutine (4:path,2:argc,4:argv,2:jobflag)
+*   ShlExec	subroutine (4:path,2:argc,4:argv,2:jobflag)
 ;			(ptr to $HOME/gshrc is on stack)
 	lda	#0
 	pha		argc = 0
@@ -391,7 +390,7 @@ no_ovf	phx
 	pha
 	lda	#$8000
 	pha		jobflag = $8000
-	jsl	ShellExec
+	jsl	ShlExec
 
 ; Dispose $HOME/gshrc string
 	pla		Get address of
@@ -405,8 +404,8 @@ no_undf	phx
 	jsl	nullfree
 	rts
 
-gshrcName	dc	c'/gshrc',h'00'
-gloginName	dc	c'/glogin',h'00'
+gshrcNm	dc	c'/gshrc',h'00'
+glogNm	dc	c'/glogin',h'00'
 
 	END
 
@@ -419,7 +418,7 @@ gloginName	dc	c'/glogin',h'00'
 ;
 ;=========================================================================
 
-AppendHome	START
+AppHome	START
 
 outPtr	equ	0	Pointer into allocated memory
 str_len	equ	outPtr+4	Length of string parameter
@@ -432,7 +431,7 @@ space	equ	buf_len+2
 ;
 ; Get the variable's length using ReadVariableGS
 ;
-	ld4	TempResultBuf,RVresult	Use temporary result buf.
+	ld4	TmpRBuf,RVresult	Use temporary result buf.
 	ReadVariableGS ReadVar		Get length.
 
 ;
@@ -443,7 +442,7 @@ space	equ	buf_len+2
 	jsr	cstrlen	  appended.
 	sta	str_len
 
-	lda	TempRBlen	Get length of value.
+	lda	TmpRBln	Get length of value.
 	bne	notnull	If 0,
 	inc	a	 increment because "@" will be used.
 notnull	inc2	a	Add 4 bytes for result buf len words.
@@ -557,8 +556,8 @@ RVresult	ds	4	GS/OS Output buffer ptr
 ;
 ; GS/OS result buffer for getting the full length of the HOME env var.
 ;
-TempResultBuf	dc	i2'5'	Only five bytes total.
-TempRBlen	ds	2	Value's length returned here.
+TmpRBuf	dc	i2'5'	Only five bytes total.
+TmpRBln	ds	2	Value's length returned here.
 	ds	1	Only 1 byte for value.
 ;
 ; "HOME" as a GS/OS string
@@ -580,17 +579,17 @@ ID	ds	2
 GSOSDP	ds	2
 cmdloc	ds	2
 cmdlen	ds	2
-cmdline	ds	cmdbuflen
+cmdline	ds	cmdbflen
 wordlen	ds	2
 nummatch	ds	2
 matchbuf	ds	512*4
-cmdcontext	ds	2
+cmdctx	ds	2
 cmddp	ds	2
 gshtty	ds	2
 gshpid	ds	2
-exit_requested	dc	i'0'	;!=0 if exit
-signalled	dc	i'0'
-done_init	dc	i2'0'	0 until init is complete
+exitreq	dc	i'0'	;!=0 if exit
+sigflag	dc	i'0'
+doneinit	dc	i2'0'	0 until init is complete
 
 FastFlag	dc	i'0'
 CmdFlag	dc	i'0'
@@ -613,7 +612,7 @@ signal2	START
 
 	subroutine (4:fubar),0
 	WriteCString #msg
-	inc	signalled
+	inc	sigflag
 ;	ld2	$80,$E0C000
 	return
 
@@ -633,7 +632,7 @@ signal18	START
 
 	subroutine (4:fubar),0
 	WriteCString #msg
-	inc	signalled
+	inc	sigflag
 ;	ld2	$80,$E0C000
 	return           
 

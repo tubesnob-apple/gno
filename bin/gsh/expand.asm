@@ -21,12 +21,11 @@
 *	^	^	^	^	^	^	
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/expand.mac
+	mcopy gsh.mac
 
-dummyexpand	start		; ends up in .root
+dmyexp	start		; ends up in .root
 	end
 
-	setcom 60
 
 **************************************************************************
 *
@@ -44,8 +43,8 @@ sepptr	equ	gname+4
 eptr	equ	sepptr+4
 exppath	equ	eptr+4
 filesep	equ	exppath+4
-shallweglob	equ	filesep+2
-wordbuf	equ	shallweglob+2
+shlwglb	equ	filesep+2
+wordbuf	equ	shlwglb+2
 index	equ	wordbuf+4
 buf	equ	index+2
 globflag	equ	buf+4
@@ -55,12 +54,12 @@ space	equ	overflag+2
 	subroutine (4:cmd),space
 
 ; Allocate buffer to hold result
-	jsl	allocmaxline
+	jsl	alcMxln
 	sta	buf
 	stx	buf+2
 
 ; Check for noglob variable and exit if it's set to something.
-	ldy	varnoglob
+	ldy	varnogl
 	beq	doglob
 
 ; Allocate a buffer, copy the command line into it, and return.
@@ -77,11 +76,11 @@ space	equ	overflag+2
 doglob	lda	#$FFFF	Start output index at -1.
 	sta	index
 
-	jsl	allocmaxline	Create a word buffer.
+	jsl	alcMxln	Create a word buffer.
 	sta	wordbuf
 	stx	wordbuf+2
 
-	jsl	allocmaxline	Alloc buffer for wildcard pattern.
+	jsl	alcMxln	Alloc buffer for wildcard pattern.
 	sta	exppath
 	stx	exppath+2
 
@@ -96,7 +95,7 @@ doglob	lda	#$FFFF	Start output index at -1.
 ;
 ; Find the beginning of the next word
 ;
-findword	jsr	g_getbyte	Get character from command line.
+findword	jsr	ggtbyte	Get character from command line.
 	jeq	alldone
 	if2	@a,eq,#' ',passthru
 	if2	@a,eq,#009,passthru
@@ -110,22 +109,22 @@ findword	jsr	g_getbyte	Get character from command line.
 
 ; It's not a simple pass-through character. See what needs to happen.
 
-	stz	shallweglob
+	stz	shlwglb
 	ldy	#0
-	bra	grabbingword
+	bra	grbbwrd
 
 ; For pass-through characters, just copy to output buffer.
 
-passthru	jsr	g_putbyte
+passthru	jsr	gptbyte
 	bra	findword
 
 ;
 ; single out the next word [y is initialized above]
 ;
-grabword	jsr	g_getbyte
-grabbingword	if2	@a,eq,#"'",grabsingle
-	if2	@a,eq,#'"',grabdouble
-	if2	@a,eq,#'\',grabslash
+grabword	jsr	ggtbyte
+grbbwrd	if2	@a,eq,#"'",grabsngl
+	if2	@a,eq,#'"',grabdbl
+	if2	@a,eq,#'\',grabslsh
 	if2	@a,eq,#' ',procword
 	if2	@a,eq,#009,procword
 	if2	@a,eq,#013,procword
@@ -147,32 +146,32 @@ grabnext	sta	[wordbuf],y	Save character in word buffer
 	bra	grabword	Get next character of word.
 
 ; "[", "]", "*", "?"
-grabglob	ldx	#1	Set "shallweglob"
-	stx	shallweglob	 flag.
+grabglob	ldx	#1	Set "shlwglb"
+	stx	shlwglb	 flag.
 	bra	grabnext	Store char in word buf & get next.
 
 ; "\"
-grabslash	sta	[wordbuf],y	Save "\" in word buffer
+grabslsh	sta	[wordbuf],y	Save "\" in word buffer
 	iny		 and bump its index.
-	jsr	g_getbyte	Get next character in cmd line.
+	jsr	ggtbyte	Get next character in cmd line.
 	beq	procword	If null byte, word is terminated.
 	bra	grabnext	Store char in word buf & get next.
 
 ; '"'
-grabsingle	sta	[wordbuf],y	Save char in word buffer
+grabsngl	sta	[wordbuf],y	Save char in word buffer
 	iny		 and bump its index.
-	jsr	g_getbyte	Get next character in cmd line.
+	jsr	ggtbyte	Get next character in cmd line.
 	beq	procword	If null byte, word is terminated.
 	if2	@a,eq,#"'",grabnext If "'", store and grab next char.
-	bra	grabsingle	Save new char and stay in this loop.
+	bra	grabsngl	Save new char and stay in this loop.
 
 ; "'"
-grabdouble	sta	[wordbuf],y	Save char in word buffer
+grabdbl	sta	[wordbuf],y	Save char in word buffer
 	iny		 and bump its index.
-	jsr	g_getbyte	Get next character in cmd line.
+	jsr	ggtbyte	Get next character in cmd line.
 	beq	procword	If null byte, word is terminated.
 	if2	@a,eq,#'"',grabnext If '"', store and grab next char.
-	bra	grabdouble	Save new char and stay in this loop.
+	bra	grabdbl	Save new char and stay in this loop.
 
 
 ;
@@ -187,20 +186,20 @@ procword	dec	cmd	Decrement cmd line pointer.
 ;
 	lda	[wordbuf]
 	and	#$FF
-	if2	@a,eq,#'-',skipdeglob	;This allows '-?' option.
-	lda	shallweglob
+	if2	@a,eq,#'-',skpdglb	;This allows '-?' option.
+	lda	shlwglb
 	bne	globword
 ;
 ; we didn't glob this word, so copy the word buffer to the output buffer
 ;
-skipdeglob	ldy	#0
-flushloop	lda	[wordbuf],y
+skpdglb	ldy	#0
+flshlp	lda	[wordbuf],y
 	and	#$FF
-	beq	doneflush
-	jsr	g_putbyte
+	beq	dnflush
+	jsr	gptbyte
 	iny
-	bra	flushloop
-doneflush	anop
+	bra	flshlp
+dnflush	anop
 	lda	overflag	If buffer overflowed,
 	jne	errexit	 clean up and return null pointer.
 	jmp	findword
@@ -232,8 +231,8 @@ globword	stz	filesep
 
 	lda	exppath	Get addr of wildcard
 	ldx	exppath+2	 pattern buffer.
-	incad	@xa	Leave room for length word
-	incad	@xa
+	incaxa	Leave room for length word
+	incaxa
 	sta	eptr
 	stx	eptr+2
 	sta	sepptr
@@ -245,8 +244,8 @@ exploop	lda	[wordbuf],y
 	beq	endexp
 	iny
 	if2	@a,eq,#'\',expslash
-	if2	@a,eq,#"'",expsingle
-	if2	@a,eq,#'"',expdouble
+	if2	@a,eq,#"'",expsngl
+	if2	@a,eq,#'"',expdbl
 	if2	@a,eq,#'/',expsep
 	if2	@a,eq,#':',expsep
 expput	sta	[eptr]
@@ -262,22 +261,22 @@ expslash	lda	[wordbuf],y
 	and	#$FF
 	beq	endexp
 	bra	expput
-expsingle	lda	[wordbuf],y
+expsngl	lda	[wordbuf],y
 	iny
 	and	#$FF
 	beq	endexp
 	if2	@a,eq,#"'",exploop
 	sta	[eptr]
 	incad	eptr
-	bra	expsingle
-expdouble	lda	[wordbuf],y
+	bra	expsngl
+expdbl	lda	[wordbuf],y
 	iny
 	and	#$FF
 	beq	endexp
 	if2	@a,eq,#'"',exploop
 	sta	[eptr]
 	incad	eptr
-	bra	expdouble
+	bra	expdbl
 ;
 ; We really didn't mean to expand the filename, so, copy it back again..
 ;
@@ -300,13 +299,13 @@ copyback	lda	[wordbuf],y
 ; We now have enough to call InitWildCardGS!!!
 ; [ let's mutex the rest so we don't have to fix InitWC and NextWC ;-) ]
 ;
-	lock	glob_mutex
+	lock	glbmtx
 ;
 ; Call shell routine InitWildcardGS to initialize the filename pattern
 ;
 	stz	count
-	mv4	exppath,initWCpath
-	InitWildcardGS initWCparm
+	mv4	exppath,IniWCPth
+	InitWildcardGS InitWCP
 
 	lda	gname	Store expanded
 	ldx	gname+2	 name addr
@@ -333,11 +332,11 @@ WCloop	anop
 ; Copy the original path (up to file separator) to output buffer
 ;
 	ldy	#0
-outtahere	if2	@y,eq,filesep,globout
+outhere	if2	@y,eq,filesep,globout
 	lda	[wordbuf],y
-	jsr	g_putspecial
+	jsr	gptspec
 	iny
-	bra	outtahere
+	bra	outhere
 ;
 ; Copy the expanded filename to output buffer
 ;
@@ -345,16 +344,16 @@ globout	ldy	#2	Get returned length
 	lda	[gname],y	 from GS/OS buffer.
 	tax
 	ldy	#4
-globoutta	lda	[gname],y	Copy next character
-	jsr	g_putspecial	 into buffer.
+glbout	lda	[gname],y	Copy next character
+	jsr	gptspec	 into buffer.
 	iny
 	dex
-	bne	globoutta
+	bne	glbout
 ;
 ; Place blank as separator after name and see if more are expanded.
 ;
 	lda	#' '
-	jsr	g_putbyte
+	jsr	gptbyte
 	bra	WCloop
 
 ;
@@ -362,13 +361,13 @@ globoutta	lda	[gname],y	Copy next character
 ;
 nomore	anop
 
-	unlock glob_mutex
+	unlock glbmtx
 
 	lda	overflag	If buffer overflowed,
 	bne	errexit	 clean up and return null pointer.
 
 	lda	count	If something was expanded,
-	beq	nothingfound
+	beq	nthnfnd
 
 	lda	globflag	Set "globbed, something found"
 	ora	#$8000	 bit in globflag.
@@ -376,9 +375,9 @@ nomore	anop
 	jmp	findword	  Go find the next word.
 
 ; Nothing was expanded from the wildcard.  If we wanted to act like
-; ksh, we could pass the original text by doing a "jmp skipdeglob".
+; ksh, we could pass the original text by doing a "jmp skpdglb".
 
-nothingfound	anop
+nthnfnd	anop
 	lda	globflag	Set "globbed, nothing found"
 	ora	#$4000	 bit in globflag.
 	sta	globflag
@@ -389,7 +388,7 @@ nothingfound	anop
 ; Goodbye, cruel world, I'm leaving you today, Goodbye, goodbye.
 ;
 alldone	anop
-	jsr	g_putbyte	Store null byte at end of string.
+	jsr	gptbyte	Store null byte at end of string.
 	lda	overflag	If buffer overflowed,
 	bne	errexit	 clean up and return null ptr.
 ;
@@ -405,14 +404,14 @@ alldone	anop
 
 errexit	ldx	buf+2
 	lda	buf
-	jsl	freemaxline
+	jsl	frmaxln
 
 	stz	buf+2	Return NULL
 	stz	buf	 value from routine.
 
 alldone2	ldx	wordbuf+2
 	lda	wordbuf
-	jsl	freemaxline
+	jsl	frmaxln
 
 	pei	(gname+2)
 	pei	(gname)
@@ -420,7 +419,7 @@ alldone2	ldx	wordbuf+2
 
 	ldx	exppath+2
 	lda	exppath
-	jsl	freemaxline
+	jsl	frmaxln
 
 bye	return 4:buf
 
@@ -428,16 +427,16 @@ bye	return 4:buf
 ;
 ; Subroutine of glob: get a byte from the original command-line
 ;
-g_getbyte	lda	[cmd]
+ggtbyte	lda	[cmd]
 	incad	cmd
 	and	#$FF
 	rts
 
 ;
-; Subroutine of glob: put special characters. Same as g_putbyte, but
+; Subroutine of glob: put special characters. Same as gptbyte, but
 ; if it is a special shell character then quote it.
 ;
-g_putspecial	and	#$7F
+gptspec	and	#$7F
 	if2	@a,eq,#' ',special
 ;	if2	@a,eq,#'.',special	>> NOTE: '.' isn't special!
 	if2	@a,eq,#013,special
@@ -447,45 +446,45 @@ g_putspecial	and	#$7F
 	if2	@a,eq,#'<',special
 	if2	@a,eq,#'>',special
 	if2	@a,eq,#'|',special
-	bra	g_putbyte
+	bra	gptbyte
 special	pha
 	lda	#'\'
-	jsr	g_putbyte
-	pla		; fall through to g_putbyte...
+	jsr	gptbyte
+	pla		; fall through to gptbyte...
 ;
 ; Subroutine of glob: store a byte into the new command-line
 ;
-g_putbyte	anop
+gptbyte	anop
 	phx		Hold X-reg on stack.
 	inc	index	Bump the buffer index.
 	ldx	index
-	cpx	maxline_size
-	bcc	nooverflow	If more chars than will fit in buffer:
+	cpx	mxlnsz
+	bcc	novflow	If more chars than will fit in buffer:
 	lda	overflag		If already reported,
-	bne	ovflwreturn		  return to caller.
+	bne	ovflret		  return to caller.
 	inc	overflag		Set overflow flag.
 	ldx	#^ovferr		Report overflow error.
 	lda	#ovferr
 	jsr	errputs
-	bra	ovflwreturn		Return to caller.
-nooverflow	phy		Hold Y-reg on stack.
+	bra	ovflret		Return to caller.
+novflow	phy		Hold Y-reg on stack.
 	txy
 	short	a
 	sta	[buf],y	Store character in output buffer.
 	long	a
 	ply		Restore Y-reg.
-ovflwreturn	plx		Restore X-reg.
+ovflret	plx		Restore X-reg.
 	rts
 
 ovferr	dc	c'gsh: Globbing overflowed line limit',h'0d00'
 
-glob_mutex	key
+glbmtx	key
 
 ;
 ; Parameter block for shell InitWildcardGS call (p 414 in ORCA/M manual)
 ;
-InitWCParm	dc	i2'2'	pCount
-InitWCPath	ds	4	Path name, with wildcard
+InitWCP	dc	i2'2'	pCount
+IniWCPth	ds	4	Path name, with wildcard
 	dc	i2'%00000001'	Flags (this bit not documented!!!)
 
 ;
@@ -504,7 +503,7 @@ nomatch	dc	c'No match',h'0d00'
 *
 **************************************************************************
 
-expandvars	START
+expVars	START
 
 ; Maximum number of characters in an environment variable or $<
 MAXVAL	equ	512
@@ -532,29 +531,29 @@ end	equ	cmd+4
 	lda	#$FFFF	Start output index at -1.
 	sta	index
 
-	jsl	allocmaxline
+	jsl	alcMxln
 	sta	buf
 	stx	buf+2
 
-loop	jsr	e_getbyte
+loop	jsr	egtbyte
 	jeq	done
 	if2	@a,eq,#"'",quote
 	if2	@a,eq,#'$',expand
 	if2	@a,eq,#'~',tilde
 	if2	@a,eq,#'\',slasher
-	jsr	e_putbyte
+	jsr	eptbyte
 	bra	loop
 
-slasher	jsr	e_putbyte
-	jsr	e_getbyte
-	jsr	e_putbyte
+slasher	jsr	eptbyte
+	jsr	egtbyte
+	jsr	eptbyte
 	bra	loop
 
-quote	jsr	e_putbyte
-	jsr	e_getbyte
+quote	jsr	eptbyte
+	jsr	egtbyte
 	jeq	done
 	if2	@a,ne,#"'",quote
-	jsr	e_putbyte
+	jsr	eptbyte
 	bra	loop
 
 ;
@@ -562,7 +561,7 @@ quote	jsr	e_putbyte
 ; path delimiter(s) match what the user wants (either "/" or ":")
 ;
 tilde	anop
-	lock	exp_mutex
+	lock	expmtx
 
 	lda	#"oh"	Strangely enough,
 	sta	name	 this spells "home"!
@@ -576,14 +575,14 @@ tilde	anop
 ; Expand an environment variable since a '$' was encountered.
 ;
 expand	anop
-	lock	exp_mutex
+	lock	expmtx
 
 	lda	#0
 	sta	name
 	lda	[cmd]
 	and	#$FF
-	if2	@a,eq,#'{',braceexpand
-	if2	@a,eq,#'<',stdinexpand
+	if2	@a,eq,#'{',brcexp
+	if2	@a,eq,#'<',stdinex
 	ldx	#0
 nameloop	lda	[cmd]
 	and	#$FF
@@ -596,7 +595,7 @@ nameloop	lda	[cmd]
 	if2	@a,cc,#'a',getval
 	if2	@a,cc,#'z'+1,inname
 	bra	getval
-inname	jsr	e_getbyte
+inname	jsr	egtbyte
 	cpx	#255	Only the first 255 characters
 	beq	nameloop	 are significant.
 	sta	name,x
@@ -606,23 +605,23 @@ inname	jsr	e_getbyte
 ;
 ; expand in braces {}
 ;
-braceexpand	jsr	e_getbyte
+brcexp	jsr	egtbyte
 	ldx	#0
-braceloop	lda	[cmd]
+brcloop	lda	[cmd]
 	and	#$FF
 	beq	getval
-	jsr	e_getbyte
+	jsr	egtbyte
 	if2	@a,eq,#'}',getval
 	cpx	#255	Only the first 255 characters
-	beq	braceloop	 are significant.
+	beq	brcloop	 are significant.
 	sta	name,x
 	inx
-	bra	braceloop
+	bra	brcloop
 
 ;
 ; get text from standard input
 ;
-stdinexpand	jsr	e_getbyte
+stdinex	jsr	egtbyte
 	ReadLine (#value,#MAXVAL,#13,#0),@a
 	sta	valueln
 	bra	chklen
@@ -631,7 +630,7 @@ stdinexpand	jsr	e_getbyte
 ; Get a value for this variable
 ;
 getval	stx	nameln	Save length of name.
-	ReadVariableGS ReadVarPB	Read its value.
+	ReadVariableGS RdVarPB	Read its value.
 
 	lda	valueln	Get value length.
 	cmp	#MAXVAL+1	If > maximum allowed length,
@@ -649,7 +648,7 @@ chklen	anop
 	lda	[cmd]	    next command line
 	and	#$FF	      character.
 	cmp	#"/"	If it's a slash, see if
-	beq	chkvarslash	 variable needs to convert to slash.
+	beq	chkvrsl	 variable needs to convert to slash.
 	cmp	#":"	If it's not a colon,
 	bne	storeval	 no need to convert.
 	lda	value	Get first character of value.
@@ -669,7 +668,7 @@ bump_s	dex
 	long	m
 	bra	storeval
 
-chkvarslash	anop
+chkvrsl	anop
 	lda	value	Get first character of value.
 	and	#$FF
 	cmp	#":"	If it's not a colon,
@@ -694,23 +693,23 @@ storeval	anop
 	tay		Save length in Y-reg.
 	ldx	#0	Use X-reg in index value.
 putval	lda	value,x
-	jsr	e_putbyte
+	jsr	eptbyte
 	inx
 	dey	
 	bne	putval
 
-expanded	unlock exp_mutex
+expanded	unlock expmtx
 	stz	dflag	Delimiter flag = FALSE.
 	lda	overflag	If no buffer overflow,
 	jeq	loop	 stay in loop.
 
-done	jsr	e_putbyte	Store terminating null char.
+done	jsr	eptbyte	Store terminating null char.
 	ldx	buf+2	Set return value
 	ldy	buf	 to buffer pointer.
 	lda	overflag	If buffer overflowed,
 	beq	return
 	tya
-	jsl	freemaxline		Free the output buffer
+	jsl	frmaxln		Free the output buffer
 	ldx	#0		 and set return pointer
 	ldy	#0		  to NULL.
 
@@ -728,39 +727,39 @@ return	lda	space
 	rtl
 
 ;
-; expandvars internal subroutines to get and put bytes in buffers
+; expVars internal subroutines to get and put bytes in buffers
 ;
 
-e_getbyte	lda	[cmd]
+egtbyte	lda	[cmd]
 	incad	cmd
 	and	#$FF
 	rts
 
-e_putbyte	anop
+eptbyte	anop
 	phx		Hold X-reg on stack.
 	inc	index	Bump the buffer index.
 	ldx	index
-	cpx	maxline_size
-	bcc	nooverflow	If more chars than will fit in buffer:
+	cpx	mxlnsz
+	bcc	novflow	If more chars than will fit in buffer:
 	lda	overflag		If already reported,
-	bne	ovflwreturn		  return to caller.
+	bne	ovflret		  return to caller.
 	inc	overflag		Set overflow flag.
 	ldx	#^ovferr		Report overflow error.
 	lda	#ovferr
 	jsr	errputs
-	bra	ovflwreturn		Return to caller.
-nooverflow	phy		Hold Y-reg on stack.
+	bra	ovflret		Return to caller.
+novflow	phy		Hold Y-reg on stack.
 	txy
 	short	a
 	sta	[buf],y	Store character in output buffer.
 	long	a
 	ply		Restore Y-reg.
-ovflwreturn	plx		Restore X-reg.
+ovflret	plx		Restore X-reg.
 	rts
 
 ovferr	dc	c'gsh: Variable expansion overflowed line limit',h'0d00'
 
-exp_mutex	key
+expmtx	key
 
 
 ; GS/OS string to hold variable name
@@ -770,17 +769,17 @@ name	ds	256	Room for 255 chars + 0.
 
 
 ; GS/OS result buffer to hold up to MAXVAL bytes of value
-valueresult	anop
+valres	anop
 	dc	i2'MAXVAL+4'	Length of result buffer
 valueln	ds	2	Length of value
 value	ds	MAXVAL	Room for MAXVAL chars
 
 
 ; Parameter block for shell ReadVariableGS calls
-ReadVarPB	anop
+RdVarPB	anop
 	dc	i2'3'	pCount
 RVname	dc	a4'namestr'	Name (pointer to GS/OS string)
-RVvalue	dc	a4'valueresult'	Value (ptr to result buf or string)
+RVvalue	dc	a4'valres'	Value (ptr to result buf or string)
 RVexport	ds	2	Export flag
 
 	END

@@ -7,7 +7,6 @@
  */
 
 #include "stevie.h"
-#include <texttool.h>
 extern char    *Version;
 
 static int      helprow;

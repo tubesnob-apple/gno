@@ -4,6 +4,7 @@
 #ifdef __ORCAC__
 #define _ORCAC_
 #pragma optimize -1
+#pragma memorymodel 1
 /* #pragma lint -1 */
 #endif
 

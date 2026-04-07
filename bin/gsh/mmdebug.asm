@@ -26,12 +26,11 @@
 *
 **************************************************************************
 
-	mcopy	/obj/gno/bin/gsh/mmdebug.mac
+	mcopy gsh.mac
 
-dummymmdebug	start		; ends up in .root
+dmymmdb	start		; ends up in .root
 	end
 
-	setcom 60
 
 DB~NEW	START
 

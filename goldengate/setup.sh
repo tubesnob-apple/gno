@@ -23,7 +23,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="${REPO_ROOT}/../gno-dist"
-OBJ_DIR="${REPO_ROOT}/../gno-obj"
+OBJ_DIR="${REPO_ROOT}/gno-obj"
 
 # ── Detect platform ───────────────────────────────────────────────────────────
 PLATFORM="$(uname -s 2>/dev/null || echo Windows)"

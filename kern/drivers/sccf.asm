@@ -44,7 +44,7 @@ IntVect	START
 	plb
 	phd
 	long	m
-	lda	SerialDP
+	lda	>SerialDP
 	tcd
 	short	m
 ; *whap*
@@ -57,7 +57,7 @@ lp1	ldy	<ibuf_head
 
 	lda	>PortData
 	sta	<lastChar	; for post-processing
-	sta	[in_buf],y
+	sta	[<in_buf],y
 	iny
 	cpy	<ibuf_size
 	bne	noWrap1
@@ -69,9 +69,9 @@ noWrap1	sty	<ibuf_head
 	cpx	#3072
 	bcc	noFCON
 
-	jsr	turn_flow_off	hold your horses!
+	jsr	>turn_flow_off	hold your horses!
 
-noFCON	jsr	check_stuff	; reload Y from dp at lp1
+noFCON	jsr	>check_stuff	; reload Y from dp at lp1
 
 	pla
 	and	#$60
@@ -119,7 +119,7 @@ doTxChar	ldy	<obuf_mark
 	beq	turnOffTxInt
 	tya
 	ldy	<obuf_tail
-	lda	[out_buf],y
+	lda	[<out_buf],y
 	sta	>PortData
 	iny
 	cpy	<obuf_size
@@ -193,7 +193,7 @@ check_stuff	START
 	bne	sighupit
 
 	lda	<lastChar
-	jsr	checkIntr
+	jsr	>checkIntr
 	bcs	goaway	; send a signal!
 
 	lda	blockProc
@@ -201,11 +201,11 @@ check_stuff	START
 	beq	checkselect
 
 	ldy	#2
-	lda	[procPtr],y
+	lda	[<procPtr],y
 	cmp	#pBlocked	; is it still blocked?
 	bne	checkselect	; nope, leave it alone
 	lda	#pReady
-	sta	[procPtr],y	; restart the process
+	sta	[<procPtr],y	; restart the process
 
 ; check for select here.
 
@@ -261,7 +261,7 @@ ReadBuffer	START
 	ldy	<ibuf_tail
 	cpy   <ibuf_head
 	beq	nodata
-	lda	[in_buf],y
+	lda	[<in_buf],y
 	iny
 	cpy	<ibuf_size
 	bcc	noWrap
@@ -305,7 +305,7 @@ tryagain	php
 
 addToBuffer	tya		; put character back in A
 	ldy	<obuf_head
-	sta	[out_buf],y
+	sta	[<out_buf],y
 	iny
 	cpy	<obuf_size
 	bcc	noWrap
@@ -510,16 +510,16 @@ result	equ	0
 	stz	result
 	lda	inb
 	ldy	#in_buf
-	sta	[dp],y
+	sta	[<dp],y
 	lda	inb+2
 	ldy	#in_buf+2
-	sta	[dp],y
+	sta	[<dp],y
 	lda	outb
 	ldy	#out_buf
-	sta	[dp],y
+	sta	[<dp],y
 	lda	outb+2
 	ldy	#out_buf+2
-	sta	[dp],y
+	sta	[<dp],y
 
 	phd
 
@@ -551,11 +551,11 @@ result	equ	0
 	sta	<reg5Status
 
 	jsl	InitSCC
-	jsr	InstallInt
+	jsr	>InstallInt
 	sta	|temp	tells if there was an error
 	cmp	#0
 	bne	handlerErr
-	jsr	InitSCC2	only start intrs if handler was
+	jsr	>InitSCC2	only start intrs if handler was
 handlerErr	pld		properly installed
 	lda	temp
 	sta	result
@@ -577,9 +577,9 @@ lp	lda	<obuf_mark
 
 EndSerial	START
 	subroutine (0:foo),0
-	jsr	FlushOutQ
-	jsr	DeInitSCC	; turn off interrupts, etc.
-	jsr	RemoveInt
+	jsr	>FlushOutQ
+	jsr	>DeInitSCC	; turn off interrupts, etc.
+	jsr	>RemoveInt
 	return
 	END
 
@@ -595,7 +595,7 @@ turn_flow_off	START
 	cmp	#FCON_XON	xon/xoff?
 	bne	doRTS
 	lda	#'S'-64
-	jsr	priorityWrite
+	jsr	>priorityWrite
 	stz	fcon_status
 noFlowControl	anop
 alreadyOff	rts
@@ -616,7 +616,7 @@ turn_flow_on	START
 	cmp	#FCON_XON	xon/xoff?
 	bne	doRTS
 	lda	#'Q'-64
-	jsr	priorityWrite
+	jsr	>priorityWrite
 	lda	#1
 	sta	fcon_status
 noFlowControl	anop
@@ -692,7 +692,7 @@ ComInit	start
 	using	SerialData
 
 	ldy	#sg_ispeed
-	lda	[dTermioPtr],y
+	lda	[<dTermioPtr],y
 	and	#$00FF
 	bne	dontCP
 
@@ -705,9 +705,9 @@ ComInit	start
 	lda	RevBDTab,x
 dontCP	ldy	#sg_ispeed
 	short	m
-	sta	[dTermioPtr],y
+	sta	[<dTermioPtr],y
 	ldy	#sg_ospeed
-	sta	[dTermioPtr],y
+	sta	[<dTermioPtr],y
 	long	m
 
 	and	#$FF
@@ -732,7 +732,7 @@ SetWord	START
 	php
 	sei
 	ldy	#sg_ispeed
-	lda	[dTermioPtr],y
+	lda	[<dTermioPtr],y
 	and	#$0F
 	asl	a
 	tax

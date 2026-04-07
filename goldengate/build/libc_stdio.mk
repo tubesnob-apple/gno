@@ -11,7 +11,7 @@
 #     ORCA/C 2.2.0 may not need the split, but we keep it for safety.
 #
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GNO_OBJ   ?= $(abspath $(REPO_ROOT)/../gno-obj)
+GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno_obj)
 SRC_DIR   := $(REPO_ROOT)/lib/libc/stdio
 OBJ_DIR   := $(GNO_OBJ)/libc/stdio
 LIB_OUT   := $(GNO_OBJ)/libc_stdio.a

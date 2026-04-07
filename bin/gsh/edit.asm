@@ -21,12 +21,11 @@
 *	^	^	^	^	^	^	
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/edit.mac
+	mcopy gsh.mac
 
-dummyedit	start		; ends up in .root
+dmyedit	start		; ends up in .root
 	end
 
-	setcom 60
 
 RAW	gequ	$20
 CRMOD	gequ	$10
@@ -37,7 +36,7 @@ TANDEM	gequ	$01
 OAMAP	gequ	0001		/* map OA-key to some sequence */
 OA2META	gequ	0002		/* map OA-key to meta-key */
 OA2HIBIT	gequ	0004		/* map OA-key to key|0x80 */
-VT100ARROW	gequ	0008		/* map arrows to vt100 arrows */
+VT100AR	gequ	0008		/* map arrows to vt100 arrows */
 
 TIOCGETP	gequ	$40067408
 TIOCSETP	gequ	$80067409
@@ -46,34 +45,34 @@ TIOCSETK	gequ	$80027413
 TIOCGLTC	gequ	$40067474
 TIOCSLTC	gequ	$80067475
 
-cmdbuflen	gequ	1024
+cmdbflen	gequ	1024
 
 ; editor key commands
 
-undefined_char	gequ	0	;<- DO NOT CHANGE THIS DEFINITION
+undfch	gequ	0	;<- DO NOT CHANGE THIS DEFINITION
 raw_char	gequ	1	;<- DO NOT CHANGE THIS DEFINITION
 map_char	gequ	2
-backward_char	gequ	3
-forward_char	gequ	4
-up_history	gequ	5
-down_history	gequ	6
-beginning_of_line gequ 7
-end_of_line	gequ	8
-complete_word	gequ	9
-newline_char	gequ	10
-clear_screen	gequ	11
-redisplay	gequ	12
-kill_whole_line gequ 13
+bkwdch	gequ	3
+fwdch	gequ	4
+uphist	gequ	5
+dwnhist	gequ	6
+bgnline gequ 7
+endline	gequ	8
+compwrd	gequ	9
+nlchr	gequ	10
+clrscr	gequ	11
+redispl	gequ	12
+kllwhl gequ 13
 lead_in	gequ	14
-backward_delete_char gequ 15
-backward_word	gequ	16
-forward_word	gequ	17	
-list_choices	gequ	18
-kill_end_of_line gequ 19
-toggle_cursor	gequ	20
-delete_char	gequ	21
+bkdlch gequ 15
+bkwdwrd	gequ	16
+fwdword	gequ	17	
+lstchos	gequ	18
+klleol gequ 19
+tglcurs	gequ	20
+dltch	gequ	21
 
-WORDGS_SIZE	gequ	256	Size of buffer for word search
+WGSSIZE	gequ	256	Size of buffer for word search
 
 **************************************************************************
 *
@@ -81,20 +80,20 @@ WORDGS_SIZE	gequ	256	Size of buffer for word search
 *
 **************************************************************************
 
-GetCmdLine	START
+GetCmdLn	START
 
 	using global
-	using HistoryData
+	using HistData
 	using	pdata
-	using	keybinddata
+	using	kbnddat
 	using	termdata
 	using	vardata
 
-	stz	signalled
+	stz	sigflag
 	stz	cmdlen
 	stz	cmdloc
-	stz	currenthist
-	stz	currenthist+2
+	stz	curhist
+	stz	curhist+2
 
 ;
 ; Get current state of tty
@@ -113,7 +112,7 @@ GetCmdLine	START
 	ioctl	(#1,#TIOCSETP,#newsgtty)
 
 ;
-; Set ttyk bit fields to OAMAP+OA2META+VT100ARROW
+; Set ttyk bit fields to OAMAP+OA2META+VT100AR
 ;
 	ioctl (#1,#TIOCSETK,#newttyk)
 
@@ -129,20 +128,20 @@ GetCmdLine	START
 	ioctl (#1,#TIOCSLTC,#newltc)
 
 
-cmdloop	lda	#keybindtab
+cmdloop	lda	#kbndtbl
 	sta	0
-	lda	#^keybindtab
+	lda	#^kbndtbl
 	sta	2
 nextchar	jsr	cursoron
 	jsr	flush
 	jsr	getchar
 	sta	4
-	ldx	signalled	If signal was received,
-	beq	nextchar2
+	ldx	sigflag	If signal was received,
+	beq	nxtch2
 	jsr	cmdsig	 acknowledge it
 	bra	cmdloop	  and continue reading.
 
-nextchar2	jsr	cursoroff
+nxtch2	jsr	cursoff
 	lda	4	Get results of getchar.
 	cmp	#-1	EOF?
 	beq	eof
@@ -162,7 +161,7 @@ ErrError	ds	2	Error number
 
 eof	ldx	cmdlen
 	bne	findcmd
-	lda	varignore
+	lda	varignr
 	bne	findcmd
 reterr	jsr	cursoron
 	ioctl	(#1,#TIOCSETP,#oldsgtty)	; Restore original
@@ -187,23 +186,23 @@ keytab	dc	i'beep'	;undefined-char
 	dc	i'cmdloop'	;map-char
 	dc	i'cmdleft'	;backward-char
 	dc	i'cmdright'	;forward-char
-	dc	i'PrevHistory'	;up-history
-	dc	i'NextHistory'	;down-history
+	dc	i'PrevHist'	;up-history
+	dc	i'NextHist'	;down-history
 	dc	i'cmdbegin'	;beginning-of-line
 	dc	i'cmdend'	;end-of-line
 	dc	i'dotab'	;complete-word
-	dc	i'cmdnewline'	;newline
-	dc	i'cmdclearscrn'	;clear-screen
-	dc	i'cmdredraw'	;redisplay
-	dc	i'cmdclrline'	;kill-whole-line
-	dc	i'cmdleadin'	;lead-in
-	dc	i'cmdbackdel'	;backward-delete-char
-	dc	i'cmdleftword'	;backward-word
-	dc	i'cmdrightword'	;forward-word
+	dc	i'cmdnwln'	;newline
+	dc	i'cmdclsc'	;clear-screen
+	dc	i'cmdrdraw'	;redispl
+	dc	i'cmdclln'	;kill-whole-line
+	dc	i'cmdldin'	;lead-in
+	dc	i'cmdbkdl'	;backward-delete-char
+	dc	i'cmdlwrd'	;backward-word
+	dc	i'cmdrwrd'	;forward-word
 	dc	i'cmdmatch'	;list-choices
-	dc	i'cmdclreol'	;kill-end-of-line
-	dc	i'cmdcursor'	;toggle-cursor
-	dc	i'cmddelchar'	;delete-char
+	dc	i'cmdcleol'	;kill-end-of-line
+	dc	i'cmdcurs'	;toggle-cursor
+	dc	i'cmddlch'	;delete-char
 
 ;-------------------------------------------------------------------------
 ;
@@ -211,7 +210,7 @@ keytab	dc	i'beep'	;undefined-char
 ;
 ;-------------------------------------------------------------------------
 
-cmdleadin	pla		;kill return address
+cmdldin	pla		;kill return address
 	iny
 	iny
 	lda	[0],y
@@ -230,11 +229,11 @@ cmdleadin	pla		;kill return address
 ;-------------------------------------------------------------------------
 
 cmdraw	lda	cmdlen
-	cmp	#cmdbuflen
+	cmp	#cmdbflen
 	bcc	cmIns0
 	jmp	beep
 
-cmIns0	lda	insertflag
+cmIns0	lda	insflag
 	beq	cmOver	;Do overstrike mode
 	short a
 	ldy	cmdlen
@@ -266,7 +265,7 @@ cmOver	lda	4
 ;
 ; Redraw shifted text
 ;
-cmdov2	lda	insertflag
+cmdov2	lda	insflag
 	cmp	#0
 	bne	cmdov2a
 	rts
@@ -290,8 +289,8 @@ cmdov4	jmp	moveleft
 ;
 ;-------------------------------------------------------------------------
 
-cmdsig	stz	signalled
-	jmp	cmdredraw
+cmdsig	stz	sigflag
+	jmp	cmdrdraw
 
 ;-------------------------------------------------------------------------
 ;
@@ -299,12 +298,12 @@ cmdsig	stz	signalled
 ;
 ;-------------------------------------------------------------------------
 
-cmdnewline	pla		;pull off return address
+cmdnwln	pla		;pull off return address
 	sec
 	lda	cmdlen
 	sbc	cmdlen
 	tax
-	jsr	moveright
+	jsr	movergt
 	ldx	cmdlen	;strip trailing space
 	beq	retdone
 fix	dex
@@ -317,7 +316,7 @@ fix0	inx
 	txy
 	beq	retdone
 	ph4	#cmdline
-	jsl	InsertHistory
+	jsl	InsrtHst
 retdone	ioctl	(#1,#TIOCSETP,#oldsgtty)	; Restore original
 	ioctl (#1,#TIOCSETK,#oldttyk)	;  tty settings.
 	ioctl (#1,#TIOCSLTC,#oldltc)
@@ -359,10 +358,10 @@ ctl1a	lda	cmdline,y
 ;-------------------------------------------------------------------------
 
 cmdmatch	lda	cmdlen	
-	beq	dontdomatch
-	jsr	domatcher
-	jmp	cmdredraw
-dontdomatch	rts
+	beq	dntdmch
+	jsr	domatch
+	jmp	cmdrdraw
+dntdmch	rts
 
 ;-------------------------------------------------------------------------
 ;
@@ -370,9 +369,9 @@ dontdomatch	rts
 ;
 ;-------------------------------------------------------------------------
 
-cmdclrline	ldx	cmdloc
+cmdclln	ldx	cmdloc
 	jsr	moveleft
-	stz	cmdloc	;fall through to cmdclreol
+	stz	cmdloc	;fall through to cmdcleol
 
 ;-------------------------------------------------------------------------
 ;
@@ -380,7 +379,7 @@ cmdclrline	ldx	cmdloc
 ;
 ;-------------------------------------------------------------------------
 
-cmdclreol	lda	cdcap
+cmdcleol	lda	cdcap
 	ora	cdcap+2
 	beq	ctl4a0
 	tputs (cdcap,#1,#outc)
@@ -410,8 +409,8 @@ ctl4g	lda	cmdloc
 ;
 ;-------------------------------------------------------------------------
 
-cmdredraw	jsr	newline
-redraw2	jsl	WritePrompt
+cmdrdraw	jsr	newline
+redraw2	jsl	WrtPrmpt
 	ldx	cmdlen
 	stz	cmdline,x
 	ldx	#^cmdline
@@ -429,7 +428,7 @@ redraw2	jsl	WritePrompt
 ;
 ;-------------------------------------------------------------------------
 
-cmdclearscrn	jsr	clearscrn
+cmdclsc	jsr	clrscn
 	bra	redraw2
 
 ;-------------------------------------------------------------------------
@@ -438,7 +437,7 @@ cmdclearscrn	jsr	clearscrn
 ;
 ;-------------------------------------------------------------------------
 
-cmdcursor	eor2	insertflag,#1,insertflag
+cmdcurs	eor2	insflag,#1,insflag
 	rts
 
 ;-------------------------------------------------------------------------
@@ -447,13 +446,13 @@ cmdcursor	eor2	insertflag,#1,insertflag
 ;
 ;-------------------------------------------------------------------------
 
-cmdbackdel	lda	cmdloc
+cmdbkdl	lda	cmdloc
 	bne	ctldel2
 	jmp	beep
 ctldel2	dec	a
 	sta	cmdloc
 	ldx	#1
-	jsr	moveleft	;fall through to cmddelchar
+	jsr	moveleft	;fall through to cmddlch
 
 ;-------------------------------------------------------------------------
 ;
@@ -461,7 +460,7 @@ ctldel2	dec	a
 ;
 ;-------------------------------------------------------------------------
 
-cmddelchar	ldy	cmdloc
+cmddlch	ldy	cmdloc
 	if2	@y,ne,cmdlen,cmdoa2a
 	rts
 cmdoa2a	short a
@@ -510,7 +509,7 @@ cmdbegin	ldx	cmdloc
 
 cmdend	if2	cmdloc,eq,cmdlen,cmdoa4a
 	ldx	#1
-	jsr	moveright
+	jsr	movergt
 	inc	cmdloc
 	bra	cmdend
 cmdoa4a	rts
@@ -521,7 +520,7 @@ cmdoa4a	rts
 ;
 ;-------------------------------------------------------------------------
 
-cmdleftword	lda	cmdloc
+cmdlwrd	lda	cmdloc
 	bne	cmdoa5a   
 	jsr	beep
 cmdoa5z	rts
@@ -554,13 +553,13 @@ cmdoa5c	ldy	cmdloc
 ;
 ;-------------------------------------------------------------------------
 
-cmdrightword	if2	cmdloc,ne,cmdlen,cmdoa6a
+cmdrwrd	if2	cmdloc,ne,cmdlen,cmdoa6a
 	jsr	beep
 cmdoa6z	rts
 cmdoa6a	inc	a
 	sta	cmdloc
 cmdoa6b	ldx	#1
-	jsr	moveright
+	jsr	movergt
 	ldy	cmdloc
 	if2	@y,eq,cmdlen,cmdoa6z
 	lda	cmdline,y
@@ -577,14 +576,14 @@ cmdoa6c	ldy	cmdloc
 	bne	cmdoa6z
 	inc	cmdloc
 	ldx	#1
-	jsr	moveright
+	jsr	movergt
 	bra	cmdoa6c
 
 ;
 ; sgtty data structures for current values and new values:
 ;
 oldsgtty	dc	i1'0'	sg_ispeed: input baud rate
-	dc	i1'0'	sg_ospeed: output baud rate
+	dc	i1'0'	sg_ospd: output baud rate
 	dc	i1'0'	sg_erase: line-edit erase char
 	dc	i1'0'	sg_kill: line-edit kill char
 	dc	i2'0'	sg_flags: various state settings
@@ -600,7 +599,7 @@ sg_flags	dc	i2'0'	sg_flags set to	CBREAK+CRMOD
 ; ttyk bit map for current value and new value:
 ;
 oldttyk	dc	i2'0'
-newttyk	dc	i2'OAMAP+OA2META+VT100ARROW'
+newttyk	dc	i2'OAMAP+OA2META+VT100AR'
 
 ;
 ; ltchars data structures for current values and new values:
@@ -627,11 +626,11 @@ t_dsuspc	dc	i1'0'
 ;
 ;=========================================================================
 
-domatcher	START
+domatch	START
 
 	using	global
 
-	jsr	wordmatch
+	jsr	wrdmatch
 
 	lda	nummatch
 	bne	m1
@@ -643,7 +642,7 @@ m1	sec
 	lda	cmdlen
 	sbc	cmdloc
 	tax
-	jsr	moveright
+	jsr	movergt
 	jsr	newline
 ;
 ; start displaying each match
@@ -664,7 +663,7 @@ m4	pha
 	bne	m4	
 
 	jsr	newline
-	jmp	clearword
+	jmp	clrwrd
 
 	END
 
@@ -680,7 +679,7 @@ dotab	START
 
 p	equ	0
 
-	jsr	wordmatch
+	jsr	wrdmatch
 	lda	nummatch
 	bne	t1
 meepmeep	jmp	beep
@@ -693,17 +692,17 @@ t1b	mv4	matchbuf,p
 	ldy	wordlen
 t1a	lda	[p],y
 	and	#$FF
-	jeq	completed
+	jeq	compl
 	sta	oldchar
 	phy
-	jsr	insertcmd
+	jsr	inscmd
 	ply
 	iny
 	bra	t1a
 ;
 ; one at a time
 ;
-t2	jsl	dofignore
+t2	jsl	dofign
 	lda	nummatch
 	beq	meepmeep
 	dec	a
@@ -737,8 +736,8 @@ t3	pha
 	cmp	nummatch
 	bne	t3
 	lda	char2
-	beq	completed
-	jsr	insertcmd
+	beq	compl
+	jsr	inscmd
 	inc	wordlen
 	bra	t2
 
@@ -746,7 +745,7 @@ honk	pla
 	jsr	beep
 	bra	donetab	
 
-completed	lda	cmdloc
+compl	lda	cmdloc
 	cmp	cmdlen
 	bne	donetab
 	lda	oldchar
@@ -756,8 +755,8 @@ completed	lda	cmdloc
 	cmp	#'/'
 	beq	donetab
 	lda	#' '
-	jsr	insertcmd
-donetab	jmp	clearword
+	jsr	inscmd
+donetab	jmp	clrwrd
 
 char	ds	2
 char2	ds	2
@@ -771,7 +770,7 @@ oldchar	ds	2
 ;
 ;=========================================================================
 
-dofignore	START
+dofign	START
 	
 	using	global
 
@@ -804,7 +803,7 @@ storevar	sta	var	Store pointer to
 	stx	var+2	 c-string in var.
 	phx		Shift
 	pha		 to
-	jsr	lowercstr	  lower case.
+	jsr	lwrCstr	  lower case.
 
 	lda	#0
 	sta	wordnum
@@ -867,7 +866,7 @@ chk	ldy	wordpos
 	bra	chk	
 
 deleteit	lda	wordnum
-	jsr	removeword
+	jsr	rmvwrd
 bignext	inc	wordnum
 	lda	wordnum
 	cmp	nummatch
@@ -891,7 +890,7 @@ fignore	gsstr	'fignore'	Env variable name
 ;
 ;=========================================================================
 
-insertcmd	START
+inscmd	START
 	
 	using	global
 
@@ -950,7 +949,7 @@ tmp	ds	2
 ;
 ;=========================================================================
 
-removeword	START
+rmvwrd	START
 
 	using	global
 
@@ -990,7 +989,7 @@ done	dec	nummatch
 ;
 ;=========================================================================
 
-clearword	START
+clrwrd	START
 
 	using	global
 
@@ -1021,11 +1020,11 @@ loop	pha
 ;
 ;=========================================================================
 
-wordmatch	START
+wrdmatch	START
 	
 	using	global
 	using	hashdata
-	using BuiltInData
+	using	BltnData
 
 	lda	#'/'	Default separator is "/".
 	sta	sepstyle
@@ -1036,19 +1035,19 @@ wordmatch	START
 	lda	cmdline,y	If current
 	and	#$FF	 character is
 	cmp	#' '	  space, and
-	bne	findstart2	   the one before
+	bne	fndstrt2	   the one before
 	lda	cmdline-1,y	    it is also a
 	and	#$FF	     space,
 	cmp	#' '
-	bne	findstart
+	bne	fndstrt
 	jmp	beep		beep at the user.
 ;
 ; Move backwards to find start of word to expand
 ;
-findstart	inx		Count # of times we've moved left.
+fndstrt	inx		Count # of times we've moved left.
 	dey		Decrement the buffer index.
 	beq	atstart	Done if all the way to start.
-findstart2	lda	cmdline-1,y	Get the previous
+fndstrt2	lda	cmdline-1,y	Get the previous
 	and	#$FF	 character.
 	cmp	#';'	Compare against shell
 	beq	atstart	 characters that
@@ -1061,7 +1060,7 @@ findstart2	lda	cmdline-1,y	Get the previous
 	cmp	#'<'
 	beq	atstart
 	cmp	#' '
-	bne	findstart	Stay in loop until one is found.
+	bne	fndstrt	Stay in loop until one is found.
 ;
 ; Y-reg points to start, X-reg contains number of positions to cursor.
 ; Search forward to isolate the current word.
@@ -1086,18 +1085,18 @@ isolate	cpy	cmdlen	If at end of line,
 	beq	gotiso
 	cmp	#'<'
 	beq	gotiso
-	sta	wordgs_text,x	Accumulate chars in comparison buffer.
+	sta	wgstext,x	Accumulate chars in comparison buffer.
 	iny		Bump character index.
 	inx		Bump number of chars in word.
-	cmp	#WORDGS_SIZE-2	If we haven't filled the buffer,
+	cmp	#WGSSIZE-2	If we haven't filled the buffer,
 	bcc	isolate	 keep accumulating characters.
 	jmp	beep	Otherwise, beep at the user.
 ;
-; We've isolated the word in wordgs_text. X-reg = # of characters
+; We've isolated the word in wgstext. X-reg = # of characters
 ; and Y-reg is the column number of the final character.
 ;
 gotiso	lda	#0	Terminate string with
-	sta	wordgs_text,x	 null byte.
+	sta	wgstext,x	 null byte.
 	stx	wordlen	Save length and
 	sty	cmdloc	 position on input line.
 	txa
@@ -1105,7 +1104,7 @@ gotiso	lda	#0	Terminate string with
 dir	sbc	#0-0	 character to original cursor.
 	beq	nomove
 	tax
-	jsr	moveright	Move cursor to end of word.
+	jsr	movergt	Move cursor to end of word.
 nomove	anop
 
 ;
@@ -1157,7 +1156,7 @@ isarg	stz	cmdflag	Argument: cmdflag = 0.
 ; argument, see if we're looking for a file name or a variable name
 ;
 gotflag	anop
-	lda	wordgs_text
+	lda	wgstext
 	and	#$FF
 	cmp	#'$'
 	jne	filem
@@ -1172,10 +1171,10 @@ varloop	ReadIndexedGS idxParm	Get next variable name.
 	cmp	wordlen	If shorter than word, skip
 	jcc	nextvar
 ;
-; Scan this variable name to see if it matches wordgs_text
+; Scan this variable name to see if it matches wgstext
 ;
 	ldx	#1
-varscan	lda	wordgs_text,x
+varscan	lda	wgstext,x
 	and	#$FF
 	beq	goodvar	Matches (up to current length)
 	jsr	tolower
@@ -1226,26 +1225,26 @@ gv01	lda	NameText-1,y	Get next byte of name.
 nextvar	inc	idxIndex
 	jmp	varloop
 
-vardone	rts		Return from wordmatch
+vardone	rts		Return from wrdmatch
 
 ;
 ; Match by file name wildcard; start by moving
-; wordgs_text + trailing "*" to a GS/OS string
+; wgstext + trailing "*" to a GS/OS string
 ;
 filem	lda	#1
 	sta	iwFlags
 
 	lda	wordlen
 	inc	a
-	sta	wordgsbuf
+	sta	wgsbuf
 	ldy	wordlen
 	lda	#'*'
-	sta	wordgs_text,y
+	sta	wgstext,y
 
 	ldx	#0
 	short	a
 	dey
-findsep	lda	wordgs_text,y
+findsep	lda	wgstext,y
 	cmp	#':'
 	beq	gotsep
 	cmp	#'/'
@@ -1264,7 +1263,7 @@ findsep	lda	wordgs_text,y
 	bne	nextsep
 	cpy	#0	;allow boot prefix */
 	bne	gotglob
-	lda	wordgs_text+1
+	lda	wgstext+1
 	cmp	sepstyle
 	bne	gotglob
 	bra	nextsep
@@ -1282,12 +1281,12 @@ nextsep	dey
 
 initit	InitWildcardGS iwparm
 
-filematch	anop
+filmatch	anop
 	NextWildcardGS nwparm
 	ldy	NameLen	Get length of name.
-	jeq	filemdone	If 0, there's no more to search.
+	jeq	filmdone	If 0, there's no more to search.
 	cpy	wordlen
-	beq	filematch
+	beq	filmatch
 
 	lda	#0	Store null byte at end of name,
 	sta	NameText,y	  so it will act like a c-string.
@@ -1322,12 +1321,12 @@ filematch	anop
 	cmp	#$B3	== $B3?
 	beq	notdir		it's S16 (GS/OS application)
 	cmp	#$B0	== $B0?
-	bne	filematch		it's SRC (shell source code)
+	bne	filmatch		it's SRC (shell source code)
 	lda	nwAux		Get file's aux type
 	cmp	#6		== $00000006?
-	bne	filematch	
+	bne	filmatch	
 	lda	nwAux+2
-	jne	filematch			No; try next wildcard.
+	jne	filmatch			No; try next wildcard.
 	bra	notdir			It's shell cmd file.
 ;
 ; Not looking for a command
@@ -1373,9 +1372,9 @@ isdir	lda	nummatch
 
 notdir	anop
 	inc	nummatch	Bump the match count.
-	jmp	filematch	Try next wildcard.
+	jmp	filmatch	Try next wildcard.
 
-filemdone	anop
+filmdone	anop
 	lda	cmdflag	;if it's not a command, we're done
 	jeq	done
 ;
@@ -1386,17 +1385,17 @@ q	equ	4	 locations.
 
 	ldy	wordlen	;remove '*' from above
 	lda	#0
-	sta	wordgs_text,y
+	sta	wgstext,y
 
-	lda	hash_table
-	ora	hash_table+2
-	beq	eq_endhash
-	mv4	hash_table,p
-	lda	hash_numexe
+	lda	hshtbl
+	ora	hshtbl+2
+	beq	eqendhsh
+	mv4	hshtbl,p
+	lda	hshnumex
 	jeq	endhash
 	ldy	#0
 	ldx	t_size
-eq_endhash	jeq	endhash
+eqendhsh	jeq	endhash
 ; 
 ; loop through every hashed file and add it the string vector
 ;
@@ -1418,16 +1417,16 @@ hashloop	lda	[p],y
 	pei	(q)
 	jsr	cstrlen
 	cmp	wordlen
-	bcc	nexthash0
+	bcc	nxthsh0
 	tax
 	ldy	#0
-hl	lda	wordgs_text,y
+hl	lda	wgstext,y
 	and	#$FF
 	beq	hl0
 	jsr	tolower
 	eor	[q],y
 	and	#$FF
-	bne	nexthash0
+	bne	nxthsh0
 	iny
 	bra	hl
 hl0	inx
@@ -1448,7 +1447,7 @@ hl0	inx
 	sta	matchbuf+2,y
 	inc	nummatch
 	jsr	copycstr
-nexthash0	plx
+nxthsh0	plx
 	ply
 nexthash	dex
 	bne	hashloop
@@ -1457,7 +1456,7 @@ endhash	anop
 ;
 ; add built-ins to the list
 ;
-	ld4	builtintbl,p
+	ld4	blttbl,p
 bilup	lda	[p]
 	ldy	#2
 	ora	[p],y
@@ -1473,7 +1472,7 @@ bilup	lda	[p]
 	bcc	binext
 	tax
 	ldy	#0
-bl	lda	wordgs_text,y
+bl	lda	wgstext,y
 	and	#$FF
 	beq	bl0
 	eor	[q],y
@@ -1503,7 +1502,7 @@ binext	add2	p,#10,p
 	bra	bilup
 bidone	anop
 
-done	rts		Return from wordmatch.
+done	rts		Return from wrdmatch.
 
 
 startpos	ds	2
@@ -1512,14 +1511,14 @@ cmdflag	ds	2
 ;
 ; GS/OS string holding match word + wildcard "*"
 ;
-wordgsbuf	ds	2
-wordgs_text	ds	WORDGS_SIZE
+wgsbuf	ds	2
+wgstext	ds	WGSSIZE
 
 ;
 ; Parameter block for shell InitWildcardGS call (p 414 in ORCA/M manual)
 ;
 iwparm	dc	i2'2'	pCount
-	dc	i4'wordgsbuf'	pathname with wildcard
+	dc	i4'wgsbuf'	pathname with wildcard
 iwFlags	dc	i2'1'	flags
 
 ;
@@ -1537,7 +1536,7 @@ nwAux	dc	i4'0'	auxType
 idxParm	anop
 	dc	i2'4'	pCount
 	dc	i4'NameBuf'	Name (pointer to GS/OS result buf)
-	dc	i4'ResultBuf'	Value (pointer to GS/OS result buf)
+	dc	i4'ResBuf'	Value (pointer to GS/OS result buf)
 idxIndex	ds	2	Index number
 	ds	2	Export flag
 ;
@@ -1552,7 +1551,7 @@ NameText	ds	255	Text goes here.
 ; It doesn't have enough room for > 1 byte to be returned, but we
 ; only need to get the length of the value.
 ;
-ResultBuf	dc	i2'5'	Only five bytes total.
+ResBuf	dc	i2'5'	Only five bytes total.
 	ds	2	Value's length returned here.
 	ds	1	Only 1 byte for value.
 
@@ -1566,88 +1565,88 @@ sepstyle	ds	2
 *
 **************************************************************************
 
-keybinddata	DATA
+kbnddat	DATA
 
-keybindtab	dc	i2'undefined_char',i4'0'		;^@
-	dc	i2'beginning_of_line',i4'0' 	;^A
-	dc	i2'backward_char',i4'0'		;^B
-	dc	i2'undefined_char',i4'0'		;^C
-	dc	i2'list_choices',i4'0'		;^D
-	dc	i2'end_of_line',i4'0'		;^E
-	dc	i2'forward_char',i4'0'		;^F
-	dc	i2'undefined_char',i4'0'		;^G
-	dc	i2'backward_delete_char',i4'0'	;^H
-	dc	i2'complete_word',i4'0'		;^I
-	dc	i2'newline_char',i4'0'		;^J
-	dc	i2'undefined_char',i4'0'		;^K
-	dc	i2'clear_screen',i4'0'		;^L
-	dc	i2'newline_char',i4'0'		;^M
-	dc	i2'down_history',i4'0'		;^N
-	dc	i2'undefined_char',i4'0'		;^O
-	dc	i2'up_history',i4'0'		;^P
-	dc	i2'undefined_char',i4'0'		;^Q
-	dc	i2'redisplay',i4'0' 		;^R
-	dc	i2'undefined_char',i4'0'		;^S
-	dc	i2'undefined_char',i4'0'		;^T
-	dc	i2'kill_whole_line',i4'0'		;^U
-	dc	i2'undefined_char',i4'0'		;^V
-	dc	i2'undefined_char',i4'0'		;^W
-	dc	i2'kill_whole_line',i4'0'		;^X
-	dc	i2'kill_end_of_line',i4'0'		;^Y
-	dc	i2'undefined_char',i4'0'		;^Z
-	dc	i2'lead_in',i4'defescmap'		;^[
-	dc	i2'undefined_char',i4'0'		;^\
-	dc	i2'undefined_char',i4'0'		;^]
-	dc	i2'undefined_char',i4'0'		;^^
-	dc	i2'undefined_char',i4'0'		;^_
+kbndtbl	dc	i2'undfch',i4'0'		;^@
+	dc	i2'bgnline',i4'0' 	;^A
+	dc	i2'bkwdch',i4'0'		;^B
+	dc	i2'undfch',i4'0'		;^C
+	dc	i2'lstchos',i4'0'		;^D
+	dc	i2'endline',i4'0'		;^E
+	dc	i2'fwdch',i4'0'		;^F
+	dc	i2'undfch',i4'0'		;^G
+	dc	i2'bkdlch',i4'0'	;^H
+	dc	i2'compwrd',i4'0'		;^I
+	dc	i2'nlchr',i4'0'		;^J
+	dc	i2'undfch',i4'0'		;^K
+	dc	i2'clrscr',i4'0'		;^L
+	dc	i2'nlchr',i4'0'		;^M
+	dc	i2'dwnhist',i4'0'		;^N
+	dc	i2'undfch',i4'0'		;^O
+	dc	i2'uphist',i4'0'		;^P
+	dc	i2'undfch',i4'0'		;^Q
+	dc	i2'redispl',i4'0' 		;^R
+	dc	i2'undfch',i4'0'		;^S
+	dc	i2'undfch',i4'0'		;^T
+	dc	i2'kllwhl',i4'0'		;^U
+	dc	i2'undfch',i4'0'		;^V
+	dc	i2'undfch',i4'0'		;^W
+	dc	i2'kllwhl',i4'0'		;^X
+	dc	i2'klleol',i4'0'		;^Y
+	dc	i2'undfch',i4'0'		;^Z
+	dc	i2'lead_in',i4'dfescmp'		;^[
+	dc	i2'undfch',i4'0'		;^\
+	dc	i2'undfch',i4'0'		;^]
+	dc	i2'undfch',i4'0'		;^^
+	dc	i2'undfch',i4'0'		;^_
 	dc	95i2'raw_char,0,0'			;' ' .. '~'
-	dc	i2'backward_delete_char',i4'0'	;^? (DEL)
+	dc	i2'bkdlch',i4'0'	;^? (DEL)
 
-defescmap	dc	4i2'undefined_char,0,0'		;^@ .. ^C
-	dc	i2'list_choices',i4'0'		;^D
-	dc	3i2'undefined_char,0,0'		;^E .. ^G
-	dc	i2'backward_word',i4'0'		;^H
-	dc	i2'complete_word',i4'0'		;^I
-	dc	2i2'undefined_char,0,0'		;^J, ^K
-	dc	i2'clear_screen',i4'0'		;^L
-	dc	i2'undefined_char,0,0'		;^M
-	dc	i2'undefined_char,0,0'		;^N
-	dc	i2'undefined_char,0,0'		;^O
-	dc	i2'undefined_char,0,0'		;^P
-	dc	i2'undefined_char,0,0'		;^Q
-	dc	i2'undefined_char,0,0'		;^R
-	dc	i2'undefined_char,0,0'		;^S
-	dc	i2'undefined_char,0,0'		;^T
-	dc	i2'forward_word,0,0'		;^U
-	dc	i2'undefined_char,0,0'		;^W
-	dc	i2'undefined_char,0,0'		;^X
-	dc	i2'undefined_char,0,0'		;^X
-	dc	i2'undefined_char,0,0'		;^Y
-	dc	i2'undefined_char,0,0'		;^Z
-	dc	i2'complete_word',i4'0'		;^[
-	dc	16i2'undefined_char,0,0'		;^\ .. +
-	dc	i2'beginning_of_line',i4'0' 	; ,
-	dc	i2'undefined_char,0,0'		; 
-	dc	i2'end_of_line',i4'0'		; .
-	dc	19i2'undefined_char,0,0'		; .+1 .. A
-	dc	i2'backward_word',i4'0'		;B
-	dc	3i2'undefined_char,0,0'		;C ... E
-	dc	i2'forward_word',i4'0'		;F
-	dc	8i2'undefined_char,0,0'		;G ... N
+dfescmp	dc	4i2'undfch,0,0'		;^@ .. ^C
+	dc	i2'lstchos',i4'0'		;^D
+	dc	3i2'undfch,0,0'		;^E .. ^G
+	dc	i2'bkwdwrd',i4'0'		;^H
+	dc	i2'compwrd',i4'0'		;^I
+	dc	2i2'undfch,0,0'		;^J, ^K
+	dc	i2'clrscr',i4'0'		;^L
+	dc	i2'undfch,0,0'		;^M
+	dc	i2'undfch,0,0'		;^N
+	dc	i2'undfch,0,0'		;^O
+	dc	i2'undfch,0,0'		;^P
+	dc	i2'undfch,0,0'		;^Q
+	dc	i2'undfch,0,0'		;^R
+	dc	i2'undfch,0,0'		;^S
+	dc	i2'undfch,0,0'		;^T
+	dc	i2'fwdword,0,0'		;^U
+	dc	i2'undfch,0,0'		;^W
+	dc	i2'undfch,0,0'		;^X
+	dc	i2'undfch,0,0'		;^X
+	dc	i2'undfch,0,0'		;^Y
+	dc	i2'undfch,0,0'		;^Z
+	dc	i2'compwrd',i4'0'		;^[
+	dc	16i2'undfch,0,0'		;^\ .. +
+	dc	i2'bgnline',i4'0' 	; ,
+	dc	i2'undfch,0,0'		; 
+	dc	i2'endline',i4'0'		; .
+	dc	19i2'undfch,0,0'		; .+1 .. A
+	dc	i2'bkwdwrd',i4'0'		;B
+	dc	3i2'undfch,0,0'		;C ... E
+	dc	i2'fwdword',i4'0'		;F
+	dc	8i2'undfch,0,0'		;G ... N
 	dc	i2'lead_in',i4'vt100key'		;O
-	dc	18i2'undefined_char,0,0'		;P ... a
-	dc	i2'backward_word',i4'0'		;b
-	dc	2i2'undefined_char,0,0'		;c ... d
-	dc	i2'toggle_cursor',i4'0'		;e
-	dc	i2'forward_word',i4'0'		;f
-	dc	25i2'undefined_char,0,0'		;g ... ^?
+	dc	18i2'undfch,0,0'		;P ... a
+	dc	i2'bkwdwrd',i4'0'		;b
+	dc	2i2'undfch,0,0'		;c ... d
+	dc	i2'tglcurs',i4'0'		;e
+	dc	i2'fwdword',i4'0'		;f
+	dc	25i2'undfch,0,0'		;g ... ^?
 
-vt100key	dc	65i2'undefined_char,0,0'		;^@ ... @
-	dc	i2'up_history',i4'0'		;A
-	dc	i2'down_history',i4'0'		;B
-	dc	i2'forward_char',i4'0'		;C
-	dc	i2'backward_char',i4'0'		;D
-	dc	59i2'undefined_char,0,0'		;E ... ^?
+vt100key	dc	65i2'undfch,0,0'		;^@ ... @
+	dc	i2'uphist',i4'0'		;A
+	dc	i2'dwnhist',i4'0'		;B
+	dc	i2'fwdch',i4'0'		;C
+	dc	i2'bkwdch',i4'0'		;D
+	dc	59i2'undfch,0,0'		;E ... ^?
 
 	END
 
@@ -1657,9 +1656,9 @@ vt100key	dc	65i2'undefined_char,0,0'		;^@ ... @
 *
 **************************************************************************
 
-bindkeyfunc	START
+bndkyfn	START
 	
-	using	keybinddata
+	using	kbnddat
 
 p	equ	0
 tbl	equ	p+4
@@ -1676,7 +1675,7 @@ space	equ	len+2
 	pei	(keystr)
 	jsr	cstrlen
 	sta	len
-	ld4	keybindtab,tbl
+	ld4	kbndtbl,tbl
 
 loop	lda	len
 	jeq	done
@@ -1780,7 +1779,7 @@ space	equ	status+2
 	lda	argc
 	dec	a
 	bne	ok
-showusage	ldx	#^usage
+shwusge	ldx	#^usage
 	lda	#usage
 	jsr	errputs
 	inc	status
@@ -1796,23 +1795,23 @@ ok	dec	argc
 	lda	[arg]
 	and	#$FF
 	cmp	#'-'
-	bne	startbind
+	bne	strtbnd
 	ldy	#1
 	lda	[arg],y
 	cmp	#'l'
 	beq	list
-	bra	showusage
+	bra	shwusge
 
 list	ldx	#^liststr	
 	lda	#liststr
 	jsr	puts
 	bra	goexit
 
-startbind	lda	argc
+strtbnd	lda	argc
 	dec	a
-	jeq	showusage
+	jeq	shwusge
 	dec	a
-	jne	showusage
+	jne	shwusge
 
 	ldy	#0
 findloop	phy
@@ -1873,7 +1872,7 @@ foundit	pla
 	pei	(str+2)
 	pei	(str)
 	pei	(func)
-	jsl	bindkeyfunc
+	jsl	bndkyfn
 
 	pei	(str+2)
 	pei	(str)
@@ -1900,7 +1899,7 @@ liststr	dc	c'  backward-char        - move cursor left',h'0d'
 	dc	c'  list-choices         - list file completion matches',h'0d'
 	dc	c'  newline              - finished editing, accept command line',h'0d'
 	dc	c'  raw-char             - character as-is',h'0d'
-	dc	c'  redisplay            - redisplay the command line',h'0d'
+	dc	c'  redispl            - redispl the command line',h'0d'
 	dc	c'  toggle-cursor        - toggle between insert and overwrite cursor',h'0d'
 	dc	c'  undefined-char       - this key does nothing',h'0d'
 	dc	c'  up-history           - replace command line with previous history',h'0d'
@@ -1926,31 +1925,31 @@ func13	dc	c'kill-whole-line',h'00'
 func14	dc	c'list-choices',h'00'
 func15	dc	c'newline',h'00'
 func16	dc	c'raw-char',h'00'
-func17	dc	c'redisplay',h'00'
+func17	dc	c'redispl',h'00'
 func18	dc	c'toggle-cursor',h'00'
 func19	dc	c'undefined-char',h'00'
 func20	dc	c'up-history',h'00'
 
-functbl	dc	i'backward_char'
-	dc	i'backward_delete_char'
-	dc	i'backward_word'
-	dc	i'beginning_of_line'
-	dc	i'clear_screen'
-	dc	i'complete_word'
-	dc	i'delete_char'
-	dc	i'down_history'
-	dc	i'end_of_line'
-	dc	i'forward_char'
-	dc	i'forward_word'
-	dc	i'kill_end_of_line'
-	dc	i'kill_whole_line'
-	dc	i'list_choices'
-	dc	i'newline_char'
+functbl	dc	i'bkwdch'
+	dc	i'bkdlch'
+	dc	i'bkwdwrd'
+	dc	i'bgnline'
+	dc	i'clrscr'
+	dc	i'compwrd'
+	dc	i'dltch'
+	dc	i'dwnhist'
+	dc	i'endline'
+	dc	i'fwdch'
+	dc	i'fwdword'
+	dc	i'klleol'
+	dc	i'kllwhl'
+	dc	i'lstchos'
+	dc	i'nlchr'
 	dc	i'raw_char'
-	dc	i'redisplay'	
-	dc	i'toggle_cursor'
-	dc	i'undefined_char'
-	dc	i'up_history'
+	dc	i'redispl'	
+	dc	i'tglcurs'
+	dc	i'undfch'
+	dc	i'uphist'
 
 	END
 
@@ -1982,19 +1981,19 @@ end	equ	str+4
 
 loop	lda	[str],y
 	and	#$FF
-	jeq	breakloop
+	jeq	brkloop
 	iny
 
 	cmp	#'^'
-	bne	caseslash
+	bne	csslash
 
 	lda	[str],y
 	and	#$1F
 	iny
-	bra	casebreak0
+	bra	csbrek0
 
-caseslash	cmp	#'\'
-	bne	casebreak0
+csslash	cmp	#'\'
+	bne	csbrek0
 
 	lda	[str],y
 	and	#$FF
@@ -2004,20 +2003,20 @@ caseslash	cmp	#'\'
 	ldx	#0
 nextc	lda	dp1,x
 	and	#$FF
-	beq	nextslash
+	beq	nxtslsh
 	cmp	ch
 	beq	gotslash
 	inx
 	bra	nextc
 gotslash	lda	dp2,x
 	and	#$FF
-	bra	casebreak0
+	bra	csbrek0
 
-nextslash	lda	ch
+nxtslsh	lda	ch
 	cmp	#'0'
-	bcc	casebreak0
+	bcc	csbrek0
 	cmp	#'9'+1
-	bcs	casebreak0
+	bcs	csbrek0
 
 	sec
 	sbc	#'0'
@@ -2037,20 +2036,20 @@ numloop	asl	ch
 	sta	ch
 	iny
 	dex
-	beq	casebreak0
+	beq	csbrek0
 	lda	[str],y
 	and	#$FF
 	cmp	#'0'
-	bcc	casebreak
+	bcc	csbrek
 	cmp	#'9'+1
 	bcc	numloop
 
-casebreak	lda	ch
-casebreak0	sta	[cp]
+csbrek	lda	ch
+csbrek0	sta	[cp]
 	incad	cp
 	jmp	loop
 
-breakloop	lda	#0
+brkloop	lda	#0
 	sta	[cp]
 
 	lda	space+1

@@ -188,7 +188,7 @@ lsystem(cmd)
 	 * Warning: this leaves a signal pending (in "sigs"),
 	 * so psignals() should be called soon after lsystem().
 	 */
-	winch();
+	winch(0, 0);
 #endif
 }
 
@@ -315,7 +315,7 @@ pipe_data(cmd, spos, epos)
 	screen_trashed = 1;
 #if defined(SIGWINCH) || defined(SIGWIND)
 	/* {{ Probably don't need this here. }} */
-	winch();
+	winch(0, 0);
 #endif
 	return (0);
 }

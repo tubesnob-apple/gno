@@ -7,7 +7,7 @@
 #   - POSIX_MISTAKE define added directly to regcomp.c (iix has no -D flag)
 #
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GNO_OBJ   ?= $(abspath $(REPO_ROOT)/../gno-obj)
+GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno_obj)
 SRC_DIR   := $(REPO_ROOT)/lib/libc/regex
 OBJ_DIR   := $(GNO_OBJ)/libc/regex
 LIB_OUT   := $(GNO_OBJ)/libc_regex.a

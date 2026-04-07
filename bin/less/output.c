@@ -7,7 +7,7 @@
 #include <fcntl.h>
 
 #ifdef _ORCAC_
-#define FAST
+/* FAST inline-asm path disabled: ORCA/C inline asm can't jsl C function names */
 segment "LoadSegONE";
 #endif
 

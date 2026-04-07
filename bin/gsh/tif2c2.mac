@@ -1,0 +1,1 @@
+	MACRO	tst2	&val	lclc	&char1&char1	amid	&val,1,1	nop	cmp	&val	nop	MEND

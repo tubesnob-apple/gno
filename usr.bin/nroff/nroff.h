@@ -1,5 +1,8 @@
 #ifndef NRO_H
 #define NRO_H
+#ifdef __ORCAC__
+#pragma memorymodel 1
+#endif
 
 #include "config.h"			/* os/compiler options */
 

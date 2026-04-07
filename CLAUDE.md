@@ -384,6 +384,37 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 **Phase 7 kernel notes:**
 - All 14 kern/gno C modules compiled with `#define KERNEL` before first include
 - `include/stdio.h` has `#ifdef KERNEL` guard — kernel uses ORCALib `stdout`, not GNO libc array
+- **Kernel compile mode: `iix --gno compile` (used for header path, NOT GNO semantics)**
+  The kernel is a pure GS/OS application that ideally would be compiled without `--gno`. However, the ORCA SDK's `signal.h` (ByteWorks version, `Libraries/ORCACDefs/signal.h`) directly defines `SIG_IGN`/`SIG_ERR`/`SIGFPE` etc., while GNO's `sys/signal.h` also defines them. Without `--gno`, both get included → "cannot redefine a macro" errors. GNO's `signal.h` (`lib/ORCACDefs/signal.h`) properly wraps `sys/signal.h` via include guards, avoiding the conflict. So `--gno` is used as a workaround to get the GNO header path.
+  **TODO:** Replace `Libraries/ORCACDefs/signal.h` with GNO's BSD version so the kernel can compile with `iix compile` (no `--gno`), eliminating the spurious `__GNO__` definition in kernel code.
+- **Kernel link mode: `iix link` (NOT `iix --gno link`)** — links against ORCALib only; GNO libc is unavailable during kernel boot.
+- **ORCALib ABI mismatch — systemic issue for all kernel C code:**
+  ORCALib was compiled when `size_t = unsigned` (2 bytes). Current ORCA/C headers define `size_t = unsigned long` (4 bytes) in BOTH `iix compile` and `iix --gno compile` modes. Switching compile modes does NOT fix this. For any ORCALib function that historically took a `size_t` parameter, the kernel pushes 4 bytes but ORCALib's callee-cleans epilogue only pops 2 bytes → 2-byte stack leak per call → corrupted return-address bank byte → jump to garbage bank ($53, $55, etc.) → crash.
+  - **Confirmed affected:** `fgets(char *, size_t, FILE *)` — ORCALib binary confirmed `csubroutine (4:s, 2:n, 4:stream), 2`; n is 2 bytes.
+  - **Fix pattern** (required for every ORCALib `fgets` call in kernel code):
+    ```c
+    typedef char *(*fgets_orca_t)(char *, unsigned, FILE *);
+    if (((fgets_orca_t)fgets)(buf, (unsigned)n, fp) == NULL) break;
+    ```
+  - **Fixed in:** `kern/gno/ep.c` (init_htable), `kern/gno/main.c` (initrc reads in doShell + tty.config loop in loadttyconfig)
+  - **Audit policy:** Any ORCALib function that takes a `size_t`-typed parameter must be verified. Check the ORCALib source (`~/source/iigs-official-repos/byteworksinc-orcalib/`) for actual `csubroutine` byte widths. `memcpy`, `strlen`, `strcpy` appear safe from source inspection. When adding new kernel C code calling a standard C library function, always verify it resolves to ORCALib (not GNO libc) and check parameter widths.
+- **InitialLoad2 dispatch fix — APPLIED:**
+  Current ORCALib `toolglue.macros` dispatches `_INITIALLOAD2` as `LDX #$2011` (Loader function $20). GS/OS 6.0.4 returns `idNotLoadFile` ($1104) for function $20. The reference GNO 2.0.6 kernel used `_INITIALLOAD` ($0911, function $09) for ALL driver loading. **Fix applied:** Changed both `InitialLoad2(...)` calls to `InitialLoad(...)` (3 params, drop `privateFlag`):
+  - `kern/gno/main.c` `loadttyconfig()`: `il_rec = InitialLoad(ILuserID, (Pointer)&fullpath, 1);`
+  - `kern/gno/sys.c` line ~763: `InitialLoad(newID, (Pointer)&resBuf->bufString, 1)`
+  Verified in running kernel: `#$2011` absent, `#$0911` at `0B/D641`.
+- **GNO prefix architecture — CRITICAL for understanding driver loading:**
+  - GNO intercepts ALL GS/OS calls via its TSP, including GetPrefixGS (`PGGetPrefix` in gsos.asm). It returns `PROC->prefix[prefixNum+1]` — GNO's own per-process prefix table.
+  - The kernel init loop (main.c ~line 366) calls GetPrefixGS to populate `PROC->prefix[]`, but GNO intercepts those calls too → reads from its own uninitialized table → all entries come back length=0. So `PROC->prefix[10]` (prefix 9) is always length=0 in the kernel.
+  - **InitialLoad is a Toolbox call** (Loader tool $11). GNO does NOT intercept Toolbox calls — they bypass the TSP and go directly to GS/OS ROM. GS/OS uses its OWN prefix 9, which was set to `:GNO:` when GS/OS launched the kernel (a $B3 S16 file from `:GNO:kern`).
+  - Therefore: passing `"9:dev:null"` as a GSString255 to InitialLoad is CORRECT — GS/OS resolves it as `:GNO:dev:null`. GetPrefixGS/gno_ExpandPath cannot be used for this purpose.
+  - `fopen("9/initrc")` works despite PROC->prefix[10]=0 because gno_ExpandPath produces `:initrc` (volume-relative), which GS/OS resolves as `:GNO:initrc` (exists on image).
+- **Original $1104 root cause — filename.length never set:**
+  The original `sscanf(line1, "%s %d %s", filename.text, ...)` filled `filename.text` but **never set `filename.length`** (static variable stays 0). InitialLoad received a GSString255 with length=0 = empty path → $1104 every time. Fix: build path into a new `fullpath` GSString255 and set `fullpath.length = strlen(fullpath.text)`.
+- **ONGOING — driver startup BRK $00 at $11/000C:**
+  With the length fix, InitialLoad IS invoked and the GS/OS Loader allocates bank $11 for the driver. But BRK $00 fires at $11/000C and $9D/CFBC, halting at the GS/OS monitor. Memory at $11/0000 shows `ee ff 00 00...` — mostly zeros after 2 bytes. Either the driver failed to fully load into $11, or its startup branches to zero-filled memory. WDM $DA/$DB traps added before/after InitialLoad to capture il_rec.startAddr. **This is the current active debugging target.**
+- **GNOBug and SIM (System/System.Setup on reference GNO disk):**
+  Reference GNO 2.0.6 ships `System/System.Setup/GNOBug#B60100` and `System/System.Setup/SIM#B60100` (both type $B6/$0100 = GS/OS Init/extension). These are NOT required on the boot disk for GNO to work (confirmed: reference GNO boots without them on System604.2mg). SIM = Serial Interrupt Manager (same as libsim). GNOBug = patches GS/OS bugs at boot time.
 
 **Phase 8c image notes:**
 - **STRICT SOURCE POLICY**: binary files ($B5, $B3, $B2, $BB) must come from `gno-obj/` — no reference fallback for executables/libraries; `--warn-missing` escape hatch during Phase 9 porting
@@ -414,8 +445,8 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 
 **Authoritative source repos (in priority order):**
 1. This repo (`/Users/smentzer/source/gno`) — primary
-2. `~/source/ksherlock-gno` — secondary (ksherlock fork)
-3. `~/source/old-gno` — tertiary (pre-ksherlock CVS history; no initd or mktmp/runover source at any tag)
+2. `/Users/smentzer/source/iigs-official-repos/ksherlock-gno/gno` — secondary (ksherlock fork)
+3. `~/source/old-gno` — tertiary (pre-GNO-2.0 CVS history; no initd or mktmp/runover source at any tag)
 4. `~/source/GNO-Extras` — quaternary; UNIX v7 ports already adapted for ORCA/C 2.2.0B3 (cal, dd, find, file, od, rev, units + 7 games: arithmetic, fish, fortune, hangman, quiz, wump + nl, sortdir). Files use `#TTAAAA` ProDOS suffix naming; needs GNU make targets replacing dmake. License: Caldera ancient-UNIX + BSD 2-clause.
 5. **Ask before using any other source** — GNO is not BSD; BSD ports require significant adaptation
 
@@ -592,7 +623,6 @@ Key distributions (see DocTemple directly for full listing):
 | `byteworksinc-orcalib` | **Official** ByteWorks ORCALib. `unified` branch. GNO build uses `TARGET=gno`. |
 | `gno-original` | Original Devin Reade GNO/ME v2.0.6 source |
 | `goldengate` | GoldenGate iix emulator source (C++) |
-| `ksherlock-gno` | ksherlock fork of GNO/ME (upstream, unmaintained) |
 | `ksherlock-orca-c` | ksherlock fork of ORCA/C |
 | `nulib2` | ShrinkIt archive tool source |
 
@@ -600,7 +630,7 @@ Key distributions (see DocTemple directly for full listing):
 
 | Directory | Contents |
 |-----------|---------|
-| `old-gno` | Pre-ksherlock GNO sources with full CVS history back to 1996. Tags: `v1_0`, `v1_1`, `gsh_v1_1`, `beta_970304`, `beta_971222`. **3rd priority** source for missing GNO files. No initd or mktmp/runover source at any tag. |
+| `old-gno` | Pre-GNO-2.0 sources with full CVS history back to 1996. Tags: `v1_0`, `v1_1`, `gsh_v1_1`, `beta_970304`, `beta_971222`. **3rd priority** source for missing GNO files. No initd or mktmp/runover source at any tag. |
 
 ---
 
@@ -618,6 +648,68 @@ Key distributions (see DocTemple directly for full listing):
 | `diskImages/gno-built.2mg` | Built GNO/ME ProDOS disk image (32MB, 688 files) |
 | `goldengate/build/phase8_rez.mk` | Attach resource forks to all built binaries (via cowrez.py) |
 | `goldengate/build/phase8c_image.py` | Build ProDOS .2mg disk image from gno-obj/ + reference |
+| `.mcp.json` | Claude Code MCP server definitions for this project (`gsplus` debugger integration) |
+
+### gsplus MCP Server — Emulator Integration
+
+Defined in `.mcp.json`. Provides live access to the running GSplus Apple IIgs emulator session.
+
+**Config file:** `~/config.kegs` — disk image assignments; `s7d6` and `s7d8` are commented out (inactive).
+
+**Image update workflow:** After rebuilding `diskImages/gno-built.2mg`, the symlink `~/source/gsplus/content/gno-built.2mg → ~/source/gno/diskImages/gno-built.2mg` means no file copy is needed. For utility/config changes a warm reset (`restart_emulator`) suffices. For a new **kernel** build, a `cold_reset` is required — the old kernel stays resident in RAM through warm resets via `SetTSPtr(0x8000,3,kernTable)`, causing `kernStatus()` to report "already active" and the new kernel to exit immediately.
+
+**CANONICAL RULES — emulator image deployment (MUST follow every time):**
+1. After building a new GNO disk image (`phase8c_image.py`), you MUST issue `relaunch_app` via the MCP — GSplus caches the disk image in memory and will not pick up changes with a reset alone.
+2. After `relaunch_app` completes, wait 5 seconds, then issue `restart_emulator` via the MCP to trigger a clean warm reset into GS/OS.
+3. After any reset/relaunch, verify the correct kernel is running by searching emulator memory in bank $0B for the `BUILD_TIMESTAMP` string (from `kern/gno/build_time.h`) and confirming it matches the current build.
+
+**Reset types:**
+- `restart_emulator` / debugger `r` — warm reset: hardware registers + reset vector only, RAM intact
+- `cold_reset` / debugger `C` — cold reset: `load_roms_init_memory()` (calloc zeroes all RAM) + `do_reset()`. **Requires GSplus rebuild** after the `debugger.c` change.
+- debugger `R` — NOT a reset; shows dtime array and events
+
+**COP instruction ($02):** Fully supported in native mode (vectors through `$FFE4`). In emulation mode it also works but triggers `halt_printf` (debugger halt + log message).
+
+#### Mounted volumes (slot → ProDOS name)
+
+| Slot | Image | Vol Name | Notes |
+|------|-------|----------|-------|
+| `sp0` | `System604.2mg` | SYSTEM | GS/OS 6.0.4 boot disk |
+| `sp1` | `Storage.hdv` | STORAGE | |
+| `sp2` | `SourceCode.hdv` | SOURCECODE | |
+| `sp3` | `Programming.hdv` | PROGRAMMING | |
+| `sp4` | `Utils.hdv` | UTILS | |
+| `sp5` | `GNO.hdv` | — | read-only, unknown image type |
+| `sp6` | `gno-built.2mg` | GNO | our built GNO/ME image (symlink to diskImages/) |
+| `sp7` | `gno.po` | — | reference GNO 2.0.6, read-only (commented out) |
+
+#### Tool reference
+
+| Tool | Key params | Notes |
+|------|-----------|-------|
+| `list_volumes` | — | Returns slot, vol_name, total_blocks, image_type, write_prot, dirty |
+| `list_files` | `slot`, `path` (default `/`), `recursive` (default false) | Set `recursive=true` to expand subdirectories |
+| `read_file` | `slot`, `path` | Returns file contents |
+| `read_volume` | `slot` | Full ProDOS filesystem as structured JSON + base64 file data; files >1MB listed but data omitted |
+| `read_memory` | `addr`, `len` (default 256) | Read from 24-bit address space; addr as int `0xBBOOOO` only (not string format) |
+| `write_memory` | `addr`, `data` (hex string e.g. `"EA EA"`) | Write bytes to 24-bit address; cleaner than raw `BB/OOOO:HH` debugger strings |
+| `search_memory` | `pattern`, `addr`, `len` | Search emulator memory |
+| `get_registers` | — | Current 65816 register state |
+| `halt_emulator` | — | Pause execution |
+| `continue_emulator` | — | Resume execution |
+| `step_emulator` | — | Single-step |
+| `debugger_command` | `command` | Raw debugger command string |
+| `get_break_info` | — | Current breakpoint/halt state |
+| `get_log` | `lines` (default 50) | Last N lines of emulator diagnostic output (128KB ring buffer) |
+| `restart_emulator` | — | Warm reset (ROM reset vector only, RAM preserved) |
+| `cold_reset` | — | Full cold reset: zeroes all RAM then resets. Required for new kernel builds. |
+| `run_until` | `addr`, `timeout_s` (default 60), `poll_interval_s` (default 3.0) | Set temp breakpoint, resume, block until hit. Use poll_interval_s ≥3.0 to avoid stalling disk I/O during boot. |
+| `get_screen_text` | `page` (default 1), `col80` (default true) | Read text screen from shadow RAM ($E0/$E1 banks). Returns 24 decoded ASCII lines. Safe to call while running. |
+
+**Boot debugging workflow:**
+1. `cold_reset` — clears old kernel, starts fresh boot
+2. `run_until(addr_of_gno_entry)` — wait for kernel to load (poll_interval_s=3.0)
+3. `get_screen_text()` — see what GNO printed without polling registers
 
 ### goldengate/build/ Makefiles
 

@@ -25,12 +25,11 @@
 *	^	^	^	^	^	^	
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/stdio.mac
+	mcopy gsh.mac
 
-dummystdio	start		; ends up in .root
+dmystdio	start		; ends up in .root
 	end
 
-	setcom 60
 
 **************************************************************************
 *
@@ -55,7 +54,7 @@ putchar	START
 	cpx	#512	If length < 512,
 	bcc	done	 all done.
 _flush	stx	index	Save current length.
-	Write	WriteParm	Write the stream.
+	Write	WrtParm	Write the stream.
 	ldx	#0	Set new length to 0.
 
 done	stx	index	Save stream length in global.
@@ -102,8 +101,8 @@ getchar	lda	>$FFFFFF,x	Get next character from string.
 _flush	sty	index	Save length of stream.
 	phx		Hold source string offset on stack.
 	long	a	SWITCH TO FULL-WORD MEMORY MODE.
-	Write	WriteParm	Write the stream to stdout
-	Flush	flushparm	 and flush it.
+	Write	WrtParm	Write the stream to stdout
+	Flush	flshprm	 and flush it.
 	short	a	SWITCH TO SINGLE-BYTE MEMORY MODE.
 	plx		Restore source string offset to X-reg.
 	ldy	#0	Set stream length to 0.
@@ -132,8 +131,8 @@ flush	START
 	lock	mutex
 	lda	index
 	beq	skip
-	Write	WriteParm
-	Flush	flushparm
+	Write	WrtParm
+	Flush	flshprm
 	stz	index            
 skip	unlock mutex
 
@@ -151,13 +150,13 @@ stdout	PRIVDATA
 
 mutex	key
 
-WriteParm	dc	i2'4'
+WrtParm	dc	i2'4'
 	dc	i2'2'	;2 is standard out
 	dc	i4'stream'
 index	dc	i4'0'
 	dc	i4'0'
 
-flushparm	dc	i2'1'
+flshprm	dc	i2'1'
 	dc	i2'2'
 
 stream	ds	512+1
@@ -166,12 +165,12 @@ stream	ds	512+1
 
 **************************************************************************
 *
-* errputchar - output a character to standard error
+* errptch - output a character to standard error
 * On entry: A = character
 *
 **************************************************************************
 
-errputchar	START
+errptch	START
 
 	using	stderr
 	
@@ -180,14 +179,14 @@ errputchar	START
 	tya
 	and	#$FF
 	ldx	errindex
-	sta	errstream,x
+	sta	errstm,x
 	inx
 	cmp	#13
 	beq	_flush
 	cpx	#256
 	bcc	done
 _flush	stx	errindex
-	Write	errWriteParm
+	Write	errWPrm
 	ldx	#0
 done	stx	errindex
 	unlock errmutex
@@ -219,7 +218,7 @@ errputs	START
 
 getchar	lda	>$FFFFFF,x
 	beq	done
-	sta	errstream,y
+	sta	errstm,y
 	iny
 	inx
 	cmp	#13
@@ -230,7 +229,7 @@ getchar	lda	>$FFFFFF,x
 _flush	sty	errindex
 	phx
 	long	a
-	Write	errWriteParm
+	Write	errWPrm
 	short	a
 	plx
 	ldy	#0
@@ -254,7 +253,7 @@ errflush	START
 	using	stderr
 	
 	lock	errmutex
-	Write	errWriteParm
+	Write	errWPrm
 	stz	errindex	 
 	unlock errmutex
 
@@ -272,13 +271,13 @@ stderr	PRIVDATA
 
 errmutex	key
 
-errWriteParm	dc	i2'4'
+errWPrm	dc	i2'4'
 	dc	i2'3'	;3 is standard err
-	dc	i4'errstream'
+	dc	i4'errstm'
 errindex	dc	i4'0'
 	dc	i4'0'
 
-errstream	ds	256+1	;not as large as stdout
+errstm	ds	256+1	;not as large as stdout
 
 	END
 
@@ -298,7 +297,7 @@ getchar	START
 	lda	insize	;any characters in stream?
 	bne	grabchar	;yup
 
-readloop	Read	inReadParm
+readloop	Read	inRdPrm
 	bcc	okread
 	ldy	#-1	Return EOF if error code
 	cmp	#$4C	 is "EOF encountered".
@@ -338,10 +337,10 @@ stdin	PRIVDATA
 
 inmutex	key
 
-inReadParm	dc	i2'4'
+inRdPrm	dc	i2'4'
 	dc	i2'1'	;1 is standard input
 	dc	i4'instream'
-inrequest	dc	i4'128'
+inreq	dc	i4'128'
 insize	dc	i4'0'
 
 inindex	dc	i2'0'

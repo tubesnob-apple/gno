@@ -27,34 +27,33 @@
 * unalias	subroutine (4:argv,2:argc)
 *	return 2:status
 *			 
-* initalias	jsr/rts with no parameters
+* initals	jsr/rts with no parameters
 *
-* expandalias	subroutine (4:cmd)
+* expAlias	subroutine (4:cmd)
 *	return 4:buf
 *
-* addalias	subroutine (4:aliasname,4:aliasval)
+* addalias	subroutine (4:aliasnm,4:aliasval)
 *	return
 *
-* removealias	subroutine (4:aliasname)
+* rmvAls	subroutine (4:aliasnm)
 *	return
 *		                  
-* findalias	subroutine (4:aliasname),space
+* fndAlias	subroutine (4:aliasnm),space
 *	return 4:value
 *
-* startalias	jsl/rtl with no parameters
+* strtals	jsl/rtl with no parameters
 *
-* nextalias	subroutine (4:p)
+* nxtals	subroutine (4:p)
 *	return 2:hashvalz
 *
 *
 **************************************************************************
 
-	mcopy	/obj/gno/bin/gsh/alias.mac
+	mcopy gsh.mac
 
-dummyalias	start		; ends up in root
+dmyals	start		; ends up in root
 	end
 
-	setcom 60
 
 VTABSIZE	gequ	17
 
@@ -69,7 +68,7 @@ VTABSIZE	gequ	17
 
 alias	START
 
-	using	AliasData
+	using	AliData
 
 arg	equ	1
 space	equ	arg+4
@@ -86,7 +85,7 @@ end	equ	argv+4
 	phd
 	tcd
 
-	lock	AliasMutex
+	lock	AliMtx
 	lda	argc	How many arguments were provided?
 	dec	a
 	beq	showall	None -- show all alias names.
@@ -97,8 +96,8 @@ end	equ	argv+4
 ;
 ; Show all aliases
 ;
-showall	jsl	startalias
-showloop	jsl	nextalias
+showall	jsl	strtals
+showloop	jsl	nxtals
 	sta	arg
 	stx	arg+2
 	ora	arg+2
@@ -130,7 +129,7 @@ noshow	jmp	exit
 showone	ldy	#4+2
 	lda	[argv],y
 	tax
-	pha		;for findalias
+	pha		;for fndAlias
 	ldy	#4	
 	lda	[argv],y
 	pha
@@ -139,7 +138,7 @@ showone	ldy	#4+2
 	jsr	putchar
 	lda	#' '
 	jsr	putchar
-	jsl	findalias
+	jsl	fndAlias
 	sta	arg
 	stx	arg+2
 	ora	arg+2
@@ -175,7 +174,7 @@ setalias	ldy	#4+2	;put alias name on stack
 
 	dec2	argc
 
-buildalias	lda	argc
+bldals	lda	argc
 	beq	setit
 
 	pei	(arg+2)
@@ -204,7 +203,7 @@ buildalias	lda	argc
 
 	dec	argc
 	add2	argv,#4,argv
-	bra	buildalias
+	bra	bldals
 
 setit	pei	(arg+2)
 	pei	(arg)
@@ -213,7 +212,7 @@ setit	pei	(arg+2)
 	pei	(arg)
 	jsl	nullfree
 
-exit	unlock AliasMutex
+exit	unlock AliMtx
 	lda	space
 	sta	end-3
 	lda	space+1
@@ -244,14 +243,14 @@ spacestr	dc	c' ',h'00'
 
 unalias	START
 
-	using	AliasData
+	using	AliData
 
 status	equ	0
 space	equ	status+2
 
 	subroutine (4:argv,2:argc),space
 
-	lock	AliasMutex
+	lock	AliMtx
 
 	stz	status
 
@@ -274,11 +273,11 @@ loop	add2	argv,#4,argv
 	pha
 	lda	[argv]
 	pha
-	jsl	removealias
+	jsl	rmvAls
 
 	bra	loop
 
-done	unlock AliasMutex
+done	unlock AliMtx
 	return 2:status
 
 Usage	dc	c'Usage: unalias name ...',h'0d00'
@@ -291,18 +290,18 @@ Usage	dc	c'Usage: unalias name ...',h'0d00'
 ;
 ;=========================================================================
 
-initalias	START
+initals	START
 
-	using	AliasData
+	using	AliData
 
-; Set all entries in AliasTable to 0
+; Set all entries in AliTbl to 0
 
 	lda	#0
 	ldy	#VTABSIZE
 	tax
-yahaha	sta	AliasTable,x
+yahaha	sta	AliTbl,x
 	inx2
-	sta	AliasTable,x
+	sta	AliTbl,x
 	inx2
 	dey	
 	bne	yahaha
@@ -317,7 +316,7 @@ yahaha	sta	AliasTable,x
 ;
 ;=========================================================================
 
-expandalias	START
+expAlias	START
 	
 outbuf	equ	0
 sub	equ	outbuf+4
@@ -330,18 +329,18 @@ space	equ	bsflag+2
 	
 	subroutine (4:cmd),space
 
-	ph4	maxline_size	Allocate result buffer.
+	ph4	mxlnsz	Allocate result buffer.
 	~NEW
 	stx	buf+2
 	sta	buf
 	stx	outbuf+2	Initialize "next
 	sta	outbuf	 output char" pointer.
 	clc		Calculate end of buffer-1;
-	adc	maxline_size	 note: it's allocated to be in one
+	adc	mxlnsz	 note: it's allocated to be in one
 	dec	a	  bank, so only need low-order word.
 	sta	bufend
 
-	jsl	allocmaxline	Allocate buffer for word that
+	jsl	alcMxln	Allocate buffer for word that
 	stx	word+2	 might be an alias.
 	sta	word
 
@@ -351,11 +350,11 @@ space	equ	bsflag+2
 ;
 ; Eat leading space and tabs (just in case expanding a variable added them!)
 ;
-	bra	eatleader
+	bra	eatldr
 bump_cmd	inc	cmd
-eatleader	lda	[cmd]
+eatldr	lda	[cmd]
 	and	#$FF
-	jeq	stringend
+	jeq	strend
 	cmp	#' '
 	beq	bump_cmd
 	cmp	#9
@@ -365,12 +364,12 @@ eatleader	lda	[cmd]
 ;
 	short	a
 	ldy	#0
-	bra	makeword1	First time, already checked 0, ' ', 9
+	bra	mkword1	First time, already checked 0, ' ', 9
 makeword	lda	[cmd],y
 	if2	@a,eq,#0,gotword
 	if2	@a,eq,#' ',gotword
 	if2	@a,eq,#9,gotword
-makeword1	if2	@a,eq,#';',gotword
+mkword1	if2	@a,eq,#';',gotword
 	if2	@a,eq,#'&',gotword
 	if2	@a,eq,#'|',gotword
 	if2	@a,eq,#'>',gotword
@@ -391,7 +390,7 @@ gotword	lda	#0
 	phy
 	pei	(word+2)
 	pei	(word)
-	jsl	findalias
+	jsl	fndAlias
 	sta	sub
 	stx	sub+2
 	ply
@@ -450,27 +449,27 @@ go8bits	short	a
 	stz	bsflag
 	bra	next
 
-testq	if2	@a,eq,#"'",singquoter
-	if2	@a,eq,#'"',doubquoter
+testq	if2	@a,eq,#"'",snglqtr
+	if2	@a,eq,#'"',dblqtr
 ;
 ; Remaining characters aren't special if we are in a quoted string
 ;
 	ldx	inquote
 	bne	next
-	if2	@a,eq,#';',nextalias
-	if2	@a,eq,#'&',nextalias
-	if2	@a,eq,#'|',nextalias
+	if2	@a,eq,#';',nxtals
+	if2	@a,eq,#'&',nxtals
+	if2	@a,eq,#'|',nxtals
 	if2	@a,ne,#'\',next
 ;
 ; "\" found
 ;
-backstabber	sta	bsflag
+bkstab	sta	bsflag
 	bra	next
 
 ;
 ; "'" found
 ;
-singquoter	bit	inquote	Check "in quotes" flag.
+snglqtr	bit	inquote	Check "in quotes" flag.
 	bvs	next	In double quotes. Keep looking.
 	lda	inquote	Toggle single quote
 	eor	#$8000
@@ -479,7 +478,7 @@ singquoter	bit	inquote	Check "in quotes" flag.
 ;
 ; '"' found
 ;
-doubquoter	bit	inquote	Check "in quotes" flag.
+dblqtr	bit	inquote	Check "in quotes" flag.
 	bmi	next	In single quotes. Keep looking.
 	lda	inquote	Toggle single quote
 	eor	#$4000
@@ -489,12 +488,12 @@ doubquoter	bit	inquote	Check "in quotes" flag.
 ;
 ; ";", "|", or "&" found: it's another command
 ;
-nextalias	jmp	eatleader
+nxtals	jmp	eatldr
 
 ;
 ; Terminate string and exit
 ;
-stringend	short	a
+strend	short	a
 	sta	[outbuf]
 	long	a
 ;
@@ -502,7 +501,7 @@ stringend	short	a
 ;
 done	ldx	word+2
 	lda	word
-	jsl	freemaxline
+	jsl	frmaxln
 
 	return 4:buf
 
@@ -535,24 +534,24 @@ ovferr	dc	c'gsh: Alias overflowed line limit',h'0d00'
 
 addalias	START
 	
-	using	AliasData
+	using	AliData
 
 tmp	equ	0
 ptr	equ	tmp+4
 hashval	equ	ptr+4
 space	equ	hashval+4
 
-	subroutine (4:aliasname,4:aliasval),space
+	subroutine (4:aliasnm,4:aliasval),space
 
-	pei	(aliasname+2)
-	pei	(aliasname)
-	jsl	hashalias
+	pei	(aliasnm+2)
+	pei	(aliasnm)
+	jsl	hashals
 	sta	hashval
 	
 	tax	
-	lda	AliasTable,x
+	lda	AliTbl,x
 	sta	ptr
-	lda	AliasTable+2,x
+	lda	AliTbl+2,x
 	sta	ptr+2
 
 search	lda	ptr
@@ -565,8 +564,8 @@ search	lda	ptr
 	lda	[ptr],y
 	pha
 	phx
-	pei	(aliasname+2)
-	pei	(aliasname)
+	pei	(aliasnm+2)
+	pei	(aliasnm)
 	jsr	cmpcstr
 	jeq	replace
 	ldy	#2
@@ -611,12 +610,12 @@ notfound	ph4	#4*3
 	stx	ptr+2
 	ldy	#2
 	ldx	hashval
-	lda	AliasTable,x
+	lda	AliTbl,x
 	sta	[ptr]
-	lda	AliasTable+2,x
+	lda	AliTbl+2,x
 	sta	[ptr],y
-	pei	(aliasname+2)
-	pei	(aliasname)
+	pei	(aliasnm+2)
+	pei	(aliasnm)
 	jsr	cstrlen
 	inc	a
 	pea	0
@@ -629,8 +628,8 @@ notfound	ph4	#4*3
 	ldy	#4+2
 	txa
 	sta	[ptr],y
-	pei	(aliasname+2)
-	pei	(aliasname)
+	pei	(aliasnm+2)
+	pei	(aliasnm)
 	pei	(tmp+2)
 	pei	(tmp)
 	jsr	copycstr
@@ -655,9 +654,9 @@ notfound	ph4	#4*3
 	jsr	copycstr
 	ldx	hashval
 	lda	ptr
-	sta	AliasTable,x
+	sta	AliTbl,x
 	lda	ptr+2
-	sta	AliasTable+2,x
+	sta	AliTbl+2,x
 		        
 done	return
 
@@ -669,32 +668,32 @@ done	return
 ;
 ;=========================================================================
 
-removealias	START
+rmvAls	START
 
-	using	AliasData
+	using	AliData
 
 oldptr	equ	0
 ptr	equ	oldptr+4
 space	equ	ptr+4
 
-	subroutine (4:aliasname),space
+	subroutine (4:aliasnm),space
 
-	pei	(aliasname+2)
-	pei	(aliasname)
-	jsl	hashalias
+	pei	(aliasnm+2)
+	pei	(aliasnm)
+	jsl	hashals
 	tax
-	lda	AliasTable,x
+	lda	AliTbl,x
 	sta	ptr
-	lda	AliasTable+2,x
+	lda	AliTbl+2,x
 	sta	ptr+2
-	lda	#^Aliastable
+	lda	#^AliTbl
 	sta	oldptr+2
 	clc
 	txa
-	adc	#AliasTable
+	adc	#AliTbl
 	sta	oldptr
 
-searchloop	ora2	ptr,ptr+2,@a
+srchloop	ora2	ptr,ptr+2,@a
 	beq	done
 
 	ldy	#4+2
@@ -703,8 +702,8 @@ searchloop	ora2	ptr,ptr+2,@a
 	ldy	#4
 	lda	[ptr],y
 	pha
-	pei	(aliasname+2)
-	pei	(aliasname)
+	pei	(aliasnm+2)
+	pei	(aliasnm)
 	jsr	cmpcstr
 	beq	foundit
 	mv4	ptr,oldptr
@@ -714,7 +713,7 @@ searchloop	ora2	ptr,ptr+2,@a
 	lda	[ptr]
 	sta	ptr
 	stx	ptr+2
-	bra	searchloop
+	bra	srchloop
 
 foundit	ldy	#2
 	lda	[ptr],y
@@ -749,29 +748,29 @@ done	return
 ;
 ;=========================================================================
 
-findalias	START
+fndAlias	START
 
-	using	AliasData
+	using	AliData
 
 ptr	equ	0
 value	equ	ptr+4
 space	equ	value+4
 
-	subroutine (4:aliasname),space
+	subroutine (4:aliasnm),space
 
 	stz	value
 	stz	value+2
 
-	pei	(aliasname+2)
-	pei	(aliasname)
-	jsl	hashalias
+	pei	(aliasnm+2)
+	pei	(aliasnm)
+	jsl	hashals
 	tax
-	lda	AliasTable,x
+	lda	AliTbl,x
 	sta	ptr
-	lda	AliasTable+2,x
+	lda	AliTbl+2,x
 	sta	ptr+2
 
-searchloop	ora2	ptr,ptr+2,@a
+srchloop	ora2	ptr,ptr+2,@a
 	beq	done
 
 	ldy	#4+2
@@ -780,8 +779,8 @@ searchloop	ora2	ptr,ptr+2,@a
 	ldy	#4
 	lda	[ptr],y
 	pha
-	pei	(aliasname+2)
-	pei	(aliasname)
+	pei	(aliasnm+2)
+	pei	(aliasnm)
 	jsr	cmpcstr
 	beq	foundit
 	ldy	#2
@@ -790,7 +789,7 @@ searchloop	ora2	ptr,ptr+2,@a
 	lda	[ptr]
 	sta	ptr
 	stx	ptr+2
-	bra	searchloop
+	bra	srchloop
 
 foundit	ldy	#8
 	lda	[ptr],y
@@ -809,12 +808,12 @@ done	return 4:value
 ;
 ;=========================================================================
 
-startalias	START
+strtals	START
 
-	using	AliasData
+	using	AliData
 
 	stz	AliasNum
-	mv4	AliasTable,AliasPtr
+	mv4	AliTbl,AliasPtr
 	rtl
 
 	END
@@ -825,9 +824,9 @@ startalias	START
 ;
 ;=========================================================================
 
-nextalias	START
+nxtals	START
 
-	using	AliasData
+	using	AliData
 
 value	equ	0
 space	equ	value+4
@@ -844,9 +843,9 @@ puke	if2	AliasNum,cs,#VTABSIZE,done
 	lda	AliasNum
 	asl2	a
 	tax
-	lda	AliasTable,x
+	lda	AliTbl,x
 	sta	AliasPtr
-	lda	AliasTable+2,x
+	lda	AliTbl+2,x
 	sta	AliasPtr+2
 	bra	puke
 
@@ -867,7 +866,7 @@ done	return 4:value
 ;
 ;=========================================================================
 
-hashalias	PRIVATE
+hashals	PRIVATE
 
 hashval	equ	0
 space	equ	hashval+2
@@ -902,12 +901,12 @@ done	UDivide (hashval,#VTABSIZE),(@a,@a)
 ;
 ;=========================================================================
 
-AliasData	DATA
+AliData	DATA
 
 AliasNum	dc	i2'0'
 AliasPtr	dc	i4'0'
-AliasMutex	key
+AliMtx	key
 
-AliasTable	ds	VTABSIZE*4
+AliTbl	ds	VTABSIZE*4
 
 	END	               

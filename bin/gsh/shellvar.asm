@@ -24,7 +24,7 @@
 *
 * Interfaces defined in this file:
 *
-* updatevars	subroutine (4:var,2:flag),space	;flag 1: set, 0: unset
+* updvars	subroutine (4:var,2:flag),space	;flag 1: set, 0: unset
 * InitVars	jsr without any parameters
 *
 * Remainder are interfaces to builtin commands with interface
@@ -36,12 +36,11 @@
 *
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/shellvar.mac
+	mcopy gsh.mac
 
-dummyshellvar	start		; ends up in .root
+dmysvr	start		; ends up in .root
 	end
 
-	setcom 60
 
 
 **************************************************************************
@@ -123,10 +122,10 @@ startcmd	anop
 	lda	[arg]
 	and	#$FF
 	cmp	#'-'
-	beq	showusage
+	beq	shwusge
 	jmp	skipvar
 
-showusage	ldx	#^Usage
+shwusge	ldx	#^Usage
 	lda	#Usage
 	jsr	errputs
 	inc	status	Return status = 1.
@@ -142,11 +141,11 @@ showvars	anop
 	stx	varbuf+2
 	ora	varbuf+2
 	beq	svwhoops
-	jsl	allocmaxline	Allocate
+	jsl	alcMxln	Allocate
 	sta	valbuf	 result buffer.
 	stx	valbuf+2
 	ora	valbuf+2	If memory was not allocated,
-	bne	startshow
+	bne	strtshow
 	ph4	varbuf
 	jsl	nullfree
 svwhoops	ld2	$201,ErrError		report memory error
@@ -154,8 +153,8 @@ svwhoops	ld2	$201,ErrError		report memory error
 	inc	status	         set return status = 1
 	jmp	exit		  and exit.
 
-startshow	anop
-	lda	maxline_size	Store maxline_size - 2
+strtshow	anop
+	lda	mxlnsz	Store mxlnsz - 2
 	dec	a                   in result buffer
 	dec	a                     (save 2 bytes
 	sta	[valbuf]	    at end for 0).
@@ -180,9 +179,9 @@ showloop	ReadIndexedGS idxParm	Get next indexed variable.
 	sta	[varbuf],y
 	long	a
 
-	ldx	idxExport	X = variable's export flag.
+	ldx	idxExpt	X = variable's export flag.
 	ldy	#4	Y = offset in varname to text.
-	jsr	prnameval	Print varname and varval.
+	jsr	prnmval	Print varname and varval.
 
 bumpindx	inc	idxIndex	Bump index number.
 	bra	showloop	Handle the next env variable.
@@ -196,7 +195,7 @@ showdone	anop
 	jsl	nullfree	Free the name buffer.
 	ldx	valbuf+2
 	lda	valbuf
-	jsl	freemaxline	Free the value buffer.
+	jsl	frmaxln	Free the value buffer.
 	jmp	exit	Exit.
 
 
@@ -217,18 +216,18 @@ setvar	lock	setmutex
 	ldy	#0
 chkeql	lda	[arg],y
 	and	#$FF
-	beq	orcastyle	No "=": user ORCA-style parsing
+	beq	orcasty	No "=": user ORCA-style parsing
 	cmp	#'='	"=" found: use UNIX-style parsing
-	jeq	unixstyle
+	jeq	unixsty
 	iny
 	bra	chkeql
 
 ;
 ; No "=" found in second argument. Either ORCA style or a single var show.
 ;
-orcastyle	add2	argv,#4,argv	Point to next argument.
+orcasty	add2	argv,#4,argv	Point to next argument.
 	dec	argc
-	jeq	showonevar	If only one arg, it's a single show.
+	jeq	shwonev	If only one arg, it's a single show.
 
 	ldy	#2
 	lda	[argv],y
@@ -241,7 +240,7 @@ orcastyle	add2	argv,#4,argv	Point to next argument.
 ; UNIX style set. Uses two arguments separated by "=".
 ; When we get here, Y-reg = index of "=" character.
 ;
-unixstyle	cpy	#0
+unixsty	cpy	#0
 	bne	unix0
 	ldx	#^error1
 	lda	#error1		Print error message:
@@ -271,12 +270,12 @@ set1	jsr	c2gsstr	Convert value to GS/OS string.
 	lda	exflag	Set export flag in parameter block.
 	sta	RSexport
 		
-	SetGS ReadSetVar	Set variable value & export flag.
+	SetGS RdSetVar	Set variable value & export flag.
 
 	pei	(arg+2)
 	pei	(arg)
 	pea	1
-	jsl	updatevars	Update special shell flags.
+	jsl	updvars	Update special shell flags.
 
 	ph4	RSname
 	jsl	nullfree	Free name buffer.
@@ -291,16 +290,16 @@ skipvar	add2	argv,#4,argv
 ;
 ; Display the value of a single variable
 ;
-showonevar	anop
+shwonev	anop
 
-	jsl	allocmaxline	Allocate
+	jsl	alcMxln	Allocate
 	sta	valbuf	 result buffer.
 	sta	RSvalue
 	stx	valbuf+2
 	stx	RSvalue+2
 	ora	valbuf+2	Check for memory error.
 	jeq	nextvar
-	lda	maxline_size	Store maxline_size - 2
+	lda	mxlnsz	Store mxlnsz - 2
 	dec	a                   in result buffer
 	dec	a                     (save 2 bytes
 	sta	[valbuf]	    at end for 0).
@@ -315,7 +314,7 @@ showonevar	anop
 		  
 	stz	RSexport
 
-	ReadVariableGS ReadSetVar 	Read value of variable.
+	ReadVariableGS RdSetVar 	Read value of variable.
 
 	lda	RSexport	If export flag is set, it's defined.
 	bne	def
@@ -333,12 +332,12 @@ notdef	ldx	#^error2		'Variable not defined'
 
 def	ldx	RSexport	X = export flag.
 	ldy	#2	Y = offset in varname to text.
-	jsr	prnameval	Print varname and varval.
+	jsr	prnmval	Print varname and varval.
 
 doneone	anop
 	ldx	valbuf+2
 	lda	valbuf
-	jsl	freemaxline	Free valbuf.
+	jsl	frmaxln	Free valbuf.
 	ph4	varbuf
 	jsl	nullfree	Free varbuf.
 
@@ -363,10 +362,10 @@ exit	ldy	status
 ; Utility subroutine to print name and value in varname and varval
 ;  Call with X = export flag, Y = index to text in varbuf.
 ;
-prnameval	anop
+prnmval	anop
 	phy		Hold name length offset on stack.
 	cpx	#0	If export flag is set,
-	bne	needshift	 go upshift the name.
+	bne	ndshift	 go upshift the name.
 	ldx	exflag	If we're listing all vars, it's OK.
 	beq	nameok
 	ply		Otherwise, remove length offset
@@ -374,7 +373,7 @@ prnameval	anop
 ;
 ; Variable is exported: need to upshift its name:
 ;
-needshift	short	a	Switch to 1-byte memory access.
+ndshift	short	a	Switch to 1-byte memory access.
 
 upper	lda	[varbuf],y	Get next character.
 	beq	golong	If 0, at end.
@@ -425,7 +424,7 @@ goback	rts		Return to caller
 
 
 ; Parameter block for shell ReadVariableGS/SetGS calls
-ReadSetVar	anop
+RdSetVar	anop
 	dc	i2'3'	pCount
 RSname	ds	4	Name (pointer to GS/OS string)
 RSvalue	ds	4	Value (ptr to result buf or string)
@@ -437,7 +436,7 @@ idxParm	anop
 idxName	ds	4	Name (pointer to GS/OS result buf)
 idxValue	ds	4	Value (pointer to GS/OS result buf)
 idxIndex	ds	2	Index number
-idxExport	ds	2	Export flag
+idxExpt	ds	2	Export flag
 
 
 setmutex	key
@@ -571,12 +570,12 @@ loop	anop
 	lda	[argv]
 	pha
 	jsr	c2gsstr
-	sta	UnsetName	Store result in
-	stx	UnsetName+2	 UnsetVariableGS param block.
+	sta	UnsetNm	Store result in
+	stx	UnsetNm+2	 UnsetVariableGS param block.
 
 	UnsetVariableGS UnsetPB	Unset the named parameter.
 
-	ph4	UnsetName	Deallocate the GS/OS string.
+	ph4	UnsetNm	Deallocate the GS/OS string.
 	jsl	nullfree
 
 	ldy	#2	Update special shell flags.
@@ -585,7 +584,7 @@ loop	anop
 	lda	[argv]
 	pha
 	pea	0
-	jsl	updatevars
+	jsl	updvars
 
 	unlock unsmutex
 
@@ -600,7 +599,7 @@ unsmutex	key
 ;
 UnsetPB	anop
 	dc	i2'2'	pCount
-UnsetName	ds	4	Name  (pointer to GS/OS string)
+UnsetNm	ds	4	Name  (pointer to GS/OS string)
 
 Usage	dc	c'Usage: unset var ...',h'0d00'
 
@@ -612,7 +611,7 @@ Usage	dc	c'Usage: unset var ...',h'0d00'
 ;
 ;====================================================================
 
-updatevars	START
+updvars	START
 
 	using	vardata
 
@@ -622,7 +621,7 @@ space	equ	0
 
 	pei	(var+2)
 	pei	(var)
-	ph4	#varechoname
+	ph4	#varechn
 	jsr	cmpdcstr
 	bne	up2
 	lda	flag
@@ -631,47 +630,47 @@ space	equ	0
 
 up2	pei	(var+2)
 	pei	(var)
-	ph4	#direxecname
+	ph4	#dirxnm
 	jsr	cmpdcstr
 	bne	up3
 	lda	flag
-	sta	vardirexec
+	sta	vardirx
 	jmp	done	
 
 up3	pei	(var+2)
 	pei	(var)
-	ph4	#newlinename
+	ph4	#nwlnnm
 	jsr	cmpdcstr
 	bne	up4
 	lda	flag
-	sta	varnewline
+	sta	varnewln
 	jmp	done	
 
 up4	pei	(var+2)
 	pei	(var)
-	ph4	#noglobname
+	ph4	#noglbnm
 	jsr	cmpdcstr
 	bne	up5
 	lda	flag
-	sta	varnoglob
+	sta	varnogl
 	jmp	done	
 
 up5	pei	(var+2)
 	pei	(var)
-	ph4	#nobeepname
+	ph4	#nbepnm
 	jsr	cmpdcstr
 	bne	up6
 	lda	flag
-	sta	varnobeep
+	sta	varnobt
 	jmp	done	
 
 up6	pei	(var+2)
 	pei	(var)
-	ph4	#pushdsilname
+	ph4	#psdsnam
 	jsr	cmpdcstr
 	bne	up7
 	lda	flag
-	sta	varpushdsil
+	sta	varpsdsl
 	jmp	done	
 
 up7	pei	(var+2)
@@ -684,26 +683,26 @@ up7	pei	(var+2)
 
 up8	pei	(var+2)
 	pei	(var)
-	ph4	#ignorename
+	ph4	#ignrnm
 	jsr	cmpdcstr
 	bne	up9
 	lda	flag
-	sta	varignore
+	sta	varignr
 	jmp	done	
 
 up9	anop	
 	pei	(var+2)
 	pei	(var)
-	ph4	#oldpmodename
+	ph4	#oldpmnm
 	jsr	cmpdcstr
 	bne	up10
 	lda	flag
-	sta	varoldpmode
+	sta	varopm
 	jmp	done	
 
 up10	pei	(var+2)
 	pei	(var)
-	ph4	#varechoxname
+	ph4	#varechxn
 	jsr	cmpdcstr
 	bne	up11
 	lda	flag
@@ -712,11 +711,11 @@ up10	pei	(var+2)
 
 up11	pei	(var+2)
 	pei	(var)
-	ph4	#keepquotename
+	ph4	#kpqtnm
 	jsr	cmpdcstr
 	bne	done
 	lda	flag
-	sta	varkeepquote
+	sta	varkpqt
 		     
 done	return      
 
@@ -743,17 +742,17 @@ loop	phx		Hold onto value table index.
 	sta	RVname	 in ReadVariableGS parameter block.
 	lda	evstrtbl+2,x
 	sta	RVname+2
-	stz	RVexpflag	Clear export flag.
+	stz	RVxflag	Clear export flag.
 
 	ReadVariableGS ReadVar	Read the value of the named variable.
 
 	plx		Restore value table index.
 	lda	RBlen	If variable length != 0
 	bne	set	 it is set.
-	lda	RVexpflag	It could be exported with len = 0.
+	lda	RVxflag	It could be exported with len = 0.
 set	sta	evvaltbl,x	Save flag in variable.
 	inx2		Bump index.
-	cpx	evvaltblsz	If not at end,
+	cpx	evvltsz	If not at end,
 	bcc	loop	 stay in loop.
 
 	unlock gvmutex	Mutual exclusion unlock.
@@ -766,38 +765,38 @@ gvmutex	key		Key for mutual exclusion.
 ReadVar	anop
 	dc	i2'3'	pCount
 RVname	ds	4	Pointer to name
-RVresult	dc	a4'ResultBuf'	GS/OS Output buffer ptr
-RVexpflag	ds	2	export flag
+RVresult	dc	a4'ResBuf'	GS/OS Output buffer ptr
+RVxflag	ds	2	export flag
 
 ; GS/OS result buffer for testing whether a variable is defined.
 ; It doesn't have enough room for > 1 byte to be returned, but we
 ; only need to get the length of the value.
-ResultBuf	dc	i2'5'	Only five bytes total.
+ResBuf	dc	i2'5'	Only five bytes total.
 RBlen	ds	2	Value's length returned here.
 	ds	1	Only 1 byte for value.
 
 ; GS/OS strings
 echostr	gsstr	'echo'
-nodirexecstr	gsstr	'nodirexec'
-nonewlinestr	gsstr	'nonewline'
-noglobstr	gsstr	'noglob'
-nobeepstr	gsstr	'nobeep'
-pushdsilentstr	gsstr	'pushdsilent'
+ndxstr	gsstr	'nodirexec'
+nonwlns	gsstr	'nonewline'
+noglbstr	gsstr	'noglob'
+nbepstr	gsstr	'nobeep'
+psdsstr	gsstr	'pushdsilent'
 termstr	gsstr	'term'
-ignoreofstr	gsstr	'ignoreeof'
-oldpathmodestr	gsstr	'oldpathmode'
+ignofs	gsstr	'ignoreeof'
+oldpms	gsstr	'oldpathmode'
 
 ; Table of GS/OS string addresses
 evstrtbl	anop
 	dc	a4'echostr'
-	dc	a4'nodirexecstr'
-	dc	a4'nonewlinestr'
-	dc	a4'noglobstr'
-	dc	a4'nobeepstr'
-	dc	a4'pushdsilentstr'
+	dc	a4'ndxstr'
+	dc	a4'nonwlns'
+	dc	a4'noglbstr'
+	dc	a4'nbepstr'
+	dc	a4'psdsstr'
 	dc	a4'termstr'
-	dc	a4'ignoreofstr'
-	dc	a4'oldpathmodestr'
+	dc	a4'ignofs'
+	dc	a4'oldpms'
 
 	END
 
@@ -809,31 +808,31 @@ evstrtbl	anop
 
 vardata	DATA
 
-varechoname	dc	c'echo',h'00'
-direxecname	dc	c'nodirexec',h'00'
-newlinename	dc	c'nonewline',h'00'
-noglobname	dc	c'noglob',h'00'
-nobeepname	dc	c'nobeep',h'00'
-pushdsilname	dc	c'pushdsilent',h'00'
+varechn	dc	c'echo',h'00'
+dirxnm	dc	c'nodirexec',h'00'
+nwlnnm	dc	c'nonewline',h'00'
+noglbnm	dc	c'noglob',h'00'
+nbepnm	dc	c'nobeep',h'00'
+psdsnam	dc	c'pushdsilent',h'00'
 termname	dc	c'term',h'00'
-ignorename	dc	c'ignoreeof',h'00'
-oldpmodename	dc	c'oldpathmode',h'00'
-varechoxname	dc	c'echox',h'00'
-keepquotename	dc	c'keepquote',h'00'
+ignrnm	dc	c'ignoreeof',h'00'
+oldpmnm	dc	c'oldpathmode',h'00'
+varechxn	dc	c'echox',h'00'
+kpqtnm	dc	c'keepquote',h'00'
 
 ; Table of flag values (must be in same order as string addresses)
 evvaltbl	anop
 varecho	dc	i2'0'
-vardirexec	dc	i2'0'
-varnewline	dc	i2'0'
-varnoglob	dc	i2'0'
-varnobeep	dc	i2'0'
-varpushdsil	dc	i2'0'
-varignore	dc	i2'0'
-varoldpmode	dc	i2'0'
+vardirx	dc	i2'0'
+varnewln	dc	i2'0'
+varnogl	dc	i2'0'
+varnobt	dc	i2'0'
+varpsdsl	dc	i2'0'
+varignr	dc	i2'0'
+varopm	dc	i2'0'
 varechox	dc	i2'0'
-varkeepquote	dc	i2'0'
+varkpqt	dc	i2'0'
 
-evvaltblsz	dc	i2'evvaltblsz-evvaltbl'	# bytes in table
+evvltsz	dc	i2'evvltsz-evvaltbl'	# bytes in table
 
 	END

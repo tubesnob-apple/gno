@@ -25,15 +25,15 @@
 *
 *   pwait	no parameters			wait for forground
 *
-*   jobkiller	no parameters			kill all jobs
+*   jobkill	no parameters			kill all jobs
 *
 *   palloc	subroutine (2:pid,2:bg,4:cmd)		alloc/fill proc struc
 *
-*   pallocpipe	subroutine (2:pid,2:bg,4:cmd)		palloc+append to pipe
+*   palcpipe	subroutine (2:pid,2:bg,4:cmd)		palloc+append to pipe
 *
 *   pchild	subroutine (2:code,2:signum)		handle SIGCHLD
 *
-*   removejentry subroutine (2:pid)			Remove a job entry
+*   rmvJent subroutine (2:pid)			Remove a job entry
 *	Return:  A-reg = 1 if found, 0 if not found
 *
 *   mkjobcur	jsr with 1 address parameter
@@ -55,12 +55,11 @@
 *
 **************************************************************************
 
-	mcopy	/obj/gno/bin/gsh/jobs.mac
+	mcopy gsh.mac
 
-dummyjobs	start		; ends up in .root
+dmyjobs	start		; ends up in .root
 	end
 
-	setcom 60
 
 WSTOPPED	gequ	$7F
 
@@ -77,14 +76,14 @@ SIGTTOU	gequ	22
 ; process structure used in job control
 ;
 p_next	gequ	0	;next in global proclist
-p_friends	gequ	p_next+4	;next in job list
-p_flags	gequ	p_friends+4	;various job status flags
+p_frnds	gequ	p_next+4	;next in job list
+p_flags	gequ	p_frnds+4	;various job status flags
 p_reason	gequ	p_flags+2	;reason for entering this state
 p_index	gequ	p_reason+2	;job index
 p_pid	gequ	p_index+2	;process id
 p_jobid	gequ	p_pid+2	;process id of job leader
-p_command	gequ	p_jobid+2	;command (how job invoked)
-p_space	gequ	p_command+4	;space for structure
+p_cmd	gequ	p_jobid+2	;command (how job invoked)
+p_space	gequ	p_cmd+4	;space for structure
 ;
 ; p_flags values
 ;
@@ -92,7 +91,7 @@ PRUNNING	gequ	%0000000000000001	;running
 PSTOPPED	gequ	%0000000000000010	;stopped
 PNEXITED	gequ	%0000000000000100	;normally exited
 PAEXITED	gequ	%0000000000001000	;abnormally exited
-PSIGNALED	gequ	%0000000000010000	;terminated by signal != SIGINT
+PSIGNLD	gequ	%0000000000010000	;terminated by signal != SIGINT
 PNOTIFY	gequ	%0000000000100000	;notify async when done
 PTIME	gequ	%0000000001000000	;job times should be printed
 PAWAITED	gequ	%0000000010000000	;top level is waiting for it
@@ -100,10 +99,10 @@ PFOREGND	gequ	%0000000100000000	;started in shells pgrp
 PDUMPED	gequ	%0000001000000000	;process dumped core
 PDIAG	gequ	%0000010000000000	;diagnostic output also piped out
 PPOU	gequ	%0000100000000000	;piped output
-PREPORTED	gequ	%0001000000000000	;status has been reported
-PINTERRUPTED	gequ	%0010000000000000	;job stopped via interrupt signal
+PRPTD	gequ	%0001000000000000	;status has been reported
+PINTRPT	gequ	%0010000000000000	;job stopped via interrupt signal
 PPTIME	gequ	%0100000000000000	;time individual process
-PNEEDNOTE	gequ	%1000000000000000	;notify as soon as practicle
+PNDNOTE	gequ	%1000000000000000	;notify as soon as practicle
 
 ;====================================================================
 ;
@@ -147,7 +146,7 @@ waitloop	anop
 	sta	oldsig	Save the previous signal mask.
 	stx	oldsig+2
 
-	lock	plistmutex	Ensure list doesn't change.
+	lock	plistmtx	Ensure list doesn't change.
 
 	lda	pjoblist	Start pointer at head of job list.
 	ldx	pjoblist+2
@@ -170,7 +169,7 @@ loop	sta	p	Save job entry pointer in p.
 ; Check if the process is actually running..if it is not, report to the
 ; user that a stale process was detected and remove it from job control.
 
-	unlock plistmutex
+	unlock plistmtx
 
 	sigsetmask oldsig	Restore previous signal mask.
 	sigpause #0	Wait for a signal to arrive.
@@ -187,7 +186,7 @@ getnext	ldy	#p_next+2	Get pointer to next entry
 ;
 ; Arrive here when p == 0
 ;
-done	unlock plistmutex
+done	unlock plistmtx
 	sigsetmask oldsig	Restore previous signal mask.
 
 	pld		Reset direct page and
@@ -202,11 +201,11 @@ done	unlock plistmutex
 
 ;====================================================================
 ;
-; jobkiller - kills all jobs
+; jobkill - kills all jobs
 ;
 ;====================================================================
 
-jobkiller	START
+jobkill	START
 
 	using	pdata
 
@@ -257,7 +256,7 @@ end	equ	pid+2
 	phd
 	tcd
 
-	lock	plistmutex	Ensure list doesn't change.
+	lock	plistmtx	Ensure list doesn't change.
 
 	ldx	#%0000000000001000		Block SIGCHILD signals.
 	lda	#%0000000000000000
@@ -302,22 +301,22 @@ bg01	ldy	#p_flags
 	stx	pcurrent+2
 	sty	pcurrent
 	bra	in02
-in01	lda	pprevious
-	ora	pprevious+2
+in01	lda	pprevis
+	ora	pprevis+2
 	bne	in02
-	stx	pprevious+2
-	sty	pprevious
+	stx	pprevis+2
+	sty	pprevis
 in02	anop
 
-	ldy	#p_friends
+	ldy	#p_frnds
 	lda	#0
 	sta	[pp],y
-	ldy	#p_friends+2
+	ldy	#p_frnds+2
 	sta	[pp],y
 
-	inc	pmaxindex	;set job number
+	inc	pmaxidx	;set job number
 	ldy	#p_index
-	lda	pmaxindex
+	lda	pmaxidx
 	sta	[pp],y
 
 	pei	(cmd+2)
@@ -331,14 +330,14 @@ in02	anop
 	pei	(cmd)
 	phx
 	pha
-	ldy	#p_command	;set command
+	ldy	#p_cmd	;set command
 	sta	[pp],y
 	txa
-	ldy	#p_command+2
+	ldy	#p_cmd+2
 	sta	[pp],y
 	jsr	copycstr
 
-	unlock plistmutex
+	unlock plistmtx
 
 	lda	bg
 	beq	noprint
@@ -369,12 +368,12 @@ noprint	anop
 
 ;====================================================================
 ;
-; pallocpipe - allocate a process structure and fill it up and append
+; palcpipe - allocate a process structure and fill it up and append
 ; to previous command pipeline.
 ;
 ;====================================================================
 
-pallocpipe	START
+palcpipe	START
 	
 	using	pdata
 	using	global
@@ -396,7 +395,7 @@ end	equ	pid+2
 	phd
 	tcd
 
-	lock	plistmutex	Ensure list doesn't change.
+	lock	plistmtx	Ensure list doesn't change.
 
 	ldx	#%0000000000001000
 	lda	#%0000000000000000
@@ -428,9 +427,9 @@ bg01	ldy	#p_flags
 	sta	[pp],y
 	ldy	#p_next+2
 	sta	[pp],y
-	ldy	#p_friends
+	ldy	#p_frnds
 	sta	[pp],y
-	ldy	#p_friends+2
+	ldy	#p_frnds+2
 	sta	[pp],y
 
 	pei	(cmd+2)
@@ -444,10 +443,10 @@ bg01	ldy	#p_flags
 	pei	(cmd)
 	phx
 	pha
-	ldy	#p_command	;set command
+	ldy	#p_cmd	;set command
 	sta	[pp],y
 	txa
-	ldy	#p_command+2
+	ldy	#p_cmd+2
 	sta	[pp],y
 	jsr	copycstr
 ;
@@ -463,25 +462,25 @@ loop	sta	p
 	ldy	#p_jobid
 	lda	[pp],y
 	sta	[p],y	
-	ldy	#p_friends
+	ldy	#p_frnds
 	lda	[p],y
-	ldy	#p_friends+2
+	ldy	#p_frnds+2
 	ora	[p],y
 	beq	addit
 	lda	[p],y
 	tax
-	ldy	#p_friends
+	ldy	#p_frnds
 	lda	[p],y
 	bra	loop
 
-addit	ldy	#p_friends
+addit	ldy	#p_frnds
 	lda	pp
 	sta	[p],y
-	ldy	#p_friends+2
+	ldy	#p_frnds+2
 	lda	pp+2
 	sta	[p],y
 
-	unlock plistmutex
+	unlock plistmtx
 
 	case	on
 	jsl	sigsetmask	
@@ -512,8 +511,8 @@ pchild	START
 	using	pdata
 	using	global
 
-waitstatus	equ	1
-pid	equ	waitstatus+4	;just in case
+waitsts	equ	1
+pid	equ	waitsts+4	;just in case
 p	equ	pid+2
 space	equ	p+4
 signum	equ	space+3
@@ -540,7 +539,7 @@ end	equ	code+2
 	ldx	#0
 	clc
 	tdc
-	adc	#waitstatus
+	adc	#waitsts
 	wait	@xa
 	sta	pid
 ;
@@ -555,7 +554,7 @@ lookloop	sta	p
 	ldy	#p_jobid
 	lda	[p],y
 	cmp	pid
-	beq	lookfound
+	beq	lkfound
 	ldy	#p_next+2
 	lda	[p],y
 	tax
@@ -566,12 +565,12 @@ lookloop	sta	p
 ;
 ; See how wait was signaled.
 ;
-lookfound	anop
-	lda	waitstatus
+lkfound	anop
+	lda	waitsts
 	and	#$FF
 	cmp	#WSTOPPED
 	jne	kill
-	lda	waitstatus
+	lda	waitsts
 	xba
 	and	#$FF	;<- signal number
 	sta	signum
@@ -611,14 +610,14 @@ kill	ldy	#p_flags
 	lda	[p],y
 	bit	#PFOREGND	;only set status variable if in
 	beq	zap0	; foreground
-	lda	waitstatus
-	jsr	setstatus
+	lda	waitsts
+	jsr	setstat
 	bra	zap
-zap0	inc	signalled
+zap0	inc	sigflag
 zap	ldy	#p_pid	Remove the job entry
 	lda	[p],y	 by referring to its pid.
 	pha
-	jsl	removejentry
+	jsl	rmvJent
 
 	ldy	#p_flags
 	lda	[p],y
@@ -645,20 +644,20 @@ done	anop
 ; Set $status return variable
 ;
 
-setstatus	ENTRY
+setstat	ENTRY
 
 	xba		Isolate status
 	and	#$FF	 byte.
 
 	cmp	#10
-	bcs	digits2or3	 If < 10,
+	bcs	dig2or3	 If < 10,
 	adc	#'0'		Convert to single digit
-	sta	valstat_text		 and store in value string.
+	sta	valstxt		 and store in value string.
 	ldx	#1		Set length of string to 1.
 	stx	valstat
-	bra	set_value
+	bra	setval
 
-digits2or3	cmp	#100	If parameter number
+dig2or3	cmp	#100	If parameter number
 	bcs	digits3	 >= 10 && < 99,
 	ldx	#2		length = 2
 	bra	setit	otherwise
@@ -667,9 +666,9 @@ digits3	ldx	#3		length = 3
 ; Store length (2 or 3) and convert number to text
 ;
 setit	stx	valstat
-	Int2Dec (@a,#valstat_text,valstat,#0)
+	Int2Dec (@a,#valstxt,valstat,#0)
 
-set_value	anop
+setval	anop
 	SetGS	SetPB
 
 	rts		    
@@ -689,7 +688,7 @@ status	gsstr	'status'	Name of environment variable
 ; Value of status: GS/OS string with one to three digits
 ;
 valstat	ds	2	Length word
-valstat_text	dc	c'000'	Text (up to three digits)
+valstxt	dc	c'000'	Text (up to three digits)
 
 	END	      
 
@@ -700,7 +699,7 @@ valstat_text	dc	c'000'	Text (up to three digits)
 ;
 ;====================================================================
 
-removejentry	START
+rmvJent	START
 
 	using	pdata
 
@@ -723,7 +722,7 @@ end	equ	pid+2
 	stz	found
 	stz	prev  
 	stz	prev+2
-	lock	plistmutex	Ensure list doesn't change.
+	lock	plistmtx	Ensure list doesn't change.
 	lda	pjoblist
 	ldx	pjoblist+2
 
@@ -784,7 +783,7 @@ gotit3	anop
 	jsl	pprint
 
 gotit3c	anop
-	ldy	#p_command+2	Free memory used to hold
+	ldy	#p_cmd+2	Free memory used to hold
 	lda	[p],y	 command string.
 	pha
 	dey2
@@ -797,29 +796,29 @@ gotit3c	anop
 	eor	p
 	eor	p+2
 	bne	gotit3a
-	mv4	pprevious,pcurrent		pcurrent = pprevious
-	stz	pprevious		pprevious = NULL
-	stz	pprevious+2
+	mv4	pprevis,pcurrent		pcurrent = pprevis
+	stz	pprevis		pprevis = NULL
+	stz	pprevis+2
 	lda	prev		If prev != pcurrent,
 	eor	prev+2
 	eor	pcurrent
 	eor	pcurrent+2
 	beq	gotit3a
-	mv4	prev,pprevious			pprevious = prev
+	mv4	prev,pprevis			pprevis = prev
 
-gotit3a	lda	pprevious	If pprevious != p,
-	eor	pprevious+2
+gotit3a	lda	pprevis	If pprevis != p,
+	eor	pprevis+2
 	eor	p
 	eor	p+2
 	bne	gotit3b
-	stz	pprevious		pprevious == NULL
-	stz	pprevious+2
+	stz	pprevis		pprevis == NULL
+	stz	pprevis+2
 gotit3b	anop
 
-gotit4	ldy	#p_friends
+gotit4	ldy	#p_frnds
 	lda	[p],y
 	pha
-	ldy	#p_friends+2
+	ldy	#p_frnds+2
 	lda	[p],y
 	pha
 
@@ -827,16 +826,16 @@ gotit4	ldy	#p_friends
 	pei	(p)
 	jsl	nullfree
 
-	pla		p = p->p_friends
+	pla		p = p->p_frnds
 	sta	p+2
 	pla
 	sta	p
 	ora	p+2
 	beq	gotit5	If p != NULL,
-	ldy	#p_command+2		Free memory used to
+	ldy	#p_cmd+2		Free memory used to
 	lda	[p],y		 hold text of command
 	pha
-	ldy	#p_command
+	ldy	#p_cmd
 	lda	[p],y
 	pha
 	jsl	nullfree
@@ -844,7 +843,7 @@ gotit4	ldy	#p_friends
 
 gotit5	anop
 ;
-; find maximum job number and set pmaxindex
+; find maximum job number and set pmaxidx
 ;	
 	stz	prev
 	lda	pjoblist
@@ -865,10 +864,10 @@ skipmax	ldy	#p_next+2
 	lda	[p],y
 	bra	fmaxloop
 
-gotmax	mv2	prev,pmaxindex	
+gotmax	mv2	prev,pmaxidx	
 
 done	anop
-	unlock plistmutex
+	unlock plistmtx
 	ldy	found
 	lda	space+1
 	sta	end-2
@@ -908,7 +907,7 @@ end	equ	p+4
 	eor	pcurrent+2
 	beq	done
 
-	mv4	pcurrent,pprevious
+	mv4	pcurrent,pprevis
 	lda	p,s
 	sta	pcurrent
 	lda	p+2,s
@@ -1019,7 +1018,7 @@ gotit	pei	(pp+2)	Push address of entry,
 
 next	inc	count	Bump count.
 	lda	count
-	cmp	pmaxindex	If more to be printed,
+	cmp	pmaxidx	If more to be printed,
 	beq	loop	 scan list for next entry.
 	bcc	loop
 
@@ -1102,9 +1101,9 @@ init	stz	pid
 	Dec2Int (arg,@x,#0),signum
 
 	lda	signum	;yeah, yeah, I know...
-	bmi	ohshitnum
+	bmi	ohshnum
 	cmp	#1
-	bcc	ohshitnum
+	bcc	ohshnum
 	cmp	#25
 	bcc	next
 	cmp	#30
@@ -1112,7 +1111,7 @@ init	stz	pid
 	cmp	#31
 	beq	next
 
-ohshitnum	ldx	#^err1
+ohshnum	ldx	#^err1
 	lda	#err1
 	jsr	errputs
 	inc	status	Return status = 1.
@@ -1123,7 +1122,7 @@ getname	lda	[arg]
 	beq	lister
 	pei	(arg+2)
 	pei	(arg)
-	jsr	lowercstr
+	jsr	lwrCstr
 	ld2	1,signum
 	ld4	names,ptr
 
@@ -1617,8 +1616,8 @@ ida	lda	#' '
 	if2	pp+2,ne,pcurrent+2,pcur1
 	lda	#'+'
 	bra	pcur3
-pcur1	if2	pp,ne,pprevious,pcur2
-	if2	pp+2,ne,pprevious+2,pcur2
+pcur1	if2	pp,ne,pprevis,pcur2
+	if2	pp+2,ne,pprevis+2,pcur2
 	lda	#'-'
 	bra	pcur3
 pcur2	lda	#' '
@@ -1652,8 +1651,8 @@ stat2	bit	#PSTOPPED
 	ldx	#^statstop
 	lda	#statstop
 	bra	stat0
-stat3	ldx	#^statohshit
-	lda	#statohshit
+stat3	ldx	#^statohsh
+	lda	#statohsh
 stat0	jsr	puts
 ;
 ; show signal
@@ -1661,15 +1660,15 @@ stat0	jsr	puts
 	lda	signum	
 	beq	sig0
 	if2	@a,ne,#SIGTTIN,sig2
-	ldx	#^sigttinstr
-	lda	#sigttinstr
+	ldx	#^sigtins
+	lda	#sigtins
 	bra	sig1
 sig2	if2	@a,ne,#SIGTTOU,sig3
-	ldx	#^sigttoustr
-	lda	#sigttoustr
+	ldx	#^sigtous
+	lda	#sigtous
 	bra	sig1
-sig3	ldx	#^sigotherstr
-	lda	#sigotherstr	
+sig3	ldx	#^sigothrs
+	lda	#sigothrs	
 sig1	phx
 	pha
 	jsr	puts
@@ -1681,10 +1680,10 @@ sig0	anop
 ;
 ; display command
 ;
-showcmd	ldy	#p_command
+showcmd	ldy	#p_cmd
 	lda	[pp],y
 	sta	p
-	ldy	#p_command+2
+	ldy	#p_cmd+2
 	lda	[pp],y
 	sta	p+2
 	ldy	#0
@@ -1702,10 +1701,10 @@ showell	ldx	#^ellipsis
 	jsr	puts
 	bra	cmd01
 
-next	ldy	#p_friends
+next	ldy	#p_frnds
 	lda	[pp],y
 	pha
-	ldy	#p_friends+2
+	ldy	#p_frnds+2
 	lda	[pp],y
 	ora	1,s
 	beq	donename
@@ -1742,13 +1741,13 @@ dec10	dc	c'00]',h'00'
 pidstr	dc	c'00000 ',h'00'
 statrun	dc	c'Running ',h'00'
 statstop	dc	c'Stopped ',h'00'
-statohshit	dc	c'Done    ',h'00'
+statohsh	dc	c'Done    ',h'00'
 ampstr	dc	c' &',h'00'
 ellipsis	dc	c'...',h'00'
 pipestr	dc	c' | ',h'00'
-sigttinstr	dc	c'(tty input) ',h'00'
-sigttoustr	dc	c'(tty output) ',h'00'
-sigotherstr	dc	c'(signal) ',h'00'
+sigtins	dc	c'(tty input) ',h'00'
+sigtous	dc	c'(tty output) ',h'00'
+sigothrs	dc	c'(signal) ',h'00'
 
 	END
 
@@ -1791,8 +1790,8 @@ dojob	ldy	#1
 	if2	@a,eq,#'+',docurjob
 	if2	@a,eq,#'%',docurjob
 	if2	@a,ne,#'-',dojobnum
-	lda	pprevious
-	ldx	pprevious+2
+	lda	pprevis
+	ldx	pprevis+2
 	bra	gotjob
 docurjob	lda	pcurrent
 	ldx	pcurrent+2
@@ -1801,7 +1800,7 @@ dojobnum	ldy	len
 	dey
 	ldx	str+2
 	lda	str
-	incad	@xa
+	incaxa
 	Dec2Int (@xa,@y,#0),pid
 	lda	pjoblist
 	ldx	pjoblist+2
@@ -1843,14 +1842,14 @@ done	return 2:pid
 
 pdata	DATA
 
-plistmutex	key		Mutual exclusion for job list
+plistmtx	key		Mutual exclusion for job list
 
 pwaitsem	dc	i2'0'
 
 pjoblist	dc	i4'0'	;job list
 pcurrent	dc	i4'0'	;current job in table
-pprevious	dc	i4'0'	;previous job in table
+pprevis	dc	i4'0'	;previous job in table
 
-pmaxindex	dc	i2'0'	;current maximum job index
+pmaxidx	dc	i2'0'	;current maximum job index
 
 	END

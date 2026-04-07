@@ -24,34 +24,33 @@
 * Interfaces defined in this file:
 *     The alloc routine is a jsl without any stack params.
 *         Pointer to requested buffer is returned in X/A registers.
-*   allocmaxline	
+*   alcMxln	
 *     The free routine takes the address from the X/A registers
-*   freemaxline	
+*   frmaxln	
 *
 * bufpool data:
 *    pmaxline		dc   i4'0'
-*    pmaxlinemutex	key
+*    pmxlnmtx	key
 *		          
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/bufpool.mac
+	mcopy gsh.mac
 
-dummybufpool	start		; ends up in .root
+dmybfpl	start		; ends up in .root
 	end
 
-	setcom 60
 
 **************************************************************************
 *
-* Get a buffer of size maxline_size
+* Get a buffer of size mxlnsz
 *
 **************************************************************************
 
-allocmaxline	START
+alcMxln	START
 	
 	using	bufpool
 
-	lock	pmaxlinemutex
+	lock	pmxlnmtx
 
 	lda	pmaxline	If pool pointer
 	ora	pmaxline+2	 isn't NULL,
@@ -66,7 +65,7 @@ allocmaxline	START
 	ldy	#2
 	lda	[1],y
 	sta	pmaxline+2
-	unlock pmaxlinemutex
+	unlock pmxlnmtx
 	pla
 	plx
 	pld
@@ -75,26 +74,26 @@ allocmaxline	START
 ;
 ; No memory in free pool; must allocate a new block.
 ;
-allocbuf	unlock pmaxlinemutex
-	ph4	maxline_size
+allocbuf	unlock pmxlnmtx
+	ph4	mxlnsz
 	~NEW
 	rtl
 
 ;
 ; Constant indicating # of bytes in a maxline buffer
 ;
-maxline_size	entry		Make this easily seen.
+mxlnsz	entry		Make this easily seen.
 	dc	i4'4096'
 
 	END
 
 **************************************************************************
 *
-* Free a buffer of size maxline_size, putting it into the free pool
+* Free a buffer of size mxlnsz, putting it into the free pool
 *
 **************************************************************************
 
-freemaxline	START
+frmaxln	START
 
 	using bufpool
 
@@ -103,7 +102,7 @@ freemaxline	START
 	pha
 	tsc
 	tcd
-	lock	pmaxlinemutex
+	lock	pmxlnmtx
 	lda	pmaxline	Move current head of pool list
 	sta	[1]	 into the buffer being freed.
 	ldy	#2
@@ -113,7 +112,7 @@ freemaxline	START
 	sta	pmaxline	 into the pool list head.
 	lda	3
 	sta	pmaxline+2
-	unlock pmaxlinemutex
+	unlock pmxlnmtx
 	pla
 	plx	
 	pld
@@ -131,6 +130,6 @@ bufpool	DATA
 
 pmaxline	dc	i4'0'	Head of free pool list.
 
-pmaxlinemutex	key		Mutual exclusion when modifying list.
+pmxlnmtx	key		Mutual exclusion when modifying list.
 		         
 	END

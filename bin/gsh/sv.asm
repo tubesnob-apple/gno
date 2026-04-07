@@ -28,9 +28,9 @@
 *
 *   sv_add	subroutine (4:vect,4:string,2:allocflag)
 *
-*   sv_dispose	subroutine (4:vect)
+*   sv_disp	subroutine (4:vect)
 *
-*   sv_colprint subroutine (4:sv)
+*   sv_col subroutine (4:sv)
 *	
 *   sv_sort	subroutine (4:sv)
 *
@@ -38,12 +38,11 @@
 *
 **************************************************************************
 
-	mcopy /obj/gno/bin/gsh/sv.mac
+	mcopy gsh.mac
 		    
 dummysv	start		; ends up in .root
 	end
 
-	setcom 60
 
 **************************************************************************
 *
@@ -164,7 +163,7 @@ exit	return
 *
 **************************************************************************
 
-sv_dispose	START
+sv_disp	START
 
 p	equ	0
 space	equ	p+4
@@ -205,7 +204,7 @@ done	pei	(p+2)	Free the vector itself.
 *
 **************************************************************************
 
-sv_colprint	START
+sv_col	START
 
 numrow	equ	0
 numcol	equ	numrow+2
@@ -285,24 +284,24 @@ foocol	anop
 ;
 ; find the index for each column...
 ;		              
-	lock	offtblmutex
+	lock	offtbmtx
 	lda	#0
 	tax
 	clc
-mkidxloop	sta	offtbl,x
+mkidxlp	sta	offtbl,x
 	inx2
 	adc	numrow
 	cmp	[base]
-	bcc	mkidxloop
+	bcc	mkidxlp
 
 	stx	numcol	Double numcol since it's compared
 	ldx	#0	 against X to end the loop.
 ;
 ; Ready to print...
 ;
-printloop	lda	offtbl,x
+prntloop	lda	offtbl,x
 	cmp	[base]
-	bcs	nextprint0
+	bcs	nxtprnt0
 	inc	a
 	sta	offtbl,x
 	phx
@@ -321,23 +320,23 @@ printloop	lda	offtbl,x
 	jsr	puts
 	jsr	cstrlen
 tabit	cmp	maxlen
-	bcs	nextprint
+	bcs	nxtprnt
 	pha
 	lda	#' '
 	jsr	putchar
 	pla
 	inc	a
 	bra	tabit
-nextprint	plx
+nxtprnt	plx
 	inx2
 	cpx	numcol
-	bcc	printloop
-nextprint0	jsr	newline
+	bcc	prntloop
+nxtprnt0	jsr	newline
 	ldx	#0
 	dec	numrow
-	bne	printloop
+	bne	prntloop
 
-	unlock offtblmutex
+	unlock offtbmtx
 
 	return
 
@@ -346,7 +345,7 @@ nextprint0	jsr	newline
 ;
 offtbl	ds	14
 
-offtblmutex	key
+offtbmtx	key
 	END
 
 **************************************************************************

@@ -872,7 +872,7 @@ static void pswitch(int argc, char **argv) {
                 break;
                 
             case 'r':               /* set number reg */
-                if (isalpha (optarg)) {
+                if (isalpha (*optarg)) {
                     /*
                      *   indx is the user num register and val
                      *   is the final value.

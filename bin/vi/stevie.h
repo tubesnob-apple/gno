@@ -11,6 +11,7 @@
 #pragma noroot
 #endif
 #pragma optimize 9
+#pragma memorymodel 1
 #endif
 
 #include "env.h"
@@ -63,8 +64,8 @@
 typedef int     bool_t;
 
 #ifndef	TRUE
-# define	FALSE	(0)
-# define	TRUE	(1)
+# define	FALSE	0
+# define	TRUE	1
 #endif
 #define	SORTOF	(2)
 #define YES      TRUE

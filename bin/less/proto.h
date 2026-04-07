@@ -217,7 +217,11 @@ public int search(int search_type, char *pattern, int n);
 /* from signal.c */
 
 public void fake_interrupt(void);
+#ifdef SIGWINCH
+public HANDLER winch(int type, int code);
+#else
 public HANDLER winch(int type);
+#endif
 public void init_signals(int on);
 public void psignals(void);
 

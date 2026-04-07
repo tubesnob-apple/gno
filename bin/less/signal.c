@@ -45,9 +45,7 @@ static HANDLER stop(int type, int code);
  */
 	/* ARGSUSED*/
 	static HANDLER
-u_interrupt(type, code)
-	int type;
-        int code;
+u_interrupt(int type, int code)
 {
 	SIGNAL(SIGINT, u_interrupt);
 	sigs |= S_INTERRUPT;
@@ -67,9 +65,7 @@ fake_interrupt(void)
  */
 	/* ARGSUSED*/
 	static HANDLER
-stop(type, code)
-	int type;
-        int code;
+stop(int type, int code)
 {
 	SIGNAL(SIGTSTP, stop);
 	sigs |= S_STOP;
@@ -86,7 +82,6 @@ stop(type, code)
 	public HANDLER
 winch(type, code)
 	int type;
-        int code;
 {
 	SIGNAL(SIGWINCH, winch);
 	sigs |= S_WINCH;
