@@ -23,10 +23,8 @@ SRC_DIR   := $(REPO_ROOT)/lib/libsim
 
 AS        := iix assemble
 MAKELIB   := iix makelib
-SET_FINDERINFO := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
 
 ASFLAGS   := +T
-PRODOS_OBJ_FINDERINFO := 70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
 .PHONY: all
 all: $(LIB_OUT)
@@ -37,7 +35,7 @@ $(LIB_OUT): $(SRC_DIR)/simlib.A | $(dir $(LIB_OUT))
 
 $(SRC_DIR)/simlib.A: $(SRC_DIR)/simlib.asm $(SRC_DIR)/simlib.mac $(SRC_DIR)/simequates.equ
 	cd $(SRC_DIR) && $(AS) $(ASFLAGS) simlib.asm
-	$(SET_FINDERINFO) $@ "$(PRODOS_OBJ_FINDERINFO)"
+	iix chtyp -t obj $@
 
 $(dir $(LIB_OUT)):
 	mkdir -p $@

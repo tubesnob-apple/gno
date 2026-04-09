@@ -4,7 +4,7 @@
 #ifdef __ORCAC__
 #define _ORCAC_
 #pragma optimize -1
-#pragma memorymodel 1
+/* #pragma memorymodel 1 — removed: ABI mismatch with GNO libc */
 /* #pragma lint -1 */
 #endif
 

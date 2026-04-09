@@ -16,6 +16,7 @@
 #include <gsos.h>
 #include <dirent.h>
 #include <errno.h>
+#include <orca.h>
 #include <gno/gno.h>
 
 DIR *
@@ -71,7 +72,7 @@ opendir (char *filename) {
 	openRecPtr->requestAccess = readEnable;
 	openRecPtr->resourceNumber = 0;
 	OpenGS(openRecPtr);
-	if ((err = _mapErr(_toolErr)) == 0) {
+	if ((err = _mapErr(toolerror())) == 0) {
 		if (openRecPtr->storageType != 0x0d &&	/* subdirectory */
 		    openRecPtr->storageType != 0x0f) {	/* volume directory */
 		    err = ENOTDIR;
@@ -108,7 +109,7 @@ readdir (DIR *dirp) {
 	dirp->dd_ent->base = 1;
 	dirp->dd_ent->displacement = 1;
         GetDirEntryGS(dirp->dd_ent);
-	if ((err = _mapErr(_toolErr)) != 0) {
+	if ((err = _mapErr(toolerror())) != 0) {
 		return NULL;
 	}
 
@@ -157,7 +158,7 @@ closedir (DIR *dirp) {
 	closerec[0] = 1;
 	closerec[1] = dirp->dd_ent->refNum;
 	CloseGS(closerec);
-	err = _mapErr(_toolErr);
+	err = _mapErr(toolerror());
 	free(dirp->dd_data);
 	free(dirp->dd_ent->name);
 	free(dirp->dd_ent);

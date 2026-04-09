@@ -11,7 +11,7 @@
 #pragma noroot
 #endif
 #pragma optimize 9
-#pragma memorymodel 1
+/* #pragma memorymodel 1 — removed: ABI mismatch with GNO libc */
 #endif
 
 #include "env.h"

@@ -1,0 +1,330 @@
+BSD Source Port Notes for grep, fgrep, and chmod
+==================================================
+Target: ORCA/C 2.2.2, GNO/ME 2.0.6, Apple IIgs (65816)
+Prepared: 2026-04-04
+
+Key architectural facts for 65816 / ORCA/C:
+  - int = 16 bits (INT_MAX = 32767)
+  - long = 32 bits
+  - pointers = 32 bits
+  - unsigned = 16 bits
+  - mode_t = unsigned short (16 bits) in GNO
+  - BUFSIZ = 1024 in GNO stdio.h
+  - O_RDONLY = 0x0001 (NOT 0) in GNO sys/fcntl.h
+  - No C99/C11; ORCA/C is C89 with K&R compatibility mode
+
+
+==========================================================
+FILE: bin/grep/grep.c
+==========================================================
+Source: BSD-4_3_Reno, usr/src/usr.bin/grep/old.bin.grep/old.bin.grep.c
+        "@(#)old.bin.grep.c  4.8 (Berkeley) 1/21/88"
+Lines: 526
+Dependencies: stdio.h, ctype.h only (self-contained NFA regex engine)
+Strategy: Self-contained V7-derived regex NFA; no external regex library needed.
+
+ORCA/C compatibility issues (do NOT fix yet -- document only):
+
+1. IMPLICIT int FUNCTION RETURN TYPES (K&R style, legal C89 but ORCA/C may warn)
+   All 6 helper functions lack a return-type declaration:
+     Line 160: compile(astr)
+     Line 292: execute(file)
+     Line 357: advance(lp, ep)
+     Line 486: succeed(f)
+     Line 512: ecmp(a, b, count)
+     Line 521: errexit(s, f)
+   Fix: add explicit return type: void compile(...), void execute(...),
+        int advance(...), void succeed(...), int ecmp(...), void errexit(...)
+   advance() and ecmp() return int (0/1) -- the others return void implicitly.
+
+2. IMPLICIT int REGISTER VARIABLES
+   Line 163: register c;   (in compile())
+   Line 296: register c;   (in execute())
+   Line 515: register cc = count;  (in ecmp())
+   ORCA/C C89 mode allows implicit int but may produce lint warnings.
+   Fix: register int c; and register int cc = count;
+
+3. PRINTF FORMAT %D FOR long (line 314)
+   printf("%D\n", tln);   -- tln is long
+   GNO libc vfprintf.c DOES support %D as a long-decimal format (BSD extension).
+   This will work without change. But for strict portability, could use %ld.
+   No fix required.
+
+4. PRINTF FORMAT %u FOR int (line 505)
+   printf("%u:", blkno);  -- blkno is int (line 52)
+   %u for int is fine on 65816; int and unsigned are both 16-bit.
+   No fix required.
+
+5. PRINTF FORMAT %ld FOR long (line 507)
+   printf("%ld:", lnum);  -- lnum is long
+   %ld is correct and works in GNO libc.
+   No fix required.
+
+6. FSEEK LITERAL SEEK_END (line 499)
+   fseek(stdin, 0l, 2);   -- literal 2 instead of SEEK_END
+   GNO stdio.h defines SEEK_SET=0, SEEK_CUR=1, SEEK_END=2, so value 2 is correct.
+   Fix (cosmetic): replace 2 with SEEK_END and add #include <sys/types.h> or
+   ensure SEEK_END is visible. Actually stdio.h defines it; no include change needed.
+   Not strictly required but good practice.
+
+7. WORD-BOUNDARY BUG IN advance() CBRC CASE (line 468)
+   case CBRC:
+       if (lp == expbuf)    /* BUG: should be lp == linebuf */
+   This is a latent bug in the original BSD source. expbuf is the compiled
+   regex buffer; linebuf is the line being scanned. The intent is to check
+   "are we at the start of the line?" The comparison against expbuf is wrong.
+   Fix: change to: if (lp == linebuf)
+   Note: this bug exists in the original; fix it during porting.
+
+8. main() RETURN TYPE
+   Line 68: main(argc, argv) -- no "int" return type
+   ORCA/C accepts implicit int for main; no change required.
+
+9. LONG COUNTER lnum PRINTED AS %ld
+   lnum is long (line 36), tln is long (line 53).
+   Both uses (%D and %ld) are correct for GNO libc.
+   No fix required.
+
+10. SCCSID STATIC CHAR ARRAY (line 2)
+    static char sccsid[] = "...";
+    ORCA/C lint will warn "unused variable" for non-const static char arrays.
+    Fix: static const char sccsid[] = "...";
+
+No external headers beyond stdio.h and ctype.h are needed.
+GNO libc provides all required functions (getchar, printf, fprintf, fflush,
+perror, freopen, fseek, getopt, exit, toupper, tolower, islower, isalpha,
+isdigit).
+
+Makefile target: gno-obj/bin/grep (ProDOS type $B5 auxtype $0001)
+Link: iix --gno link -o gno-obj/bin/grep obj/grep.a
+
+
+==========================================================
+FILE: bin/fgrep/fgrep.c
+==========================================================
+Source: BSD-4_3_Reno, usr/src/usr.bin/grep/old.fgrep/old.fgrep.c
+        "@(#)old.fgrep.c  4.4 (Berkeley) 10/7/87"
+Lines: 387
+Dependencies: stdio.h, ctype.h, sys/param.h, sys/stat.h
+Algorithm: Aho-Corasick multi-string matching (self-contained, no regex)
+
+ORCA/C compatibility issues:
+
+1. OPEN() FLAG 0 INSTEAD OF O_RDONLY (line 143) -- CRITICAL
+   f = open(file, 0)
+   On traditional BSD, O_RDONLY = 0. On GNO/ME, O_RDONLY = 0x0001.
+   open(file, 0) on GNO will NOT open for reading; it will fail or misbehave.
+   Fix: add #include <fcntl.h> (or <sys/fcntl.h>) and change to:
+        f = open(file, O_RDONLY)
+
+2. DEV_BSIZE MACRO NOT IN GNO (line 227) -- CRITICAL
+   printf("%ld:", (blkno-ccount-1)/DEV_BSIZE);
+   GNO sys/param.h does NOT define DEV_BSIZE. BSD defines it as 512.
+   Fix: add near top of file (after includes):
+        #ifndef DEV_BSIZE
+        #define DEV_BSIZE 512
+        #endif
+
+3. IMPLICIT int FOR main() argc PARAMETER (lines 40-41)
+   main(argc, argv)
+   char **argv;
+   { ...
+   argc has implicit int type (no "int argc;" in the K&R parameter list).
+   This is legal K&R C. ORCA/C should accept it; may produce a lint warning.
+   Fix: add "int argc;" to the K&R parameter declarations.
+
+4. IMPLICIT int FUNCTION RETURN TYPES
+   Line 258: getargc()
+   Line 268: cgotofn()
+   Line 331: overflo()
+   Line 335: cfail()
+   Fix: int getargc(void), void cgotofn(void), void overflo(void), void cfail(void)
+   Note: main() having no declared return type is also implicit int (legal).
+
+5. IMPLICIT int REGISTER VARIABLES
+   Line 133: register ccount;   (in execute())
+   Line 260: register c;        (in getargc())
+   Line 269: register c;        (in cgotofn())
+   Also in cfail(): register char c; is OK (has explicit type).
+   Fix: register int ccount; and register int c;
+
+6. st_blksize FIELD (line 151-152)
+   if (fstat(f, &stb) > 0 && stb.st_blksize > 0)
+       blksize = stb.st_blksize;
+   GNO sys/stat.h DOES define st_blksize as long -- this works.
+   No fix required.
+
+7. PREPROCESSOR "# define" WITH LEADING SPACE (lines 127-128)
+   # define ccomp(a,b) ...
+   # define lca(x) ...
+   The space between '#' and 'define' is valid C89 preprocessor syntax.
+   ORCA/C preprocessor should accept this.
+   No fix required (but cosmetic cleanup to "#define" is harmless).
+
+8. SCCSID AS NON-CONST STATIC (line 1)
+   static char *sccsid = "...";
+   This is a pointer to string literal, not a char array -- still triggers
+   "unused variable" lint. Fix: remove or change to static const char * const.
+
+9. printf FORMAT SPECIFIERS
+   Line 227: printf("%ld:", (blkno-ccount-1)/DEV_BSIZE);
+     blkno is long, ccount is int (register ccount). After issue #5 fix,
+     ccount is int. The arithmetic (blkno-ccount-1) promotes to long. Correct.
+   Line 228: printf("%ld:", lnum);   -- lnum is long. Correct.
+   Line 254: printf("%ld\n", tln);   -- tln is long. Correct.
+   All %ld uses are correct.
+
+10. MALLOC RETURN NOT CAST (line 155)
+    buf = (char *)malloc(2*blksize);
+    blksize is int (after fix #5, or originally implicit int).
+    2*blksize: int * int = int on 65816. If blksize = 8192 (BLKSIZE),
+    then 2*8192 = 16384, which OVERFLOWS a 16-bit int (max 32767).
+    After fstat, blksize could be set to st_blksize (long), but if fstat
+    fails, blksize defaults to BLKSIZE (8192). 2*BLKSIZE = 16384 is within
+    16-bit int range (max 32767), so no overflow.
+    However, if BLKSIZE were > 16383, overflow would occur. Current value 8192
+    is safe. No immediate fix required, but document the fragility.
+    Recommended: change blksize to type long to match st_blksize.
+
+Required headers to add: <fcntl.h> (for O_RDONLY)
+GNO libc provides: fstat(), open(), read(), close(), malloc(), printf(),
+fprintf(), fopen(), getc(), exit(), isupper(), tolower()
+
+Makefile target: gno-obj/bin/fgrep (ProDOS type $B5 auxtype $0001)
+Link: iix --gno link -o gno-obj/bin/fgrep obj/fgrep.a
+
+
+==========================================================
+FILE: bin/chmod/chmod.c
+==========================================================
+Source: BSD-4_4_Lite2, usr/src/bin/chmod/chmod.c
+        "@(#)chmod.c  8.8 (Berkeley) 4/1/94"
+Lines: 201
+Dependencies: sys/types.h, sys/stat.h, err.h, errno.h, fts.h, stdio.h,
+              stdlib.h, string.h, unistd.h
+
+GNO libc DOES provide all required functions:
+  fts_open(), fts_read(), fts_close(), fts_set() -- in gno-obj/lib/libc
+  setmode(), getmode() -- in gno-obj/lib/libc (as emulation functions)
+  err(), errx(), warn(), warnx() -- in gno-obj/lib/libc (err.h)
+  lstat(), chmod(), strtol(), strerror() -- all present in GNO libc
+  __P macro -- defined in sys/cdefs.h, pulled in via sys/types.h
+
+FTS API matches: GNO fts.h uses fts_statp (pointer), fts_errno (int),
+fts_accpath, fts_path -- all match 4.4BSD-Lite2 chmod.c usage.
+
+FTS constants present in GNO fts.h:
+  FTS_PHYSICAL, FTS_COMFOLLOW, FTS_LOGICAL, FTS_NOSTAT -- all present
+  FTS_D, FTS_DP, FTS_DNR, FTS_ERR, FTS_NS, FTS_SL, FTS_SLNONE -- all present
+  FTS_SKIP -- present
+
+ORCA/C compatibility issues:
+
+1. MISSING #include <limits.h> FOR INT_MAX (lines 141, 55) -- REQUIRED
+   Line 141: if (val > INT_MAX || val < 0)
+   INT_MAX is defined in machine/limits.h, included via limits.h.
+   GNO limits.h includes machine/limits.h which defines INT_MAX = 32767.
+   chmod.c does NOT include limits.h.
+   Fix: add #include <limits.h> after the other includes.
+   Note: INT_MAX = 32767 on 65816. chmod modes go up to 07777 = 4095,
+   so "val > INT_MAX" will only trigger for octal values > 077777.
+   Functionally, the check works correctly for all valid chmod modes.
+
+2. val TYPE IS long, INT_MAX IS 16-bit int -- VERIFY COMPARISON
+   Line 140: val = strtol(mode, &ep, 8);   -- val is long (32 bits)
+   Line 141: if (val > INT_MAX ...)         -- INT_MAX = 32767 (16-bit)
+   Comparison long > int: int is promoted to long for comparison. Correct.
+   No fix required beyond adding limits.h.
+
+3. omode IS int BUT chmod() TAKES mode_t
+   Line 72: int oct, omode;
+   Line 188: chmod(p->fts_accpath, oct ? omode : getmode(...))
+   mode_t is unsigned short (16 bits) in GNO. int is 16 bits on 65816.
+   Implicit conversion int -> mode_t is safe for valid mode values.
+   No fix required.
+
+4. IMPLICIT int FOR usage() (line 55 prototype, line 193 definition)
+   void usage __P((void));   -- prototype is correct, has void return type.
+   Definition at line 193: usage() { ... } -- missing return type.
+   Fix: add "void" before "usage()" at line 193.
+
+5. strerror() USAGE WITH fts_errno
+   Lines 165, 170: strerror(p->fts_errno)
+   fts_errno is int in GNO fts.h. strerror(int) is correct.
+   No fix required.
+
+6. GETOPT EOF vs -1
+   Line 76: while ((ch = getopt(...)) != EOF)
+   POSIX says getopt() returns -1 at end; older BSD returned EOF.
+   GNO libc getopt() likely returns EOF (= -1 typically, or -1 as int).
+   GNO stdio.h: EOF is defined as -1.
+   No fix required.
+
+7. MISSING RETURN STATEMENT IN main()
+   The function ends at the fts_read loop but doesn't have an explicit
+   final return or exit after the loop body. Line 191-192:
+       if (errno)
+           err(1, "fts_read");
+       exit(rval);
+   Actually exit(rval) is the last statement - this IS the return path.
+   No fix required.
+
+8. STRTOL val > INT_MAX ON 65816 SEMANTICS
+   If the user passes chmod mode "100000" (octal), strtol returns 32768
+   which is > INT_MAX (32767). The ERANGE error fires correctly.
+   Semantics are correct for 65816.
+
+No major structural changes needed. chmod.c is the most portable of
+the three files. The only required change is adding #include <limits.h>.
+
+Makefile target: gno-obj/bin/chmod (ProDOS type $B5 auxtype $0001)
+Link: iix --gno link -o gno-obj/bin/chmod obj/chmod.a
+
+
+==========================================================
+SUMMARY: CHANGES REQUIRED BEFORE COMPILATION
+==========================================================
+
+grep.c (bin/grep/grep.c):
+  REQUIRED:
+    [ ] Fix CBRC word-boundary bug: line 468, change "lp == expbuf" to "lp == linebuf"
+  RECOMMENDED (lint / correctness):
+    [ ] Add explicit return types to all 6 helper functions
+    [ ] Add "int" to register variable declarations (register c -> register int c)
+    [ ] Change static char sccsid[] to static const char sccsid[]
+  OPTIONAL:
+    [ ] Replace literal 2 in fseek() with SEEK_END
+
+fgrep.c (bin/fgrep/fgrep.c):
+  REQUIRED:
+    [ ] Add #include <fcntl.h> and change open(file, 0) to open(file, O_RDONLY)
+    [ ] Add #define DEV_BSIZE 512 (or include a header that provides it)
+  RECOMMENDED (lint / correctness):
+    [ ] Add explicit "int argc;" to main() K&R parameter list
+    [ ] Add explicit return types to getargc(), cgotofn(), overflo(), cfail()
+    [ ] Add "int" to register variable declarations
+    [ ] Change blksize variable from implicit int to long to match st_blksize type
+    [ ] Remove or make const the sccsid pointer
+
+chmod.c (bin/chmod/chmod.c):
+  REQUIRED:
+    [ ] Add #include <limits.h> for INT_MAX
+  RECOMMENDED:
+    [ ] Add "void" return type to usage() definition at line 193
+
+==========================================================
+BUILD ORDER NOTES
+==========================================================
+
+All three compile as single-file programs with no inter-dependencies.
+
+grep and fgrep do NOT require regex.h or any external regex library.
+They contain self-contained NFA (grep) and Aho-Corasick (fgrep) engines.
+
+chmod requires libc to be built first (for fts, setmode/getmode, err).
+grep and fgrep only need GNO libc stdio -- no special library.
+
+Suggested Makefile variables for all three:
+  iix --gno compile foo.c -> foo.a
+  iix --gno link -o gno-obj/bin/foo obj/foo.a
+  ProDOS type: $B5, auxtype: $0001

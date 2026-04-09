@@ -2,7 +2,7 @@
 
 ###
 #
-# GNO 2.0.6 $HOME/gshrc file
+# GNO 2.1.0 $HOME/gshrc file
 #
 # This file is parsed whenever a gsh shell is started.
 # See also /etc/glogin and $HOME/glogin.

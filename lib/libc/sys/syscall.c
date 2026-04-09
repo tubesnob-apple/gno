@@ -106,7 +106,7 @@ _chdir(GSStringPtr pathname) {
   shortFileInfo.pCount = 5;
   shortFileInfo.pathname = pathname;
   GetFileInfoGS(&shortFileInfo);
-  if ((errno = _mapErr(_toolErr)) != 0) {
+  if ((errno = _mapErr(toolerror())) != 0) {
      return -1;
   }
   if (shortFileInfo.storageType != 0x0d &&		/* subdirectory */
@@ -119,14 +119,14 @@ _chdir(GSStringPtr pathname) {
   prefx.prefixNum = 8;
   prefx.buffer.setPrefix = shortFileInfo.pathname;
   SetPrefixGS(&prefx);
-	if ((errno = _mapErr(_toolErr)) != 0) {
+	if ((errno = _mapErr(toolerror())) != 0) {
      return -1;
   }
 
   prefx.prefixNum = 0;
   if (prefx.buffer.setPrefix->length < 64) {
 	   SetPrefixGS(&prefx);
-     if (_toolErr == 0) {
+     if (toolerror() == 0) {
         return 0;
      }
   }
@@ -153,8 +153,8 @@ _chmod (unsigned short op, GSStringPtr path, mode_t mode, unsigned short type,
 
   /* get the original data */
   GetFileInfoGS(infop);
-  if (_toolErr) {
-	   err = _toolErr;
+  if (toolerror()) {
+	   err = toolerror();
      free(infop);
   	errno = _mapErr(err);
      return -1;
@@ -187,7 +187,7 @@ _chmod (unsigned short op, GSStringPtr path, mode_t mode, unsigned short type,
 
 	/* set the info and return */
   SetFileInfoGS(infop);
-	err = _toolErr;
+	err = toolerror();
   free(infop);
   if (err) {
   	errno = _mapErr(err);
@@ -223,7 +223,7 @@ _kernMinVersion (unsigned int required) {
   /* make sure GNO is active */
   if (! gnoActiveKnown) {
 		kernStatus();
-     if (_toolErr) {
+     if (toolerror()) {
 	      _libcPanic("This program requires GNO.\n");
         /*NOTREACHED*/
      }
@@ -296,8 +296,8 @@ _statfs (GSStringPtr gstr, struct statfs *buf) {
   gd.pCount = 2;
   gd.devName = gstr;	/* does this work with a pathname? */
   GetDevNumberGS(&gd);
-  if (_toolErr) {
-  	errno = _mapErr(_toolErr);
+  if (toolerror()) {
+  	errno = _mapErr(toolerror());
      return -1;
  	}
 
@@ -307,7 +307,7 @@ _statfs (GSStringPtr gstr, struct statfs *buf) {
   vo.devName = __C2GSMALLOC(printbuf);
   vo.volName = (ResultBuf255Ptr) GOinit(32, NULL);
   VolumeGS(&vo);
-  err = _toolErr;
+  err = toolerror();
 
   /* copy over our information */
   buf->f_type     = (long) vo.fileSysID; /* FST type */
@@ -481,8 +481,8 @@ close (int filds) {
 
 	_setFdTranslation(filds, 0);
   CloseGS(cl);
-  if (_toolErr) {
-	   errno = _mapErr(_toolErr);
+  if (toolerror()) {
+	   errno = _mapErr(toolerror());
      return -1;
   }
   return 0;
@@ -512,7 +512,7 @@ fchdir (int fd)
   inforec.refNum = fd;
   inforec.pathname = (ResultBuf255Ptr) GOinit(GSOS_NAME_MAX, NULL);
   GetRefInfoGS (&inforec);
-  if ((err = _mapErr(_toolErr)) != 0) {
+  if ((err = _mapErr(toolerror())) != 0) {
 	   GOfree(inforec.pathname);
      errno = err;
      return -1;
@@ -541,7 +541,7 @@ fchmod (int fd, mode_t mode)
   inforec.refNum = fd;
   inforec.pathname = (ResultBuf255Ptr) GOinit(GSOS_NAME_MAX, NULL);
   GetRefInfoGS (&inforec);
-  if ((err = _mapErr(_toolErr)) != 0) {
+  if ((err = _mapErr(toolerror())) != 0) {
 	   GOfree(inforec.pathname);
      errno = err;
      return -1;
@@ -570,7 +570,7 @@ fstatfs (int fd, struct statfs *buf)
   inforec.refNum = fd;
   inforec.pathname = (ResultBuf255Ptr) GOinit(GSOS_NAME_MAX, NULL);
   GetRefInfoGS (&inforec);
-  if ((err = _mapErr(_toolErr)) != 0) {
+  if ((err = _mapErr(toolerror())) != 0) {
 	   GOfree(inforec.pathname);
      errno = err;
      return -1;
@@ -595,8 +595,8 @@ fsync(int fd) {
   ff[0] = 1;
   ff[1] = fd;
   FlushGS(ff);
-	if (_toolErr) {
-  	errno = _mapErr(_toolErr);
+	if (toolerror()) {
+  	errno = _mapErr(toolerror());
      return -1;
   }
   return 0;
@@ -616,8 +616,8 @@ ftruncate(int fd, off_t length)
   p.refNum = fd;
   p.displacement = length;
   SetEOFGS(&p);
-  if (_toolErr) {
-  	errno = _mapErr(_toolErr);
+  if (toolerror()) {
+  	errno = _mapErr(toolerror());
      return -1;
 	}
   return 0;
@@ -669,7 +669,7 @@ lseek(int filds, off_t offset, int whence) {
   e.pCount = m.pCount = 2;
   e.refNum = s.refNum = m.refNum = filds;
   GetEOFGS(&e);
-  if (err = _mapErr(_toolErr)) {
+  if (err = _mapErr(toolerror())) {
   	errno = err;
      return -1L;
   }
@@ -691,13 +691,13 @@ lseek(int filds, off_t offset, int whence) {
   }
   if (s.displacement > e.eof) {
   	SetEOFGS(&s);
-     if (err = _mapErr(_toolErr)) {
+     if (err = _mapErr(toolerror())) {
      	errno = err;
         return -1L;
      }
  	}
   SetMarkGS(&s);
-  if (err = _mapErr(_toolErr)) {
+  if (err = _mapErr(toolerror())) {
   	errno = err;
      return -1L;
  	}
@@ -725,7 +725,7 @@ mkdir(char *dirname)
   cr.auxType = 0L;
   cr.storageType = 0x0D;
   CreateGS(&cr);
-  err = _toolErr;
+  err = toolerror();
   free(cr.pathname);
   if (err) {
     errno = _mapErr(err);
@@ -747,16 +747,16 @@ pread (int fd, void *buf, size_t bytecount, off_t offset) {
 	ssize_t transferCount;
 
 	GetMarkGS(&posDCB);
-	if (_toolErr)
+	if (toolerror())
 	{
-		errno = _mapErr(_toolErr);
+		errno = _mapErr(toolerror());
 		return -1L;
 	}
 
 	SetMarkGS(&setPosDCB);
-	if (_toolErr)
+	if (toolerror())
 	{
-		errno = _mapErr(_toolErr);
+		errno = _mapErr(toolerror());
 		return -1L;
 	}
 
@@ -782,33 +782,33 @@ pwrite (int fd, const void *buf, size_t bytecount, off_t offset)
 	ssize_t transferCount;
 
 	GetMarkGS(&posDCB);
-	if (_toolErr)
+	if (toolerror())
 	{
-		errno = _mapErr(_toolErr);
+		errno = _mapErr(toolerror());
 		return -1L;
 	}
 
 	GetEOFGS(&eofDCB);
-	if (_toolErr)
+	if (toolerror())
 	{
-		errno = _mapErr(_toolErr);
+		errno = _mapErr(toolerror());
 		return -1L;
 	}
 
 	if (offset > eofDCB.eof)
 	{
 		SetEOFGS(&setPosDCB);
-		if (_toolErr)
+		if (toolerror())
 		{
-			errno = _mapErr(_toolErr);
+			errno = _mapErr(toolerror());
 			return -1L;
 		}
 	}
 
 	SetMarkGS(&setPosDCB);
-	if (_toolErr)
+	if (toolerror())
 	{
-		errno = _mapErr(_toolErr);
+		errno = _mapErr(toolerror());
 		return -1L;
 	}
 
@@ -849,9 +849,9 @@ read (int filds, void *buf, size_t bytecount) {
 
   /* read in the buffer */
  	ReadGS(&iorec);
-  if (_toolErr == 0 || _toolErr == 0x4C) {
+  if (toolerror() == 0 || toolerror() == 0x4C) {
   	result = (size_t) iorec.transferCount;
-  } else if (err = _mapErr(_toolErr)) {
+  } else if (err = _mapErr(toolerror())) {
   	errno = err;
      return -1;
   }
@@ -888,7 +888,7 @@ readv (int fd, const struct iovec *datavec, int count) {
 
 		/* write the file block */
 		ReadGS(&iorec);
-		if (err = _mapErr(_toolErr)) {
+		if (err = _mapErr(toolerror())) {
 			errno = err;
 			return -1;
 		}
@@ -962,7 +962,7 @@ rename (const char *from, const char *to) {
   }
 
   ChangePathGS(&renblock);
-  ret2 = _toolErr;
+  ret2 = toolerror();
   GIfree(renblock.from);
   GIfree(renblock.to);
   if (ret2) {
@@ -1009,7 +1009,7 @@ rmdir (const char *path) {
 
    /* check to ensure that it's a directory */
    GetFileInfoGS(&frec);
-   if ((result = _toolErr) != 0) {
+   if ((result = toolerror()) != 0) {
       GIfree(frec.pathname);
       errno = _mapErr(result);
       return -1;
@@ -1025,7 +1025,7 @@ rmdir (const char *path) {
    /* it's a directory; try to delete it */
    frec.pCount=1;
    DestroyGS(&frec);
-   result = _toolErr;
+   result = toolerror();
    GIfree(frec.pathname);
    if (result != 0) {
       errno = _mapErr(result);
@@ -1179,9 +1179,9 @@ statfs(char *path, struct statfs *buf) {
   }
   ep.flags = 0;
   ExpandPathGS(&ep);
-  if (_toolErr) {
+  if (toolerror()) {
      result = -1;
-	   err = _mapErr(_toolErr);
+	   err = _mapErr(toolerror());
   } else {
 		result = _statfs(&(ep.outputPath->bufString), buf);
      err = errno;
@@ -1216,7 +1216,7 @@ truncate(const char *path, off_t length)
   }   
   openrec.requestAccess = readWriteEnable;
   OpenGS(&openrec);
-  err = _mapErr(_toolErr);
+  err = _mapErr(toolerror());
   free(openrec.pathname);
   if (err) {
      errno = err;
@@ -1232,8 +1232,8 @@ truncate(const char *path, off_t length)
   p.refNum = openrec.refNum;
   p.displacement = length;
   SetEOFGS(&p);
-  if (_toolErr) {
-  	errno = _mapErr(_toolErr);
+  if (toolerror()) {
+  	errno = _mapErr(toolerror());
      result = -1;
   } else {
 	   result = 0;
@@ -1295,7 +1295,7 @@ unlink(char *fname)
 	   return -1;
   }
   DestroyGS(&drec);
-  err = _mapErr(_toolErr);
+  err = _mapErr(toolerror());
   GIfree(drec.pathname);
   if (err) {
      errno = err;
@@ -1373,7 +1373,7 @@ write(int filds, void *buf, size_t bytecount) {
 
   /* write the file block */
   WriteGS(&iorec);
-  if (err = _mapErr(_toolErr)) {
+  if (err = _mapErr(toolerror())) {
   	errno = err;
      return -1;
   }
@@ -1410,7 +1410,7 @@ writev (int fd, const struct iovec *datavec, int count) {
 
 		/* write the file block */
 		WriteGS(&iorec);
-		if (err = _mapErr(_toolErr)) {
+		if (err = _mapErr(toolerror())) {
 			errno = err;
 			return -1;
 		}
@@ -1542,20 +1542,20 @@ open (const char *path, int oflag, ...) {
   openRec.optionList = NULL;		/* no FST-specific info */
 
   OpenGS(&openRec);
-  if ((_toolErr == 0) && (oflag & O_CREAT) && (oflag & O_EXCL)) {
+  if ((toolerror() == 0) && (oflag & O_CREAT) && (oflag & O_EXCL)) {
      /* file already existed */
 		close(openRec.refNum);
      err = EEXIST;
      result = -1;
      goto done;
-  } else if ((_toolErr == 0) && (oflag & O_WRONLY) &&
+  } else if ((toolerror() == 0) && (oflag & O_WRONLY) &&
              (openRec.storageType == 0x0d || openRec.storageType == 0x0f)) {
 	   /* opening a volume directory or subdirectory for writing not permitted */
 		close(openRec.refNum);
      err = EISDIR;
      result = -1;
      goto done;
-  } else if ((err = _mapErr(_toolErr)) && (err == ENOENT)) {
+  } else if ((err = _mapErr(toolerror())) && (err == ENOENT)) {
      /* file doesn't exist -- create? */
 		if (oflag & O_CREAT) {
 	   	createRec.pCount = 3;
@@ -1563,12 +1563,12 @@ open (const char *path, int oflag, ...) {
         createRec.access = _mapMode2GS(openmode);
         createRec.fileType = (oflag & O_BINARY) ? BIN : TXT;
         CreateGS(&createRec);
-        if (err = _mapErr(_toolErr)) {
+        if (err = _mapErr(toolerror())) {
 	   		result = -1;
         	goto done;
         }
         OpenGS(&openRec);
-        if (err = _mapErr(_toolErr)) {
+        if (err = _mapErr(toolerror())) {
 	   		result = -1;
         	goto done;
    		}
@@ -1599,7 +1599,7 @@ open (const char *path, int oflag, ...) {
      setMarkRec.base = 0;
      setMarkRec.displacement = currentEof;
      SetMarkGS(&setMarkRec);
-     if (err = _mapErr(_toolErr)) {
+     if (err = _mapErr(toolerror())) {
 	   	result = -1;
 	      goto done;
     	}

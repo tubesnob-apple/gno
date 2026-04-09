@@ -2,7 +2,7 @@
 
 ###
 #
-# GNO 2.0.6 $HOME/glogin file
+# GNO 2.1.0 $HOME/glogin file
 #
 # This file is parsed when the user first logs in.
 # See also /etc/glogin and $HOME/gshrc.

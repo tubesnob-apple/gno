@@ -174,15 +174,13 @@ bin_freeze:
 
 # asm utilities: assemble in source dir, patch both .A and .ROOT, link with plain iix link
 
-SETFI := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
-FI_OBJ := 70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
 bin_date:
 	@echo "=== date ==="
 	@mkdir -p $(OBJ_BASE)/date $(BIN_OUT)
 	cd $(BIN_SRC)/date && iix assemble +T date.asm
-	$(SETFI) $(BIN_SRC)/date/date.A    "$(FI_OBJ)"
-	$(SETFI) $(BIN_SRC)/date/date.ROOT "$(FI_OBJ)"
+	iix chtyp -t obj $(BIN_SRC)/date/date.A   
+	iix chtyp -t obj $(BIN_SRC)/date/date.ROOT
 	mv $(BIN_SRC)/date/date.A    $(OBJ_BASE)/date/date.a
 	mv $(BIN_SRC)/date/date.ROOT $(OBJ_BASE)/date/date.root.a
 	cd $(OBJ_BASE)/date && iix --gno link -P -o $(BIN_OUT)/date date.root.a date.a
@@ -191,7 +189,7 @@ bin_purge:
 	@echo "=== purge ==="
 	@mkdir -p $(OBJ_BASE)/purge $(BIN_OUT)
 	cd $(BIN_SRC)/purge && iix assemble +T purge.asm
-	$(SETFI) $(BIN_SRC)/purge/purge.ROOT "$(FI_OBJ)"
+	iix chtyp -t obj $(BIN_SRC)/purge/purge.ROOT
 	mv $(BIN_SRC)/purge/purge.ROOT $(OBJ_BASE)/purge/purge.root.a
 	cd $(OBJ_BASE)/purge && iix --gno link -P -o $(BIN_OUT)/purge purge.root.a
 
@@ -392,12 +390,8 @@ usrbin_getvers:
 	@echo "=== getvers ==="
 	@mkdir -p $(OBJ_BASE)/getvers $(USRBIN_OUT)
 	cd $(USRBIN_SRC)/getvers && iix assemble +T getvers.asm
-	python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py \
-		$(USRBIN_SRC)/getvers/getvers.A \
-		"70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
-	python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py \
-		$(USRBIN_SRC)/getvers/getvers.ROOT \
-		"70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+	iix chtyp -t obj $(USRBIN_SRC)/getvers/getvers.A
+	iix chtyp -t obj $(USRBIN_SRC)/getvers/getvers.ROOT
 	mv $(USRBIN_SRC)/getvers/getvers.A $(OBJ_BASE)/getvers/getvers.a
 	mv $(USRBIN_SRC)/getvers/getvers.ROOT $(OBJ_BASE)/getvers/getvers.root.a
 	cd $(OBJ_BASE)/getvers && iix link -P -o $(USRBIN_OUT)/getvers getvers.root.a getvers.a
@@ -580,7 +574,7 @@ sbin_initd:
 	@echo "=== initd ==="
 	@mkdir -p $(OBJ_BASE)/initd $(SBIN_OUT) $(USRSBIN_OUT)
 	cd $(SBIN_SRC)/init && iix --gno compile -P initd.c && mv initd.a $(OBJ_BASE)/initd/ && { mv initd.root $(OBJ_BASE)/initd/ 2>/dev/null || true; } && { rm -f initd.sym 2>/dev/null || true; }
-	cd $(OBJ_BASE)/initd && iix --gno link -P -o $(USRSBIN_OUT)/initd initd.a
+	cd $(OBJ_BASE)/initd && iix --gno link -P -o $(USRSBIN_OUT)/initd initd.a $(GNO_OBJ)/usr/lib/libktrace
 	cp $(USRSBIN_OUT)/initd $(SBIN_OUT)/initd
 
 $(SBIN_SIMPLE:%=sbin_%):

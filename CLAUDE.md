@@ -35,12 +35,16 @@ GG_ROOT ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
 | Linux | `/usr/local/share/GoldenGate` | `export GOLDEN_GATE=/path` |
 | Windows (MSYS2) | (none — must set) | `export GOLDEN_GATE=/c/path` |
 
-### ProDOS FinderInfo metadata — `goldengate/tools/set-finder-info.py`
+### ProDOS file type metadata — `iix chtyp`
 
-Assembly object files must be tagged with ProDOS type `$B1` after `iix assemble`. All Makefiles call `set-finder-info.py` which handles all platforms:
-- **macOS**: `xattr -wx com.apple.FinderInfo` (32-byte block)
-- **Linux**: `os.setxattr('user.com.apple.FinderInfo', ...)` (same 32-byte block)
-- **Windows**: writes `filename:AFP_AfpInfo` NTFS alternate data stream (60-byte AFP structure)
+Assembly object files must be tagged with ProDOS type `$B1` after `iix assemble` (the assembler incorrectly sets `$B0` outside `/tmp`). All Makefiles use `iix chtyp` to set the correct type:
+
+```bash
+iix chtyp -t obj file.A          # $B1 (OBJ) — after iix assemble
+iix chtyp -t exe -a 1 file       # $B5/$0001 (EXE) — applications
+iix chtyp -t s16 -a 1 file       # $B3 (S16) — system files (kernel)
+iix chtyp -t dvr -a 0x7e01 file  # $BB/$7E01 (DRV) — device drivers
+```
 
 `.c`, `.asm`, `.pas` source files do NOT need explicit metadata — GoldenGate extension fallback handles them on all platforms.
 
@@ -117,13 +121,11 @@ iix assemble +T foo.asm      # +T = terminal on first error
 ```
 
 **Output:** `foo.A` + `foo.ROOT` in **CWD** (uppercase `.A` extension!)
-**File type:** Sets `$B0` outside `/tmp` — **must patch to `$B1`** using the cross-platform helper:
+**File type:** Sets `$B0` outside `/tmp` — **must patch to `$B1`**:
 ```bash
-python3 goldengate/tools/set-finder-info.py file.a \
-  "70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
+iix chtyp -t obj file.A
 ```
 Why: GoldenGate only sets `$B1` for files in `/tmp` (prefix 3:). All other directories get `$B0`, which makelib silently rejects ("not an object module").
-The helper handles macOS (xattr), Linux (os.setxattr), and Windows (AFP_AfpInfo NTFS stream).
 
 **KEEP directive:** Assembler writes output named by `keep` directive in CWD. If no `keep`, uses source filename.
 **MCOPY directive:** Resolves `.mac` files relative to CWD. Must `cd` to source directory before assembling.
@@ -324,7 +326,8 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - **GNO namespace paths**: change `mcopy :obj:gno:...` → `mcopy file.mac`; symlink ORCA equate files from `Libraries/AINClude/`
 - **`#pragma lint -1`**: ENABLES all lint (= 0xFFFF) — opposite of expectation; remove these pragmas
 - **`-D MACRO` not supported**: add `#define` in a shared header included by all .c files
-- **Code bank overflow** ("Code exceeds code bank size"): add `#pragma memorymodel 1` to a shared header; generates JSL instead of JSR, allowing code to span multiple 64KB banks
+- **Code bank overflow** ("Code exceeds code bank size"): add `#pragma memorymodel 1` to a shared header; generates JSL instead of JSR, allowing code to span multiple 64KB banks. **WARNING:** memorymodel 1 causes the data bank register (DBR) to point to the calling code's bank rather than the program's data bank. This breaks any C code that reads global variables via absolute addressing (DBR-relative). See `_toolErr` / `toolerror()` note below.
+- **`_toolErr` — NEVER read directly in C code**: PDosInt (ORCALib) stores GS/OS errors via `STA >~TOOLERROR` (absolute long, bank-independent), but `extern int _toolErr` generates DBR-relative `LDA` which reads garbage when DBR is wrong (memorymodel 1 programs). **Always use `toolerror()`** from `<orca.h>` — it reads via `LDA >~TOOLERROR` (absolute long). All direct `_toolErr` reads were removed from libc on 2026-04-09 (89 occurrences across 8 files).
 - **16-bit int overflow in shifts**: `int << N` where N≥16 is UB; cast: `(unsigned long)val << N`
 - **`static char sccsid[]`**: triggers lint "unused variable"; use `static const char sccsid[]`
 - **Library links**: `passwd`→libcrypt; `rmdir/removerez/whereis/newuser/install`→libcontrib; `tput/more`→libtermcap; `whois`→libnetdb; `printf`→SysFloat; `getty`→libutil
@@ -339,21 +342,29 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 |-------|--------|--------|
 | ORCA/C 2.2.2 | ✓ built + installed | `~/Library/GoldenGate/Languages/cc` |
 | Phase 2 — ORCALib | ✓ | `~/Library/GoldenGate/lib/ORCALib` |
-| Phase 3 — libc | ✓ 99.6% symbol coverage (444/446) | `gno-obj/lib/libc` |
+| Phase 3 — libc | ✓ 99.6% symbol coverage (444/446) | `gno_obj/lib/libc` (518,237B) |
 | ORCA/M from source | ✓ | `goldengate/orca-m/Makefile` → Asm65816 2.1.0 |
-| Phase 5 — Support Libraries | ✓ 9 libs (incl. libsim) | `gno-obj/usr/lib/lib*` |
-| Phase 6 — Utilities | ✓ 147 built (incl. gsh, less, vi, grep, compress) | `gno-obj/bin/`, `gno-obj/usr/bin/` |
-| Phase 7 — Kernel | ✓ | `gno-obj/kern` (150,673B; ref 140,754 — ~7% larger, ksherlock additions) |
+| Phase 5 — Support Libraries | ✓ 9 libs (incl. libsim) | `gno_obj/usr/lib/lib*` |
+| Phase 6 — Utilities | ✓ built (incl. gsh, less, vi, grep, compress) | `gno_obj/bin/`, `gno_obj/usr/bin/` |
+| Phase 7 — Kernel | ✓ | `gno_obj/kern` (151,465B; ref 140,754 — ~8% larger, ksherlock additions) |
 | cowrez | ✓ | `goldengate/tools/cowrez.py` |
 | Phase 8a — Resource forks | ✓ | attached via `phase8_rez.mk` |
 | Phase 8b — ProDOS types | ✓ | set by iix linker automatically |
-| Phase 8c — Disk image | ✓ | `diskImages/gno-built.2mg` (32MB, 714 files) |
+| Phase 8c — Disk image | ✓ | `diskImages/gno-built.2mg` (32MB, 713 files) |
 
 **Test suites:** ORCA/C 42/42 + 6/6 runtime + 12/12 ORCA/M — all pass.
 
 **Phase 3 libc notes:**
 - 2 missing symbols (`_fnmatch_map`, `_getUserID`) — no source in GNO tree
 - 36 extra symbols — ksherlock fork additions (strlcpy, strlcat, pread, pwrite, etc.)
+- **`_toolErr` → `toolerror()` fix (2026-04-09):** All 89 direct `_toolErr` reads across 8 libc source files replaced with `toolerror()` calls (from `<orca.h>`). Root cause: memorymodel 1 programs have wrong DBR, causing DBR-relative `LDA _toolErr` to read garbage. `toolerror()` uses `LDA >~TOOLERROR` (absolute long, bank-independent). Also fixed `getcwd.c` `pathname[-1]` underread when `bufString.length == 0`.
+
+**ORCALib comparison (ksherlock-gno vs byteworksinc-orcalib):**
+- `CVars start` (ksherlock) vs `~CVars start` (official): `~` prefix merges globals into program data area
+- `~Exit`: ksherlock uses PHB/PHK/PLB + direct addressing; official uses `>` absolute long (DBR-safe)
+- FILE struct: official has 2-byte larger putback field (FILE_pbk: 2→4 bytes)
+- fgets `n` parameter: 2 bytes (ksherlock) vs 4 bytes (official) — the known ABI mismatch
+- GNO override adds `__cleanup` function pointer (replaces `sys_nerr`), `~User_ID` safety alloc at startup, removes `~InitIO`/stdio (GNO libc provides these)
 
 **Phase 5 build notes:**
 - lsaneglue: `.mac` files pre-generated by `iix macgen`; committed in `lib/lsaneglue/`
@@ -363,7 +374,7 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 - libsim: Serial Interrupt Manager library; source from old-gno/sys/sim/simlib.asm; built via `goldengate/build/libsim.mk`; `lib/libsim/` in this repo
 
 **Phase 6 utilities notes:**
-- `false`, `true`, `tr` output to `gno-obj/bin/` (source in `usr.bin/`) — explicit targets in phase6.mk
+- `false`, `true`, `tr` output to `gno_obj/bin/` (source in `usr.bin/`) — explicit targets in phase6.mk
 - `awk`: 9 C files, pre-generated ytab.c/proctab.c — no yacc needed
 - `cpp`: 10 C files; `#pragma memorymodel 1` in `cpp.h` fixes code bank overflow
 - `nroff`: 9 C files; `isalpha(*optarg)` fix + `#pragma memorymodel 1` in `nroff.h`
@@ -388,15 +399,8 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
   The kernel is a pure GS/OS application that ideally would be compiled without `--gno`. However, the ORCA SDK's `signal.h` (ByteWorks version, `Libraries/ORCACDefs/signal.h`) directly defines `SIG_IGN`/`SIG_ERR`/`SIGFPE` etc., while GNO's `sys/signal.h` also defines them. Without `--gno`, both get included → "cannot redefine a macro" errors. GNO's `signal.h` (`lib/ORCACDefs/signal.h`) properly wraps `sys/signal.h` via include guards, avoiding the conflict. So `--gno` is used as a workaround to get the GNO header path.
   **TODO:** Replace `Libraries/ORCACDefs/signal.h` with GNO's BSD version so the kernel can compile with `iix compile` (no `--gno`), eliminating the spurious `__GNO__` definition in kernel code.
 - **Kernel link mode: `iix link` (NOT `iix --gno link`)** — links against ORCALib only; GNO libc is unavailable during kernel boot.
-- **ORCALib ABI mismatch — systemic issue for all kernel C code:**
-  ORCALib was compiled when `size_t = unsigned` (2 bytes). Current ORCA/C headers define `size_t = unsigned long` (4 bytes) in BOTH `iix compile` and `iix --gno compile` modes. Switching compile modes does NOT fix this. For any ORCALib function that historically took a `size_t` parameter, the kernel pushes 4 bytes but ORCALib's callee-cleans epilogue only pops 2 bytes → 2-byte stack leak per call → corrupted return-address bank byte → jump to garbage bank ($53, $55, etc.) → crash.
-  - **Confirmed affected:** `fgets(char *, size_t, FILE *)` — ORCALib binary confirmed `csubroutine (4:s, 2:n, 4:stream), 2`; n is 2 bytes.
-  - **Fix pattern** (required for every ORCALib `fgets` call in kernel code):
-    ```c
-    typedef char *(*fgets_orca_t)(char *, unsigned, FILE *);
-    if (((fgets_orca_t)fgets)(buf, (unsigned)n, fp) == NULL) break;
-    ```
-  - **Fixed in:** `kern/gno/ep.c` (init_htable), `kern/gno/main.c` (initrc reads in doShell + tty.config loop in loadttyconfig)
+- **ORCALib ABI mismatch — FIXED (fgets was the only affected function):**
+  ORCALib's `fgets` had `csubroutine (4:s,2:n,4:stream)` — `n` was 2 bytes (C89 `int`) while GNO headers declare `size_t` (4 bytes). Fixed by changing `2:n` → `4:n` in `byteworksinc-orcalib/stdio.asm:691`, rebuilding ORCALib, and removing cast workarounds from kernel code (`ep.c`, `main.c`). All other ORCALib `size_t` parameters were already correct (4 bytes).
   - **Audit policy:** Any ORCALib function that takes a `size_t`-typed parameter must be verified. Check the ORCALib source (`~/source/iigs-official-repos/byteworksinc-orcalib/`) for actual `csubroutine` byte widths. `memcpy`, `strlen`, `strcpy` appear safe from source inspection. When adding new kernel C code calling a standard C library function, always verify it resolves to ORCALib (not GNO libc) and check parameter widths.
 - **InitialLoad2 dispatch fix — APPLIED:**
   Current ORCALib `toolglue.macros` dispatches `_INITIALLOAD2` as `LDX #$2011` (Loader function $20). GS/OS 6.0.4 returns `idNotLoadFile` ($1104) for function $20. The reference GNO 2.0.6 kernel used `_INITIALLOAD` ($0911, function $09) for ALL driver loading. **Fix applied:** Changed both `InitialLoad2(...)` calls to `InitialLoad(...)` (3 params, drop `privateFlag`):
@@ -411,13 +415,13 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
   - `fopen("9/initrc")` works despite PROC->prefix[10]=0 because gno_ExpandPath produces `:initrc` (volume-relative), which GS/OS resolves as `:GNO:initrc` (exists on image).
 - **Original $1104 root cause — filename.length never set:**
   The original `sscanf(line1, "%s %d %s", filename.text, ...)` filled `filename.text` but **never set `filename.length`** (static variable stays 0). InitialLoad received a GSString255 with length=0 = empty path → $1104 every time. Fix: build path into a new `fullpath` GSString255 and set `fullpath.length = strlen(fullpath.text)`.
-- **ONGOING — driver startup BRK $00 at $11/000C:**
-  With the length fix, InitialLoad IS invoked and the GS/OS Loader allocates bank $11 for the driver. But BRK $00 fires at $11/000C and $9D/CFBC, halting at the GS/OS monitor. Memory at $11/0000 shows `ee ff 00 00...` — mostly zeros after 2 bytes. Either the driver failed to fully load into $11, or its startup branches to zero-filled memory. WDM $DA/$DB traps added before/after InitialLoad to capture il_rec.startAddr. **This is the current active debugging target.**
+- **RESOLVED — driver startup BRK $00 at $11/000C:**
+  Previously observed during early kernel debugging. Resolved by subsequent fixes (filename.length bug, InitialLoad2→InitialLoad dispatch fix, and other boot-sequence corrections). GNO now boots successfully through driver loading to login prompt.
 - **GNOBug and SIM (System/System.Setup on reference GNO disk):**
   Reference GNO 2.0.6 ships `System/System.Setup/GNOBug#B60100` and `System/System.Setup/SIM#B60100` (both type $B6/$0100 = GS/OS Init/extension). These are NOT required on the boot disk for GNO to work (confirmed: reference GNO boots without them on System604.2mg). SIM = Serial Interrupt Manager (same as libsim). GNOBug = patches GS/OS bugs at boot time.
 
 **Phase 8c image notes:**
-- **STRICT SOURCE POLICY**: binary files ($B5, $B3, $B2, $BB) must come from `gno-obj/` — no reference fallback for executables/libraries; `--warn-missing` escape hatch during Phase 9 porting
+- **STRICT SOURCE POLICY**: binary files ($B5, $B3, $B2, $BB) must come from `gno_obj/` — no reference fallback for executables/libraries; `--warn-missing` escape hatch during Phase 9 porting
 - Exemptions: `lib/sysfloat` (GoldenGate SDK) and `lib/orcalib` (byteworksinc-orcalib) via `GG_LOOKUP` map
 - verbatim/ files staged with LF→CR conversion for ProDOS text compatibility
 
@@ -441,7 +445,7 @@ ORCA equate files (E16.SANE, E16.GSOS, etc.) are at: `~/Library/GoldenGate/Libra
 
 ### Phase 9: Source Completeness (21 missing — all hard items, no source in repo)
 
-**Policy**: All binaries on the disk image must come from `gno-obj/` (built from source). Reference image fallback is disabled for executables and libraries. `--warn-missing` is the escape hatch while porting is in progress.
+**Policy**: All binaries on the disk image must come from `gno_obj/` (built from source). Reference image fallback is disabled for executables and libraries. `--warn-missing` is the escape hatch while porting is in progress.
 
 **Authoritative source repos (in priority order):**
 1. This repo (`/Users/smentzer/source/gno`) — primary
@@ -505,6 +509,13 @@ Remove `--warn-missing` from `rebuild-all.sh` once all 21 missing binaries are s
 
 ## Build Quick Reference
 
+**Build output location:** All intermediate objects and final binaries go to `./gno_obj/` inside the repo. Source directories are kept clean — `.sym` files are deleted automatically after each successful compile step.
+
+**Full clean rebuild (from any terminal):**
+```bash
+cd /Users/smentzer/source/gno && bash goldengate/build/rebuild-all.sh
+```
+
 ```bash
 # Build ORCA/C from source (in byteworksinc-orca-c repo)
 cd /Users/smentzer/source/iigs-official-repos/byteworksinc-orca-c
@@ -525,14 +536,11 @@ make -f goldengate/build/libc.mk validate
 # Compare libc symbols
 python3 goldengate/tools/compare_libc.py
 
-# Run ORCA/C test suite
-make -f goldengate/orcac-tests/Makefile all-stdlib
-
-# Run ORCA/M macro test suite
-make -f goldengate/orca-m-tests/Makefile
+# Run ORCA/C test suite (in byteworksinc-orca-c repo)
+# cd ~/source/iigs-official-repos/byteworksinc-orca-c && make -f GNUmakefile test
 
 # Disassemble an OMF object
-python3 goldengate/orcac-tests/tools/omf_dis.py path/to/file.a
+python3 goldengate/tools/cowomfdis.py path/to/file.a
 
 # Build Phase 5 — all support libraries
 make -f goldengate/build/phase5.mk
@@ -643,11 +651,11 @@ Key distributions (see DocTemple directly for full listing):
 | `goldengate/tools/compare_libc.py` | Symbol comparison between built and reference libc |
 | `goldengate/tools/cowrez.py` | Cross-platform Rez compiler: parses .rez → resource fork xattr |
 | `goldengate/tools/cowdiff.py` | Canonical disk image comparison + extraction tool |
-| `goldengate/orcac-tests/tools/omf_dis.py` | OMF v2 parser + 65816 disassembler |
+| `goldengate/tools/cowomfdis.py` | OMF v2 parser + 65816 disassembler |
 | `sbin/init/initd.c` | PID 1 daemon — reconstructed from 65816 disassembly of reference binary |
-| `diskImages/gno-built.2mg` | Built GNO/ME ProDOS disk image (32MB, 688 files) |
+| `diskImages/gno-built.2mg` | Built GNO/ME ProDOS disk image (32MB, 713 files) |
 | `goldengate/build/phase8_rez.mk` | Attach resource forks to all built binaries (via cowrez.py) |
-| `goldengate/build/phase8c_image.py` | Build ProDOS .2mg disk image from gno-obj/ + reference |
+| `goldengate/build/phase8c_image.py` | Build ProDOS .2mg disk image from gno_obj/ + reference |
 | `.mcp.json` | Claude Code MCP server definitions for this project (`gsplus` debugger integration) |
 
 ### gsplus MCP Server — Emulator Integration

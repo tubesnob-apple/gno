@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <orca.h>
 #include <gno/gno.h>
 
 #define SYSNAME	"GNO/ME"
@@ -35,7 +36,7 @@ uname(struct utsname *name)
 	name->nodename[sizeof(name->nodename) - 1] = '\0';
 
 	ver = kernVersion();
-	if (_toolErr)
+	if (toolerror())
 		ver = 0;
 
 	/*

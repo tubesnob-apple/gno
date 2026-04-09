@@ -1,0 +1,22 @@
+/*
+ * Resources for version and comment -- uncompress
+ */
+#define PROG "uncompress"
+#define DESC "Expand compressed data (LZW)."
+
+#include "Types.rez"
+
+resource rVersion (1, purgeable3) {
+	{ 2, 0, 0,
+	  release,
+	  0 },
+	verUS,
+	PROG,
+	DESC " Released with GNO/ME."
+};
+
+resource rComment (1, purgeable3) {
+	PROG " v2.0 (GNO/ME 2.0.6)\n"
+	"GNO utility: " DESC "\n"
+	"Stub that execs compress -d. Ported for Apple IIgs (ORCA/C 2.2.2)."
+};

@@ -1,6 +1,6 @@
 ###
 #
-# GNO 2.0.6 gshrc file (for the bootstrap disk).
+# GNO 2.1.0 gshrc file (for the bootstrap disk).
 # This file is parsed whenever a gsh shell is started.
 #
 # $Id: gshrc,v 1.5 1999/07/04 19:18:51 gdr-ftp Exp $
@@ -33,7 +33,7 @@ alias mv 	"cp -p mv -i"
 alias view 	"vi -R"
 
 echo "====================================================================="
-echo "= GNO v2.0.6 bootstrap disk."
+echo "= GNO v2.1.0 bootstrap disk."
 echo "="
 echo "= Don't worry about the fact that this disk contains a v2.0.4 kernel;"
 echo "= a more recent one will be installed.  See Problem Report #62 at"

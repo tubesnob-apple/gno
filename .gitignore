@@ -4,14 +4,20 @@
 *.root
 *.ROOT
 
+# ORCA object modules (produced by compiler/assembler)
+*.a
+*.A
+
+# Disk images
+*.2mg
+
+# Build/linker output
+*.out
+
 # macOS
 .DS_Store
 *.swp
 *~
-
-# ORCA/M assembly intermediates (uppercase .A produced by assembler)
-# Note: lowercase .a files are ORCA object modules and SHOULD be tracked
-# when they are part of the source tree (e.g., lib/ORCALib/*.A)
 
 # Probe files
 /probe.*

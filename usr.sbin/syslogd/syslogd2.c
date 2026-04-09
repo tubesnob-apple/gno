@@ -138,7 +138,7 @@ main(int argc, char **argv) {
 #endif
 
 	/* We'll be needing our mem mgr ID later ... */
-	myID = _getUserID();
+	myID = userid();
 
 	while ((ch = getopt(argc, argv, "cF:")) != EOF) {
 		switch(ch) {

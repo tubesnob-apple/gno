@@ -53,7 +53,7 @@ getcwd(char *pathname, size_t size) {
 	errno = e;
 	return NULL;
     }
-	
+
     prefx->pCount = 2;
     prefx->buffer.getPrefix = (ResultBuf255Ptr) where;
     for (i=0; i<2; i++) {
@@ -66,10 +66,10 @@ getcwd(char *pathname, size_t size) {
 	    break;
 	}
 	GetPrefixGS(prefx);
-	if (i == 0 && _toolErr == 0 && where->bufString.length == 0) {
+	if (i == 0 && toolerror() == 0 && where->bufString.length == 0) {
 	    /* prefix 0 not set */
 	    continue;
-	} else if ((e = _toolErr) != 0) {
+	} else if ((e = toolerror()) != 0) {
 	    e = (e == buffTooSmall) ? ERANGE : _mapErr(e);
  	    result = NULL;
  	    break;
@@ -77,7 +77,8 @@ getcwd(char *pathname, size_t size) {
 	    e = errno;
 	    strncpy(pathname, where->bufString.text, where->bufString.length);
 	    pathname[where->bufString.length] = 0;
-    	    if (pathname[where->bufString.length-1] == ':') {
+    	    if (where->bufString.length > 0 &&
+    	        pathname[where->bufString.length-1] == ':') {
 		pathname[where->bufString.length-1] = '\0';
 	    }
 
@@ -87,7 +88,7 @@ getcwd(char *pathname, size_t size) {
 		result = NULL;
 	    }
 	    break;
-        }    	
+        }
 	/* NOTREACHED */
     }
     free(prefx);

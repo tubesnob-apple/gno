@@ -61,6 +61,7 @@ static char sccsid[] = "@(#)syslog.c	8.4 (Berkeley) 3/18/94";
 
 #ifdef __GNO__
 #include <types.h>
+#include <orca.h>
 #include <gno/gno.h>
 #include <misctool.h>
 #include <memory.h>
@@ -657,11 +658,10 @@ sendPort(int port, int pri, const void *buf, int len)
 	 */
 	datahand = NewHandle(sizeof(SyslogDataBuffer_t) +  (3 * sizeof(int))
 			     + len +1, memID, 0x4000, NULL);
-	if (_toolErr) {
-		saved_toolerr = _toolErr;
+	if (toolerror()) {
+		saved_toolerr = toolerror();
 		DeleteID(memID);
-		_toolErr = saved_toolerr;
-		errno = _mapErr(_toolErr);
+		errno = _mapErr(saved_toolerr);
 		return -1;
 	}
 
@@ -689,9 +689,8 @@ sendPort(int port, int pri, const void *buf, int len)
 	if (psend(port, (long) datahand) == -1) {
 		/* We failed.  Dump the region to avoid a mem leak. */
 		saved_errno = errno;
-		saved_toolerr = _toolErr;
+		saved_toolerr = toolerror();
 		DisposeHandle(datahand);
-		_toolErr = saved_toolerr;
 		errno = saved_errno;
 		return -1;
 	}

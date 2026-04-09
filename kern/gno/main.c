@@ -21,20 +21,20 @@ segment "KERN2     ";
 #include <loader.h>
 #include <texttool.h>
 #include <orca.h>
+#include <misctool.h>
 #include <sys/ioctl.h>
 #include <sys/ports.h>
 #include <shell.h>
 #include <sys/errno.h>
 #include <signal.h>
 #include "build_time.h"
+#include "ktrace.h"
 
-#define BOOT_TRACE
+/* #define BOOT_TRACE */
 #ifdef BOOT_TRACE
-#define KPRINT(s) WriteCString(s);
-#define BOOT_TRAP(n)  asm { wdm n }
+#define BOOT_LOG(s) KTRACE_LOG(s)
 #else
-#define KPRINT(s) 
-#define BOOT_TRAP(n)
+#define BOOT_LOG(s)
 #endif
 
 #ifndef udispatch
@@ -68,8 +68,6 @@ GSString32 ttyPath = { 6, ".ttyco" };
 OpenRecGS o;
 FILE *initf;
 
-KPRINT("doShell:Starting\n\r");
-
 #ifdef DEBUG_FIRST_FORK
     WriteCString("\n\rInside doShell\n\r");
     ReadChar(0);
@@ -86,10 +84,6 @@ KPRINT("doShell:Starting\n\r");
     o.requestAccess = writeEnable;
     OpenGS(&o);  /* open stderr */
 
-    BOOT_TRAP(0x01);
-    
-    KPRINT("doShell:handling initrc\n\r");
-
     initf = fopen("9/initrc","r");
     if (initf) {
 	fgets(initX,80,initf);
@@ -99,27 +93,11 @@ KPRINT("doShell:Starting\n\r");
 	fclose(initf);
     }
 
-    KPRINT("doShell:after initrc\n\r");
-
     cl[0] = 0;
     PUSH_VARIABLES(cl);
-#ifdef DEBUG_FIRST_FORK
-    WriteCString("Calling Kexecve()\n\r");
-    ReadChar(0);
-#endif
 
-    KPRINT("doShell:doing kernel exec\n\r");
-    KPRINT("doShell:initX\n\r");
-    KPRINT(initX);
-    KPRINT("\n\r");
-    KPRINT("doShell:initCmd\n\r");
-    KPRINT(initCmd);
-    KPRINT("\n\r");
-    
-    KPRINT("doShell:Doing kernel exec\n\r");
+    KTRACE_LOG("doShell: exec");
     Kexecve(&errno,initCmd,initX);
-    KPRINT("doShell:Finished Kernel Exec\n\r");
-    
 
     WriteCString("\n\rCould not locate: ");
     WriteCString(initX);
@@ -152,8 +130,8 @@ extern void InstallDriver(int,int,void *);
 
 static void setuppty(void)
 {
-    WriteCString("Start setuppty()");
-char pty[] = ".ptyq0";
+
+    char pty[] = ".ptyq0";
 char tty[] = ".ttyq0";
 const char conv[] = "0123456789abcdef";
 unsigned int ptyno, slotno;
@@ -170,13 +148,10 @@ extern PTYSlaveHeader;
 	slotno+=2;
     }
 
-    WriteCString("End setuppty()");
-
 }
 
 static void setuptty(void)
 {
-        WriteCString("Start setuptty()");
 
 static char line[80];
 char *line1;
@@ -191,7 +166,7 @@ extern ConsoleHeader;
 
     numDrivers = 0;
 
-    strcpy(line,"9:dev:"); /* all loaded devices are referenced from 9:dev */
+    strcpy(line,"9:dev:"); /* prefix 9 = :GNO: — use InitialLoad2 (func $20) which supports extended prefixes */
     line1 = line+6;
     setuppty(); /* install 16 pty devices */
 
@@ -200,8 +175,11 @@ extern ConsoleHeader;
     InstallDriver(kp->userID,3,&ConsoleHeader);
 
     ttys = fopen("9/etc/tty.config","r");
-    while (!feof(ttys)) {
-        fgets(line1,80,ttys);
+    if (ttys == NULL) {
+        WriteCString("setuptty: could not open 9/etc/tty.config");
+        return;
+    }
+    while (fgets(line1,80,ttys) != NULL) {
         if (strlen(line1) < 2) continue;    /* skip blank lines   */
         if (line1[0] == '#') continue;       /* skip comment lines */
         sscanf(line,"%s %d %s", filename.text, &devNum, devname);
@@ -213,9 +191,9 @@ extern ConsoleHeader;
 
         /* InitialLoad device file */
 	ILuserID = (kp->userID & 0xF0FF) | (((devNum+2) & 0xf) << 8);
-	BOOT_TRAP(0xda)    /* inspect filename before InitialLoad */
-	il_rec = InitialLoad(ILuserID, (Pointer)&filename, 1);
-	BOOT_TRAP(0xdb)    /* inspect il_rec.startAddr after InitialLoad */
+	BOOT_LOG("loadttyconfig: before InitialLoad")
+	il_rec = InitialLoad2(ILuserID, (Pointer)&filename, 1, 1);
+	BOOT_LOG("loadttyconfig: after InitialLoad")
     	if ((e = toolerror())) {
 	    printf("Could not load driver: %s, error: %04X\n",filename.text,e);
         } else {
@@ -224,8 +202,6 @@ extern ConsoleHeader;
         }
     }
     fclose(ttys);
-
-    WriteCString("Start setuptty()");
 
 }
 
@@ -276,8 +252,6 @@ word nargs = 0;
         InitTextDev(output);
         InitTextDev(errorOutput);
 
-                WriteCString("Start main()");
-
 
 	kernStatus();
 	if (!toolerror()) {
@@ -288,14 +262,26 @@ word nargs = 0;
         quitParms.pCount = 0;
         TLStartUp();
 
-        printf("%c\nGNO Kernel v2.0.6 (network) [" BUILD_TIMESTAMP "]\n",12);
+        printf("%c\nGNO Kernel v2.1.0 (network) [" BUILD_TIMESTAMP "]\n",12);
 	printf("Copyright 1991-1998, Procyon, Inc.\n%c",6);
 	/* initialize kernel queues, etc */
 	SetTSPtr(0x8000, 3, (Pointer)kernTable);
+	KTRACE_LOG("kernel: TSP installed");
 	kp = (kernelStructPtr) &CKernData;
 #ifdef DEBUG_STARTUP
 	printf("\nmain thinks kp is :%08lX\n",kp);
 #endif
+	/* ~_BWStartUp is never invoked for a $B3 system file (the kernel is
+	 * launched directly by GS/OS, not via GNO fork/exec).  SysLib's
+	 * ~User_ID global (_ownerid) stays 0, so NewHandle inside calloc/malloc
+	 * fails immediately with error $0207 (invalid userID).
+	 * Fix: allocate a proper GS/OS userID now — TLStartUp() is already
+	 * done, so GetNewID is available — and store it in _ownerid so that
+	 * SysLib's memory manager uses it for all subsequent allocations. */
+	{
+		extern unsigned _ownerid;
+		_ownerid = GetNewID(0x5000);	/* library-type userID */
+	}
 	kp->userID = userid();
 #ifdef DEBUG_GSOS
 	kp->gsosDebug = ~0;
@@ -448,10 +434,10 @@ word nargs = 0;
 	SetErrorDevice(pascalType,3l);
 	WriteCString("\n\r\n\r\n\r");
 
-    BOOT_TRAP(0xA0);
+    BOOT_LOG("kernel: before commonFork(doShell)");
 	commonFork(doShell, 1024, 0, NULL, &nargs, &errno);
 
-    BOOT_TRAP(0xA1);
+    BOOT_LOG("kernel: after commonFork(doShell)");
 
 /*
  * this is the kernel null process. it must NEVER call the assembly

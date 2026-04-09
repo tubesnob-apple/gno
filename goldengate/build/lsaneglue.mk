@@ -26,10 +26,8 @@ ORCAINC   := $(GG_ROOT)/Libraries/ORCAInclude
 AS        := iix assemble
 MACGEN    := iix macgen
 MAKELIB   := iix makelib
-SET_FINDERINFO := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
 
 ASFLAGS   := +T
-PRODOS_OBJ_FINDERINFO := 70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
 .PHONY: all
 all: $(LIB_OUT)
@@ -55,11 +53,11 @@ $(SRC_DIR)/E16.SANE:
 
 $(SRC_DIR)/saneglue.A: $(SRC_DIR)/saneglue.asm $(SRC_DIR)/saneglue.mac $(SRC_DIR)/E16.SANE
 	cd $(SRC_DIR) && $(AS) $(ASFLAGS) saneglue.asm
-	$(SET_FINDERINFO) $@ "$(PRODOS_OBJ_FINDERINFO)"
+	iix chtyp -t obj $@
 
 $(SRC_DIR)/findfpcp.A: $(SRC_DIR)/findfpcp.asm $(SRC_DIR)/findfpcp.mac
 	cd $(SRC_DIR) && $(AS) $(ASFLAGS) findfpcp.asm
-	$(SET_FINDERINFO) $@ "$(PRODOS_OBJ_FINDERINFO)"
+	iix chtyp -t obj $@
 
 $(dir $(LIB_OUT)):
 	mkdir -p $@

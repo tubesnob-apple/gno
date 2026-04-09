@@ -1,6 +1,7 @@
 /* $Id: cpp.h,v 1.3 1997/12/08 03:40:11 gdr Exp $ */
 #ifdef __ORCAC__
-#pragma memorymodel 1
+#pragma optimize 78
+#pragma memorymodel 1  /* code + libc exceeds 64KB bank */
 #endif
 #define	INS	32768		/* input buffer */
 #define	OBS	4096		/* outbut buffer */

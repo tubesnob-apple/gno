@@ -1,7 +1,8 @@
 #ifndef NRO_H
 #define NRO_H
 #ifdef __ORCAC__
-#pragma memorymodel 1
+#pragma optimize 78
+#pragma memorymodel 1  /* code + libc exceeds 64KB bank */
 #endif
 
 #include "config.h"			/* os/compiler options */

@@ -21,11 +21,9 @@ SRC_DIR   := $(REPO_ROOT)/lib/libcrypt
 AS        := iix assemble
 CC        := iix --gno compile
 MAKELIB   := iix makelib
-SET_FINDERINFO := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
 
 ASFLAGS   := +T
 CCFLAGS   := -P +O
-PRODOS_OBJ_FINDERINFO := 70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
 .PHONY: all
 all: $(LIB_OUT)
@@ -43,7 +41,7 @@ $(OBJ_DIR)/crypta.a: $(SRC_DIR)/crypta.asm $(SRC_DIR)/crypta.mac | $(OBJ_DIR)
 	cd $(SRC_DIR) && $(AS) $(ASFLAGS) crypta.asm
 	mv $(SRC_DIR)/crypta.A $@
 	rm -f $(SRC_DIR)/crypta.ROOT
-	$(SET_FINDERINFO) $@ "$(PRODOS_OBJ_FINDERINFO)"
+	iix chtyp -t obj $@
 
 # Compile C sources
 $(OBJ_DIR)/%.a: $(SRC_DIR)/%.c | $(OBJ_DIR)

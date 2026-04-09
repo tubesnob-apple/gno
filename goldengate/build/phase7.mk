@@ -42,21 +42,16 @@ DRV_SRC   := $(REPO_ROOT)/kern/drivers
 CC    := iix --gno compile
 AS    := iix assemble
 LD    := iix link
-SET_FINDERINFO := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
 
 CFLAGS  := -P
 ASFLAGS := +T
 
-# ProDOS file type FinderInfo values (set via set-finder-info.py, cross-platform)
 # Format: 70 <type_byte> <auxtype_lo> <auxtype_hi>  70 64 6F 73  <16 zeros>
-PRODOS_OBJ_FI := 70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-PRODOS_S16_FI := 70 B3 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-PRODOS_DRV_FI := 70 BB 01 7E 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
 # ── Module lists ──────────────────────────────────────────────────────────────
 
 # C modules from kern/gno/
-KERN_C_MODS := main patch sys signal sem queue data diag stat sleep net ep ports fastfile
+KERN_C_MODS := main patch sys signal sem queue data diag stat sleep net ep ports fastfile ktrace
 
 # ASM modules from kern/gno/ (assembled from kern/gno/ dir)
 KERN_ASM_MODS := kern gsos texttool shellcall tty p16 ctool resource var pipe pty select util err regexp driver
@@ -84,7 +79,7 @@ kern: clean-kern $(KERN_OUT)
 
 $(KERN_OUT): $(ALL_KERN_OBJS) | $(OBJ_BASE)
 	cd $(KERN_OBJ) && $(LD) -o $(KERN_OUT) $(ALL_KERN_MODS)
-	$(SET_FINDERINFO) $(KERN_OUT) "$(PRODOS_S16_FI)"
+	iix chtyp -t s16 -a 1 $(KERN_OUT)
 	@SIZE=$$(wc -c < $(KERN_OUT)); echo "kern: $$SIZE bytes (reference: 140754)"
 
 # ── Compile C modules ─────────────────────────────────────────────────────────
@@ -105,7 +100,7 @@ $(KERN_OBJ)/%.a: $(KERN_SRC)/%.c | $(KERN_OBJ)
 
 $(KERN_OBJ)/%.a: $(KERN_SRC)/%.asm | $(KERN_OBJ)
 	cd $(KERN_SRC) && $(AS) $(ASFLAGS) $*.asm
-	$(SET_FINDERINFO) $(KERN_SRC)/$*.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(KERN_SRC)/$*.A
 	mv $(KERN_SRC)/$*.A $(KERN_OBJ)/$*.a
 	-mv $(KERN_SRC)/$*.ROOT $(KERN_OBJ)/$*.root 2>/dev/null || true
 
@@ -113,25 +108,25 @@ $(KERN_OBJ)/%.a: $(KERN_SRC)/%.asm | $(KERN_OBJ)
 
 $(KERN_OBJ)/inout.a: $(DRV_SRC)/inout.asm | $(KERN_OBJ)
 	cd $(KERN_SRC) && $(AS) $(ASFLAGS) $(DRV_SRC)/inout.asm
-	$(SET_FINDERINFO) $(KERN_SRC)/inout.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(KERN_SRC)/inout.A
 	mv $(KERN_SRC)/inout.A $(KERN_OBJ)/inout.a
 	-mv $(KERN_SRC)/inout.ROOT $(KERN_OBJ)/inout.root 2>/dev/null || true
 
 $(KERN_OBJ)/console.a: $(DRV_SRC)/console.asm | $(KERN_OBJ)
 	cd $(KERN_SRC) && $(AS) $(ASFLAGS) $(DRV_SRC)/console.asm
-	$(SET_FINDERINFO) $(KERN_SRC)/console.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(KERN_SRC)/console.A
 	mv $(KERN_SRC)/console.A $(KERN_OBJ)/console.a
 	-mv $(KERN_SRC)/console.ROOT $(KERN_OBJ)/console.root 2>/dev/null || true
 
 $(KERN_OBJ)/box.a: $(DRV_SRC)/box.asm | $(KERN_OBJ)
 	cd $(KERN_SRC) && $(AS) $(ASFLAGS) $(DRV_SRC)/box.asm
-	$(SET_FINDERINFO) $(KERN_SRC)/box.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(KERN_SRC)/box.A
 	mv $(KERN_SRC)/box.A $(KERN_OBJ)/box.a
 	-mv $(KERN_SRC)/box.ROOT $(KERN_OBJ)/box.root 2>/dev/null || true
 
 $(KERN_OBJ)/conpatch.a: $(DRV_SRC)/conpatch.asm | $(KERN_OBJ)
 	cd $(KERN_SRC) && $(AS) $(ASFLAGS) $(DRV_SRC)/conpatch.asm
-	$(SET_FINDERINFO) $(KERN_SRC)/conpatch.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(KERN_SRC)/conpatch.A
 	mv $(KERN_SRC)/conpatch.A $(KERN_OBJ)/conpatch.a
 	-mv $(KERN_SRC)/conpatch.ROOT $(KERN_OBJ)/conpatch.root 2>/dev/null || true
 
@@ -146,58 +141,58 @@ drivers: $(DEV_OUT)/null $(DEV_OUT)/zero $(DEV_OUT)/full $(DEV_OUT)/console
 # null
 $(DRV_OBJ)/null.a: $(DRV_SRC)/null.asm | $(DRV_OBJ)
 	cd $(DRV_SRC) && $(AS) $(ASFLAGS) null.asm
-	$(SET_FINDERINFO) $(DRV_SRC)/null.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(DRV_SRC)/null.A
 	mv $(DRV_SRC)/null.A $(DRV_OBJ)/null.a
 	-mv $(DRV_SRC)/null.ROOT $(DRV_OBJ)/null.root 2>/dev/null || true
 
 $(DEV_OUT)/null: $(DRV_OBJ)/null.a | $(DEV_OUT)
 	cd $(DRV_OBJ) && $(LD) -o $(DEV_OUT)/null null
-	$(SET_FINDERINFO) $(DEV_OUT)/null "$(PRODOS_DRV_FI)"
+	iix chtyp -t dvr -a 0x7e01 $(DEV_OUT)/null
 
 # zero
 $(DRV_OBJ)/zero.a: $(DRV_SRC)/zero.asm | $(DRV_OBJ)
 	cd $(DRV_SRC) && $(AS) $(ASFLAGS) zero.asm
-	$(SET_FINDERINFO) $(DRV_SRC)/zero.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(DRV_SRC)/zero.A
 	mv $(DRV_SRC)/zero.A $(DRV_OBJ)/zero.a
 	-mv $(DRV_SRC)/zero.ROOT $(DRV_OBJ)/zero.root 2>/dev/null || true
 
 $(DEV_OUT)/zero: $(DRV_OBJ)/zero.a | $(DEV_OUT)
 	cd $(DRV_OBJ) && $(LD) -o $(DEV_OUT)/zero zero
-	$(SET_FINDERINFO) $(DEV_OUT)/zero "$(PRODOS_DRV_FI)"
+	iix chtyp -t dvr -a 0x7e01 $(DEV_OUT)/zero
 
 # full
 $(DRV_OBJ)/full.a: $(DRV_SRC)/full.asm | $(DRV_OBJ)
 	cd $(DRV_SRC) && $(AS) $(ASFLAGS) full.asm
-	$(SET_FINDERINFO) $(DRV_SRC)/full.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(DRV_SRC)/full.A
 	mv $(DRV_SRC)/full.A $(DRV_OBJ)/full.a
 	-mv $(DRV_SRC)/full.ROOT $(DRV_OBJ)/full.root 2>/dev/null || true
 
 $(DEV_OUT)/full: $(DRV_OBJ)/full.a | $(DEV_OUT)
 	cd $(DRV_OBJ) && $(LD) -o $(DEV_OUT)/full full
-	$(SET_FINDERINFO) $(DEV_OUT)/full "$(PRODOS_DRV_FI)"
+	iix chtyp -t dvr -a 0x7e01 $(DEV_OUT)/full
 
 # console (four modules, assembled from DRV_SRC)
 $(DRV_OBJ)/console_drv.a: $(DRV_SRC)/console.asm | $(DRV_OBJ)
 	cd $(DRV_SRC) && $(AS) $(ASFLAGS) console.asm
-	$(SET_FINDERINFO) $(DRV_SRC)/console.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(DRV_SRC)/console.A
 	mv $(DRV_SRC)/console.A $(DRV_OBJ)/console_drv.a
 	-mv $(DRV_SRC)/console.ROOT $(DRV_OBJ)/console_drv.root 2>/dev/null || true
 
 $(DRV_OBJ)/inout_drv.a: $(DRV_SRC)/inout.asm | $(DRV_OBJ)
 	cd $(DRV_SRC) && $(AS) $(ASFLAGS) inout.asm
-	$(SET_FINDERINFO) $(DRV_SRC)/inout.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(DRV_SRC)/inout.A
 	mv $(DRV_SRC)/inout.A $(DRV_OBJ)/inout_drv.a
 	-mv $(DRV_SRC)/inout.ROOT $(DRV_OBJ)/inout_drv.root 2>/dev/null || true
 
 $(DRV_OBJ)/box_drv.a: $(DRV_SRC)/box.asm | $(DRV_OBJ)
 	cd $(DRV_SRC) && $(AS) $(ASFLAGS) box.asm
-	$(SET_FINDERINFO) $(DRV_SRC)/box.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(DRV_SRC)/box.A
 	mv $(DRV_SRC)/box.A $(DRV_OBJ)/box_drv.a
 	-mv $(DRV_SRC)/box.ROOT $(DRV_OBJ)/box_drv.root 2>/dev/null || true
 
 $(DRV_OBJ)/conpatch_drv.a: $(DRV_SRC)/conpatch.asm | $(DRV_OBJ)
 	cd $(DRV_SRC) && $(AS) $(ASFLAGS) conpatch.asm
-	$(SET_FINDERINFO) $(DRV_SRC)/conpatch.A "$(PRODOS_OBJ_FI)"
+	iix chtyp -t obj $(DRV_SRC)/conpatch.A
 	mv $(DRV_SRC)/conpatch.A $(DRV_OBJ)/conpatch_drv.a
 	-mv $(DRV_SRC)/conpatch.ROOT $(DRV_OBJ)/conpatch_drv.root 2>/dev/null || true
 
@@ -205,7 +200,7 @@ $(DEV_OUT)/console: $(DRV_OBJ)/console_drv.a $(DRV_OBJ)/inout_drv.a \
                     $(DRV_OBJ)/box_drv.a $(DRV_OBJ)/conpatch_drv.a | $(DEV_OUT)
 	cd $(DRV_OBJ) && $(LD) -o $(DEV_OUT)/console \
 	  console_drv inout_drv box_drv conpatch_drv
-	$(SET_FINDERINFO) $(DEV_OUT)/console "$(PRODOS_DRV_FI)"
+	iix chtyp -t dvr -a 0x7e01 $(DEV_OUT)/console
 
 # ── Directories ───────────────────────────────────────────────────────────────
 

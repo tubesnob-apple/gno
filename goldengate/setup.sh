@@ -133,7 +133,7 @@ if command -v python3 &>/dev/null; then
     PY_VERSION=$(python3 --version 2>&1)
     ok "python3: ${PY_VERSION}"
 else
-    fail "python3 not found — required for set-finder-info.py and cowrez.py"
+    fail "python3 not found — required for cowrez.py and build tools"
 fi
 
 # ── 9. Check for packaging tools ──────────────────────────────────────────────
@@ -173,9 +173,9 @@ warn "catrez is replaced by goldengate/tools/cowrez.py (cross-platform Rez compi
 warn "gsh (GNO shell) does not run in GoldenGate — not needed for cross-build"
 warn "GNO namespace (/src, /obj, /lang/orca) does NOT work in iix — using host paths"
 if [[ "${HOST_OS}" == "Linux" ]]; then
-    warn "Linux: set-finder-info.py uses os.setxattr (user.com.apple.FinderInfo namespace)"
+    warn "Linux: iix chtyp uses os.setxattr for ProDOS file type metadata"
 elif [[ "${HOST_OS}" == "Windows" ]]; then
-    warn "Windows: set-finder-info.py writes AFP_AfpInfo NTFS alternate data streams"
+    warn "Windows: iix chtyp writes AFP_AfpInfo NTFS alternate data streams"
 fi
 echo ""
 

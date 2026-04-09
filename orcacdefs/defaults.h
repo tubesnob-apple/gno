@@ -7,6 +7,10 @@
 #define	__appleiigs__
 #define	__GNO__
 
+/* GNO programs run under the GNO kernel; toolboxes are already started.
+ * Use GNO-specific startup in the generated .root segment (no ~_BWSTARTUP3). */
+#pragma gnostartup
+
 #pragma path "/usr/include"
 #pragma path "/HFSinclude"
 #pragma path "/lang/orca/libraries/orcacdefs"

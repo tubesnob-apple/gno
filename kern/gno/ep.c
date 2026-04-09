@@ -24,6 +24,7 @@ typedef GSString255Ptr Gstr;
 ExpandPathRecGS ep;
 PrefixRecGS gp;
 
+
 /* this is for P16_EXPANDPATH */
 struct P16String {
     byte length;
@@ -226,6 +227,8 @@ extern int OldGSOSSt(word callnum, void *pBlock);
     if (go == NULL) go = malloc(1026l);
 
     if (i_path->length > 1024) return (Gstr) 0xFFFF0040l;
+
+
     g_out = go;
     rbuf.bufSize = 32;
     ep.pCount = 3;
@@ -355,10 +358,7 @@ phase2:
     }
     g_out->length = outind;
 goaway:
-    if (kp->gsosDebug & 2) {
-	fprintf(stderr,"EP[");
-	printGS(g_out); fprintf(stderr,"]\n");
-    }
+
     if ((g_out->length == 1) && (g_out->text[0] == ':')) g_out->length = 0;
     return g_out;
 }

@@ -10,13 +10,12 @@
 #include <sys/time.h>
 #include <utime.h>
 #include <sys/errno.h>
+#include <orca.h>
 #include <gno/gno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <types.h>
 #include <gsos.h>
-
-extern int _toolErr;
 
 int
 utime(const char *path, const struct utimbuf *buf)
@@ -41,10 +40,9 @@ utime(const char *path, const struct utimbuf *buf)
 
 	/* initialize structure and get current file info */
 	infoPtr->pCount = 7;
-	_toolErr = 0;
 	GetFileInfoGS(infoPtr);
-	if (_toolErr) {
-		i = _mapErr(_toolErr);
+	if (toolerror()) {
+		i = _mapErr(toolerror());
 		free(infoPtr->pathname);
 		free(infoPtr);
 		errno = i;
@@ -83,7 +81,7 @@ utime(const char *path, const struct utimbuf *buf)
 	/* write the info to the filesystem */
 	infoPtr->storageType = 0x0000;
 	SetFileInfoGS(infoPtr);
-	i = (_toolErr) ? _mapErr(_toolErr) : 0;
+	i = (toolerror()) ? _mapErr(toolerror()) : 0;
 	free(infoPtr->pathname);
 	free(infoPtr);
 	if (i != 0) {

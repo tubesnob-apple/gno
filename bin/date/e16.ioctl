@@ -1,0 +1,8 @@
+* e16.ioctl -- GNO ioctl constants for ORCA/M assembler
+*
+* Derived from GNO/ME include/sys/ioctl.compat.h
+* TIOCGETP = _IOR('t', 8, struct sgttyb)  sizeof(sgttyb)=6
+* TIOCSETP = _IOW('t', 9, struct sgttyb)
+*
+TIOCGETP	gequ	$40067408
+TIOCSETP	gequ	$80067409

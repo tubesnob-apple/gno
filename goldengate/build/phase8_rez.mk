@@ -133,8 +133,11 @@ bin: $(OBJ_BASE)/bin/gsh.rsrc.done \
      $(OBJ_BASE)/bin/true.rsrc.done \
      $(OBJ_BASE)/bin/wc.rsrc.done \
      $(OBJ_BASE)/bin/yes.rsrc.done \
-     $(OBJ_BASE)/bin/vi.rsrc.done
+     $(OBJ_BASE)/bin/vi.rsrc.done \
+     $(OBJ_BASE)/bin/hush.rsrc.done
 
+$(OBJ_BASE)/bin/hush.rsrc.done:   $(REPO_ROOT)/bin/hush/hush.rez     $(OBJ_BASE)/bin/hush
+	$(call REZ,bin/hush/hush.rez,bin/hush)
 $(OBJ_BASE)/bin/gsh.rsrc.done:     $(REPO_ROOT)/bin/gsh/gsh.rez       $(OBJ_BASE)/bin/gsh
 	$(call REZ,bin/gsh/gsh.rez,bin/gsh)
 $(OBJ_BASE)/bin/aroff.rsrc.done:   $(REPO_ROOT)/bin/aroff/aroff.rez   $(OBJ_BASE)/bin/aroff

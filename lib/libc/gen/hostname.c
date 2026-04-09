@@ -39,7 +39,7 @@ sethostname(const char *name, int namelen) {
 	rec.blockLen = 2 + (1+23) + (1+size);
 
 	mbnResp.l = MessageByName(1,(Pointer)&rec);
-	if (_toolErr) {
+	if (toolerror()) {
 		errno = ENOMEM;
 		return -1;
 	}
@@ -53,7 +53,7 @@ gethostname(char *name, int namelen) {
 	Handle message;
 
 	mbnResp.l = MessageByName(0,(Pointer)&rec);
-	if (_toolErr) {
+	if (toolerror()) {
 		errno = ENOENT;
 		return -1;
 	}
@@ -63,7 +63,7 @@ gethostname(char *name, int namelen) {
 #endif
 	MessageCenter(getMessage,mbnResp.w.messageID,
 	message = NewHandle(0l,userid(),0,0l));
-	if (_toolErr) {
+	if (toolerror()) {
 		errno = ENOMEM;
 		return -1;
 	}

@@ -10,10 +10,8 @@ LIB_OUT   := $(GNO_OBJ)/libc_stdlib.a
 CC        := iix --gno compile
 AS        := iix assemble
 MAKELIB   := iix makelib
-SET_FINDERINFO := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
 CFLAGS    := -P +O
 ASFLAGS   := +T
-PRODOS_OBJ_FINDERINFO := 70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
 SRC_C   := cvt.c environ.c getopt.c getsubopt.c
 SRC_ASM := fpspecnum.asm
@@ -47,7 +45,7 @@ $(OBJ_DIR)/fpspecnum.a: $(SRC_DIR)/fpspecnum.asm $(SRC_DIR)/fpspecnum.mac | $(OB
 	rm -f $(SRC_DIR)/E16.SANE
 	mv $(SRC_DIR)/fpspecnum.A $@
 	mv $(SRC_DIR)/fpspecnum.ROOT $(OBJ_DIR)/fpspecnum.root 2>/dev/null || true
-	$(SET_FINDERINFO) $@ "$(PRODOS_OBJ_FINDERINFO)"
+	iix chtyp -t obj $@
 
 $(OBJ_DIR):
 	mkdir -p $@

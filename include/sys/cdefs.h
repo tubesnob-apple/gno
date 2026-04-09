@@ -103,16 +103,22 @@
  * for GNU gcc.  They have been deleted from the GNO version, and we just
  * provide the "short version".
  */
+#undef __dead
 #define __dead
+#undef __dead2
 #define __dead2
+#undef __pure
 #define __pure
+#undef __pure2
 #define __pure2
+#undef __attribute__
 #define __attribute__(x)
 
 /*
  * We use `__restrict' as a way to define the `restrict' type qualifier
  * without disturbing older software that is unaware of C99 keywords.
  */
+#undef __restrict
 #if __STDC_VERSION__ < 199901
 #define __restrict
 #else

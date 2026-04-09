@@ -19,7 +19,7 @@ db:b:runl::8
 # db:01923456789bs:runl::di
 #
 # Just run gsh directly when in single user mode.
-su:s:rest::/usr/sbin/runover .ttyco /bin/gsh
+su:s:rest::/usr/sbin/runover .ttyco /bin/hush
 #
 co:12378:rest::/usr/sbin/getty std.19200 .ttyco
 #

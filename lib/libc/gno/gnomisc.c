@@ -13,12 +13,13 @@ segment "libc_gno__";
 #include <sys/syslimits.h>
 #include <unistd.h>
 #include <gsos.h>
+#include <orca.h>
 #include <gno/gno.h>
 
 int
 needsgno(void) {
 	kernStatus();
-	if (_toolErr) {
+	if (toolerror()) {
 		return 0;
 	} else {
 		return 1;
@@ -40,7 +41,7 @@ __prognameGS (void) {
 			return __progname;
 		}
 		GetNameGS(&namerec);
-		if (_toolErr) {
+		if (toolerror()) {
 			GOfree(namerec.dataBuffer);
 			namerec.dataBuffer = NULL;
 			return __progname;

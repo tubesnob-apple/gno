@@ -30,12 +30,10 @@ LIB_OUT   := $(GNO_OBJ)/libc_gno.a
 CC        := iix --gno compile
 AS        := iix assemble
 MAKELIB   := iix makelib
-SET_FINDERINFO := python3 $(REPO_ROOT)/goldengate/tools/set-finder-info.py
 
 CFLAGS    := -P +O
 ASFLAGS   := +T
 
-PRODOS_OBJ_FINDERINFO := 70 B1 00 00 70 64 6F 73 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
 # Source files — from original Makefile
 SRC_ASM := gnocmd.asm parsearg.asm stack.asm
@@ -71,7 +69,7 @@ $(OBJ_DIR)/%.a: $(SRC_DIR)/%.asm $(SRC_DIR)/%.mac | $(OBJ_DIR)
 	cd $(SRC_DIR) && $(AS) $(ASFLAGS) $*.asm
 	mv $(SRC_DIR)/$*.A $@
 	mv $(SRC_DIR)/$*.ROOT $(OBJ_DIR)/$*.root 2>/dev/null || true
-	$(SET_FINDERINFO) $@ "$(PRODOS_OBJ_FINDERINFO)"
+	iix chtyp -t obj $@
 
 # ── Create output directories ──────────────────────────────────────────────────
 $(OBJ_DIR):
