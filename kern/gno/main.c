@@ -2,7 +2,6 @@
 
 segment "KERN2     ";
 
-#pragma stacksize 1024
 #pragma optimize 79
 
 #define KERNEL
