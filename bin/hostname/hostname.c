@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ktrace.h>
 
 #define MAXHOSTNAMELEN 256
 
@@ -14,6 +15,12 @@ char **argv;
     int sflag;
     int c;
     char *p;
+
+    KTRACE_LOGF("hostname: argc=%d", argc);
+    if (argc > 0)
+        KTRACE_LOGF("hostname: argv[0]=%s", argv[0]);
+    if (argc > 1)
+        KTRACE_LOGF("hostname: argv[1]=%s", argv[1]);
 
     sflag = 0;
 
@@ -30,7 +37,10 @@ char **argv;
     argc -= optind;
     argv += optind;
 
+    KTRACE_LOGF("hostname: after getopt argc=%d", argc);
+
     if (argc > 0) {
+        KTRACE_LOGF("hostname: sethostname(%s)", argv[0]);
         if (sethostname(argv[0], strlen(argv[0])) < 0) {
             perror("sethostname");
             exit(1);
@@ -38,6 +48,7 @@ char **argv;
         return 0;
     }
 
+    KTRACE_LOG("hostname: calling gethostname (no args path)");
     if (gethostname(buf, (int)sizeof(buf)) < 0) {
         perror("gethostname");
         exit(1);

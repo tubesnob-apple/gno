@@ -549,7 +549,7 @@ int permit_passwd = 0;
 	}
 #endif
 
-	execlp(pwd->pw_shell, tbuf, 0);
+	execlp(pwd->pw_shell, tbuf, (char *)0);
 	err(1, "%s", pwd->pw_shell);
 }
 

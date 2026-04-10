@@ -56,6 +56,7 @@ segment "libc_sys__";
 #include <unistd.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <ktrace.h>
 
 #define PARMSGUESS 10    /* initial length of argv array in execl, execlp */
 
@@ -210,8 +211,9 @@ _fileExists (const char *file, const char *path) {
    size_t pathlen, length;
    char delim;
    char *tp;
-        	
+
    delim = (strchr(path,':') == NULL) ? '/' : ':'; /* find delimiter */
+
 
    /* <file> is a full pathname or empty string? Fail! */
    if ((*file == '\0') || (isRootPath(file))) {
@@ -484,8 +486,12 @@ execvp(const char *file, char * const *argv) {
    /* build the path name, if necessary */
    path = buildPath (file);
 
+   KTRACE_LOGF("execvp: path='%s'", path ? path : "(null)");
+
    /* build the command line */
    if ((comd = buildCmd (argv)) == NULL) return -1;
+
+   KTRACE_LOGF("execvp: comd='%s'", comd);
 
    /* execute it */
    return(Kexecve(path, comd, &errno));

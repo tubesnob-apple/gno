@@ -27,6 +27,7 @@ segment "HUSH_G____";
 #include "libbb.h"
 #undef inline
 #include <gsos.h>
+#include <ktrace.h>
 #include <orca.h>
 #include <memory.h>
 #include <gno/kvm.h>
@@ -182,9 +183,13 @@ int execve(const char *path, char *const *argv, char *const *envp)
 	fileInfoRec.pCount = 4;
 	fileInfoRec.pathname = path_gs;
 	GetFileInfoGS(&fileInfoRec);
-	if (toolerror()) {
-		errno = ENOENT;
-		goto error_ret;
+	{
+		int te = toolerror();
+		KTRACE_LOGF("execve:GFI path='%s' err=$%x", path, te);
+		if (te) {
+			errno = ENOENT;
+			goto error_ret;
+		}
 	}
 	free(path_gs);
 	path_gs = NULL;
@@ -294,14 +299,31 @@ int execvp(const char *file, char *const *argv)
 {
 	int result;
 	char *path, *path2;
-	
+
+	KTRACE_LOGF("hush:execvp file='%s'", file);
+
 	if (!strpbrk(file, "/:")) {
+		/* Try /bin/<file> then /usr/bin/<file> directly,
+		 * bypassing buildPath/access which fails in fork2'd children */
+		static char pathbuf[128];
+		strcpy(pathbuf, "/bin/");
+		strcat(pathbuf, file);
+		KTRACE_LOGF("hush:try '%s'", pathbuf);
+		path2 = pathbuf;
+		result = execve(path2, argv, environ);
+		/* If /bin/ failed, try /usr/bin/ */
+		strcpy(pathbuf, "/usr/bin/");
+		strcat(pathbuf, file);
+		KTRACE_LOGF("hush:try '%s'", pathbuf);
+		result = execve(path2, argv, environ);
+		/* If both failed, try buildPath as fallback */
 		path = buildPath(file);
+		KTRACE_LOGF("hush:buildPath='%s' errno=%d", path ? path : "(null)", (int)errno);
 		if (path == NULL) {
 			errno = ENOENT;
 			return -1;
 		}
-	
+
 		/* Move path to memory that will be freed following _execve */
 		path2 = alloc_for_current_process(strlen(path) + 1);
 		if (path2 == NULL) {
@@ -314,7 +336,7 @@ int execvp(const char *file, char *const *argv)
 	} else {
 		path2 = (char *)file;
 	}
-	
+
 	result = execve(path2, argv, environ);
 	
 	/* error case */

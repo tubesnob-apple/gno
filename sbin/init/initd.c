@@ -703,9 +703,15 @@ spawn_child(int cmd_offset)
 {
     char  cmd_copy[CMD_LEN];
     char *argv[32];
+    int   ac;
+    KTRACE_LOGF("spawn_child: offset=%d", cmd_offset);
     strncpy(cmd_copy, cmd_pool + cmd_offset, CMD_LEN - 1);
     cmd_copy[CMD_LEN - 1] = '\0';
-    parse_cmd_args(cmd_copy, argv, 32);
+    KTRACE_LOGF("spawn_child: cmd_copy='%s'", cmd_copy);
+    ac = parse_cmd_args(cmd_copy, argv, 32);
+    KTRACE_LOGF("spawn_child: argc=%d argv[0]=%s", ac, argv[0] ? argv[0] : "(null)");
+    if (ac > 1)
+        KTRACE_LOGF("spawn_child: argv[1]=%s", argv[1]);
     if (argv[0])
         execv(argv[0], argv);
     _exit(127);

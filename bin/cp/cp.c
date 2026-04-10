@@ -10,7 +10,6 @@
         Copyright 1992, Greg Thompson and Procyon, Inc.
 */
 
-#pragma stacksize 1024
 #pragma optimize 8
 
 #include <stdio.h>

@@ -323,7 +323,10 @@ bin_echo:
 
 # hostname: gethostname/sethostname wrapper; written from scratch for GNO
 bin_hostname:
-	$(call build_simple,$(BIN_SRC),$(BIN_OUT),hostname)
+	@echo "=== hostname ==="
+	@mkdir -p $(OBJ_BASE)/hostname $(BIN_OUT)
+	$(call cc1,$(BIN_SRC)/hostname,hostname,$(OBJ_BASE)/hostname)
+	$(call ld1,$(OBJ_BASE)/hostname,$(BIN_OUT),hostname,hostname,$(GNO_OBJ)/usr/lib/libktrace)
 
 # ps: kernel-dependent at runtime; compiles cleanly for the disk image
 bin_ps:

@@ -7,7 +7,6 @@
  */
 
 #ifdef __ORCAC__
-#pragma stacksize 2048
 #define MAINSEG
 #include <stdio.h>
 #include <gno/gno.h>
