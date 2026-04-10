@@ -21,3 +21,7 @@
 
 # Probe files
 /probe.*
+
+# Claude Code
+CLAUDE.md
+.mcp.json
