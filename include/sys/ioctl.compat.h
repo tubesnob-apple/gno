@@ -136,8 +136,12 @@ struct sgttyb {
 #define		TILDE		0x00080000L	/* hazeltine tilde kludge */
 #define		MDMBUF		0x00100000L	/*start/stop output on carrier*/
 #define		LITOUT		0x00200000L	/* literal output */
+#ifndef TOSTOP
 #define		TOSTOP		0x00400000L	/*SIGSTOP on background output*/
+#endif
+#ifndef FLUSHO
 #define		FLUSHO		0x00800000L	/* flush output to terminal */
+#endif
 #define		NOHANG		0x01000000L	/* (no-op) was no SIGHUP on carrier drop */
 #define		L001000		0x02000000L
 #define		CRTKIL		0x04000000L	/* kill line with " \b " */
@@ -145,8 +149,12 @@ struct sgttyb {
 #define		CTLECH		0x10000000L	/* echo control chars as ^X */
 #define		PENDIN		0x20000000L	/* tp->t_rawq needs reread */
 #define		DECCTQ		0x40000000L	/* only ^Q starts after ^S */
+#ifndef NOFLSH
 #define		NOFLSH		0x80000000L	/* no output flush on signal */
+#endif
+#ifndef TIOCLBIS
 #define	TIOCLBIS	_IOW('t', 127, int)	/* bis local mode bits */
+#endif
 #define	TIOCLBIC	_IOW('t', 126, int)	/* bic local mode bits */
 #define	TIOCLSET	_IOW('t', 125, int)	/* set entire local mode word */
 #define	TIOCLGET	_IOR('t', 124, int)	/* get local modes */
