@@ -751,6 +751,12 @@ struct FILE_list {
 	int fd;
 };
 
+struct alias {
+	struct alias *next;
+	char *name;
+	char *val;
+};
+
 
 /* "Globals" within this file */
 /* Sorted roughly by size (smaller offsets == smaller code) */
@@ -851,6 +857,7 @@ struct globals {
 	unsigned handled_SIGCHLD;
 	smallint we_have_children;
 #endif
+	struct alias *aliases;
 	struct FILE_list *FILE_list;
 	/* Which signals have non-DFL handler (even with no traps set)?
 	 * Set at the start to:
@@ -911,6 +918,10 @@ static bool stackcheck = 0;
 #endif
 
 /* Function prototypes for builtins */
+static struct alias *find_alias(const char *name);
+static char *alias_build_cmd(const char *alias_val, char **extra_argv);
+static int builtin_alias(char **argv) FAST_FUNC;
+static int builtin_unalias(char **argv) FAST_FUNC;
 static int builtin_cd(char **argv) FAST_FUNC;
 static int builtin_echo(char **argv) FAST_FUNC;
 static int builtin_eval(char **argv) FAST_FUNC;
@@ -979,6 +990,7 @@ struct built_in_command {
 static const struct built_in_command bltins1[] = {
 	BLTIN("."        , builtin_source  , "Run commands in a file"),
 	BLTIN(":"        , builtin_true    , NULL),
+	BLTIN("alias"    , builtin_alias   , "List or define command aliases"),
 #if ENABLE_HUSH_JOB
 	BLTIN("bg"       , builtin_fg_bg   , "Resume a job in the background"),
 #endif
@@ -1030,6 +1042,7 @@ static const struct built_in_command bltins1[] = {
 	BLTIN("ulimit"   , shell_builtin_ulimit  , "Control resource limits"),
 #endif
 	BLTIN("umask"    , builtin_umask   , "Set file creation mask"),
+	BLTIN("unalias"  , builtin_unalias , "Remove command aliases"),
 	BLTIN("unset"    , builtin_unset   , "Unset variables"),
 	BLTIN("wait"     , builtin_wait    , "Wait for process"),
 };
@@ -7749,6 +7762,19 @@ static NOINLINE int run_pipe(struct pipe *pi)
 			return G.last_exitcode;
 		}
 
+		/* Alias expansion: if command matches an alias, re-run via eval */
+		{
+			struct alias *al = find_alias(argv_expanded[0]);
+			if (al) {
+				char *cmd = alias_build_cmd(al->val, argv_expanded + 1);
+				free(argv_expanded);
+				parse_and_run_string(cmd);
+				free(cmd);
+				debug_leave();
+				return G.last_exitcode;
+			}
+		}
+
 		x = find_builtin(argv_expanded[0]);
 #if ENABLE_HUSH_FUNCTIONS
 		funcp = NULL;
@@ -9273,6 +9299,152 @@ static char **skip_dash_dash(char **argv)
 		argv++;
 	return argv;
 }
+
+/* ---- Alias support ---- */
+
+static struct alias *find_alias(const char *name)
+{
+	struct alias *al = G.aliases;
+	while (al) {
+		if (strcmp(al->name, name) == 0)
+			return al;
+		al = al->next;
+	}
+	return NULL;
+}
+
+static void define_alias(const char *name, const char *val)
+{
+	struct alias *al = find_alias(name);
+	if (!al) {
+		al = xmalloc(sizeof(*al));
+		memset(al, 0, sizeof(*al));
+		al->name = xstrdup(name);
+		al->next = G.aliases;
+		G.aliases = al;
+	} else {
+		free(al->val);
+	}
+	al->val = xstrdup(val);
+}
+
+static void delete_alias(const char *name)
+{
+	struct alias **pp = &G.aliases;
+	while (*pp) {
+		struct alias *al = *pp;
+		if (strcmp(al->name, name) == 0) {
+			*pp = al->next;
+			free(al->name);
+			free(al->val);
+			free(al);
+			return;
+		}
+		pp = &al->next;
+	}
+}
+
+/* Build a shell command string: alias_val + single-quoted extra args.
+ * Each extra arg is wrapped in single quotes with embedded ' escaped as '\'' */
+static char *alias_build_cmd(const char *alias_val, char **extra_argv)
+{
+	char *cmd;
+	const char *arg;
+	const char *p;
+	size_t qlen;
+	char *quoted;
+	char *q;
+	char *new_cmd;
+
+	cmd = xstrdup(alias_val);
+	if (!extra_argv)
+		return cmd;
+	while (*extra_argv) {
+		arg = *extra_argv++;
+		qlen = 3; /* opening ' + closing ' + NUL */
+		for (p = arg; *p; p++)
+			qlen += (*p == '\'') ? 4 : 1; /* ' expands to '\'' (4 chars) */
+		quoted = xmalloc(qlen);
+		q = quoted;
+		*q++ = '\'';
+		for (p = arg; *p; p++) {
+			if (*p == '\'') {
+				*q++ = '\''; *q++ = '\\'; *q++ = '\''; *q++ = '\'';
+			} else {
+				*q++ = *p;
+			}
+		}
+		*q++ = '\'';
+		*q = '\0';
+		new_cmd = xasprintf("%s %s", cmd, quoted);
+		free(quoted);
+		free(cmd);
+		cmd = new_cmd;
+	}
+	return cmd;
+}
+
+static int FAST_FUNC builtin_alias(char **argv)
+{
+	struct alias *al;
+	char *eq;
+	int err = 0;
+
+	if (!argv[1]) {
+		for (al = G.aliases; al; al = al->next)
+			printf("alias %s='%s'\n", al->name, al->val);
+		return 0;
+	}
+	while (*++argv) {
+		eq = strchr(*argv, '=');
+		if (eq) {
+			*eq = '\0';
+			define_alias(*argv, eq + 1);
+			*eq = '=';
+		} else {
+			al = find_alias(*argv);
+			if (al)
+				printf("alias %s='%s'\n", al->name, al->val);
+			else {
+				bb_error_msg("alias: %s: not found", *argv);
+				err = 1;
+			}
+		}
+	}
+	return err;
+}
+
+static int FAST_FUNC builtin_unalias(char **argv)
+{
+	struct alias *al;
+	int err = 0;
+
+	if (!argv[1]) {
+		bb_error_msg("unalias: argument required");
+		return 1;
+	}
+	if (argv[1][0] == '-' && argv[1][1] == 'a' && argv[1][2] == '\0') {
+		while (G.aliases) {
+			al = G.aliases;
+			G.aliases = al->next;
+			free(al->name);
+			free(al->val);
+			free(al);
+		}
+		return 0;
+	}
+	while (*++argv) {
+		if (find_alias(*argv))
+			delete_alias(*argv);
+		else {
+			bb_error_msg("unalias: %s: not found", *argv);
+			err = 1;
+		}
+	}
+	return err;
+}
+
+/* ---- End alias support ---- */
 
 static int FAST_FUNC builtin_eval(char **argv)
 {
