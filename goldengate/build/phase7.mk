@@ -15,6 +15,8 @@
 #   $(OBJ_BASE)/dev/zero       — zero device driver
 #   $(OBJ_BASE)/dev/full       — full device driver
 #   $(OBJ_BASE)/dev/console    — console device driver
+#   $(OBJ_BASE)/dev/modem      — modem SCC serial driver (SCC-B, $E0C038)
+#   $(OBJ_BASE)/dev/printer    — printer SCC serial driver (SCC-A, $E0C039)
 #
 # Notes:
 #   - All C files compiled with iix --gno compile (GNO headers needed for
@@ -133,10 +135,13 @@ $(KERN_OBJ)/conpatch.a: $(DRV_SRC)/conpatch.asm | $(KERN_OBJ)
 # ── Device Drivers (standalone binaries) ──────────────────────────────────────
 # null, zero, full: single-module drivers
 # console: four modules (console + inout + box + conpatch)
-# All assembled from DRV_SRC dir (port.mac lives there).
-# modem/printer: require libsim (not built) — skipped.
+# modem/printer: single-module SCC serial drivers, linked with libsim
+# All assembled from DRV_SRC dir (port.mac / msccf_full.mac live there).
 
-drivers: $(DEV_OUT)/null $(DEV_OUT)/zero $(DEV_OUT)/full $(DEV_OUT)/console
+LIBSIM := $(OBJ_BASE)/usr/lib/libsim
+
+drivers: $(DEV_OUT)/null $(DEV_OUT)/zero $(DEV_OUT)/full $(DEV_OUT)/console \
+         $(DEV_OUT)/modem $(DEV_OUT)/printer
 
 # null
 $(DRV_OBJ)/null.a: $(DRV_SRC)/null.asm | $(DRV_OBJ)
@@ -202,6 +207,40 @@ $(DEV_OUT)/console: $(DRV_OBJ)/console_drv.a $(DRV_OBJ)/inout_drv.a \
 	  console_drv inout_drv box_drv conpatch_drv
 	iix chtyp -t dvr -a 0x7e01 $(DEV_OUT)/console
 
+# modem (SCC channel B: $E0C038/$E0C03A, CtlPanBaud $12, SIM port 2)
+$(DRV_OBJ)/modem.a: $(DRV_SRC)/modem.asm \
+                    $(DRV_SRC)/msccf_full.mac \
+                    $(DRV_SRC)/equates \
+                    $(DRV_SRC)/md.equates \
+                    $(DRV_SRC)/portbody.asm \
+                    $(DRV_SRC)/sccf.asm \
+                    $(REPO_ROOT)/kern/gno/inc/tty.inc | $(DRV_OBJ)
+	cd $(DRV_SRC) && $(AS) $(ASFLAGS) modem.asm
+	iix chtyp -t obj $(DRV_SRC)/modem.A
+	mv $(DRV_SRC)/modem.A $(DRV_OBJ)/modem.a
+	-mv $(DRV_SRC)/modem.ROOT $(DRV_OBJ)/modem.root 2>/dev/null || true
+
+$(DEV_OUT)/modem: $(DRV_OBJ)/modem.a $(LIBSIM) | $(DEV_OUT)
+	cd $(DRV_OBJ) && $(LD) -P -o $(DEV_OUT)/modem modem $(LIBSIM)
+	iix chtyp -t dvr -a 0x7e01 $(DEV_OUT)/modem
+
+# printer (SCC channel A: $E0C039/$E0C03B, CtlPanBaud $6, SIM port 1)
+$(DRV_OBJ)/printer.a: $(DRV_SRC)/printer.asm \
+                      $(DRV_SRC)/msccf_full.mac \
+                      $(DRV_SRC)/equates \
+                      $(DRV_SRC)/pr.equates \
+                      $(DRV_SRC)/portbody.asm \
+                      $(DRV_SRC)/sccf.asm \
+                      $(REPO_ROOT)/kern/gno/inc/tty.inc | $(DRV_OBJ)
+	cd $(DRV_SRC) && $(AS) $(ASFLAGS) printer.asm
+	iix chtyp -t obj $(DRV_SRC)/printer.A
+	mv $(DRV_SRC)/printer.A $(DRV_OBJ)/printer.a
+	-mv $(DRV_SRC)/printer.ROOT $(DRV_OBJ)/printer.root 2>/dev/null || true
+
+$(DEV_OUT)/printer: $(DRV_OBJ)/printer.a $(LIBSIM) | $(DEV_OUT)
+	cd $(DRV_OBJ) && $(LD) -P -o $(DEV_OUT)/printer printer $(LIBSIM)
+	iix chtyp -t dvr -a 0x7e01 $(DEV_OUT)/printer
+
 # ── Directories ───────────────────────────────────────────────────────────────
 
 $(KERN_OBJ) $(DRV_OBJ) $(DEV_OUT) $(OBJ_BASE):
@@ -211,7 +250,7 @@ $(KERN_OBJ) $(DRV_OBJ) $(DEV_OUT) $(OBJ_BASE):
 
 validate:
 	@echo "=== Phase 7 size check ==="
-	@for f in kern dev/null dev/zero dev/full dev/console; do \
+	@for f in kern dev/null dev/zero dev/full dev/console dev/modem dev/printer; do \
 	  p=$(OBJ_BASE)/$$f; \
 	  if [ -f "$$p" ]; then \
 	    echo "  $$f: $$(wc -c < $$p) bytes"; \
@@ -224,4 +263,5 @@ validate:
 
 clean:
 	rm -rf $(KERN_OBJ) $(DRV_OBJ)
-	rm -f $(KERN_OUT) $(DEV_OUT)/null $(DEV_OUT)/zero $(DEV_OUT)/full $(DEV_OUT)/console
+	rm -f $(KERN_OUT) $(DEV_OUT)/null $(DEV_OUT)/zero $(DEV_OUT)/full $(DEV_OUT)/console \
+	      $(DEV_OUT)/modem $(DEV_OUT)/printer

@@ -69,9 +69,9 @@ noWrap1	sty	<ibuf_head
 	cpx	#3072
 	bcc	noFCON
 
-	jsr	>turn_flow_off	hold your horses!
+	jsr	turn_flow_off	hold your horses!
 
-noFCON	jsr	>check_stuff	; reload Y from dp at lp1
+noFCON	jsr	check_stuff	; reload Y from dp at lp1
 
 	pla
 	and	#$60
@@ -193,7 +193,7 @@ check_stuff	START
 	bne	sighupit
 
 	lda	<lastChar
-	jsr	>checkIntr
+	jsr	checkIntr
 	bcs	goaway	; send a signal!
 
 	lda	blockProc
@@ -551,11 +551,11 @@ result	equ	0
 	sta	<reg5Status
 
 	jsl	InitSCC
-	jsr	>InstallInt
+	jsr	InstallInt
 	sta	|temp	tells if there was an error
 	cmp	#0
 	bne	handlerErr
-	jsr	>InitSCC2	only start intrs if handler was
+	jsr	InitSCC2	only start intrs if handler was
 handlerErr	pld		properly installed
 	lda	temp
 	sta	result
@@ -577,9 +577,9 @@ lp	lda	<obuf_mark
 
 EndSerial	START
 	subroutine (0:foo),0
-	jsr	>FlushOutQ
-	jsr	>DeInitSCC	; turn off interrupts, etc.
-	jsr	>RemoveInt
+	jsr	FlushOutQ
+	jsr	DeInitSCC	; turn off interrupts, etc.
+	jsr	RemoveInt
 	return
 	END
 
@@ -595,7 +595,7 @@ turn_flow_off	START
 	cmp	#FCON_XON	xon/xoff?
 	bne	doRTS
 	lda	#'S'-64
-	jsr	>priorityWrite
+	jsr	priorityWrite
 	stz	fcon_status
 noFlowControl	anop
 alreadyOff	rts
@@ -616,7 +616,7 @@ turn_flow_on	START
 	cmp	#FCON_XON	xon/xoff?
 	bne	doRTS
 	lda	#'Q'-64
-	jsr	>priorityWrite
+	jsr	priorityWrite
 	lda	#1
 	sta	fcon_status
 noFlowControl	anop
