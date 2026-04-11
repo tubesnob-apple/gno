@@ -34,7 +34,7 @@ co:12378:rest::/usr/sbin/getty std.19200 .ttyco
 # id:234:once::/usr/sbin/inetd
 #
 # Start uptime daemon (records boot time; required for uptime(1))
-ud:b:once::/usr/sbin/uptimed
+# ud:b:once::/usr/sbin/uptimed  (not yet built; see Phase 9)
 #
 # Uncomment this to run the Line Printer Daemon
 #lp:23478:once::/usr/sbin/lpd
