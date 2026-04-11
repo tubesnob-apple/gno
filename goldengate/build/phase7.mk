@@ -67,7 +67,7 @@ ALL_KERN_OBJS := $(foreach m,$(ALL_KERN_MODS),$(KERN_OBJ)/$(m).a)
 
 # ── Top-level targets ─────────────────────────────────────────────────────────
 
-.PHONY: all kern drivers validate clean clean-kern
+.PHONY: all kern drivers validate clean clean-kern FORCE
 
 all: kern drivers
 
@@ -86,8 +86,8 @@ $(KERN_OUT): $(ALL_KERN_OBJS) | $(OBJ_BASE)
 
 # ── Compile C modules ─────────────────────────────────────────────────────────
 
-# Regenerate build_time.h (always fresh — clean-kern ensures main.a is rebuilt)
-$(KERN_SRC)/build_time.h:
+# Regenerate build_time.h on every build (FORCE ensures it's always re-created)
+$(KERN_SRC)/build_time.h: FORCE
 	python3 -c "from datetime import datetime; dt=datetime.now(); print('#define BUILD_TIMESTAMP \"' + dt.strftime('%Y-%m-%d %H:%M:%S.') + f'{dt.microsecond//1000:03d}' + '\"')" > $(KERN_SRC)/build_time.h
 
 $(KERN_OUT): $(KERN_SRC)/build_time.h $(ALL_KERN_OBJS) | $(OBJ_BASE)

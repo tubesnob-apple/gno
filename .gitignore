@@ -25,3 +25,4 @@
 # Claude Code
 CLAUDE.md
 .mcp.json
+kern/gno/build_time.h
