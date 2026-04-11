@@ -230,24 +230,10 @@ retval	equ	1
 	ret	2:retval
 	END
 
-* int   fork(void *subr) inline(0x0B03, udispatch);
+* int fork(void *subr, int stack, int prio, char *name, word argc, ...)
+* (was fork2; old single-arg fork removed)
 fork	START	libc_sys__
 vfork	ENTRY
-retval	equ	1
-	sub	(4:subr),2
-	assertVersion $0204	; check for minimum version
-	pha
-	ph4	subr
-	ph4	#errno
-	ldx	#$0B03
-	jsl	udispatch
-	pla
-	sta	retval
-	ret	2:retval
-	END
-
-* int fork2(void *subr, int stack, int prio, char *name, word argc, ...)
-fork2	START	libc_sys__
 subr	equ	7
 stack	equ	subr+4
 prio	equ	stack+2

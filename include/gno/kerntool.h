@@ -48,7 +48,9 @@ pascal int	kernStatus(void)			__INLINE(0x0603);
 /* 0x0703, 0x0803 undocumented */
 pascal int	Kgetpid(void)				__INLINE(0x0903);
 pascal int	Kkill(int pid, int sig, int *errno)	__INLINE(0x0A03);
-pascal int	Kfork(void *subr, int *errno)		__INLINE(0x0B03);
+pascal int	Kfork(void (*funcptr)(), int stackSize, int prio,
+		      char *name, int *argv, int *errno)
+							__INLINE(0x3F03);
 /*		Kexec() no longer available in this interface	(0x0C03) */
 pascal int	Kswait(int sem, int *errno)		__INLINE(0x0D03);
 pascal int	Kssignal(int sem, int *errno)		__INLINE(0x0E03);
@@ -130,7 +132,7 @@ pascal int	Kpbind(int portid, const char *name, int *errno)
 pascal int	Kpgetport(const char *name, int *errno)	__INLINE(0x3C03);
 pascal int	Kpgetcount(int portid, int *errno)	__INLINE(0x3D03);
 pascal int	Kscount(int sem, int *errno)		__INLINE(0x3E03);
-/*		Kfork2() not available in this interface	(0x3F03) */
+/*		Kfork() is now at 0x3F03 (was fork2)		*/
 pascal int	Kgetppid(int *errno)			__INLINE(0x4003);
 pascal void	KSetGNOQuitRec(word pCount, GSStringPtr path, word flags,
 			       int *errno)		__INLINE(0x4103);

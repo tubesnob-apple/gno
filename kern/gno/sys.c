@@ -658,14 +658,7 @@ extern int allocPID(void);
 
 #pragma toolparms 1
 
-int KERNfork(int *ERRNO,void *subr)
-{
-word nargs = 0;
-
-    return commonFork((void *)subr, 1024, 0, NULL, &nargs, ERRNO);
-}
-
-pascal int KERNfork2(void (*funcptr)(), word stackSize, int prio,
+pascal int KERNfork(void (*funcptr)(), word stackSize, int prio,
 	char *name, word *argv, int *ERRNO)
 {
     return commonFork(funcptr, stackSize, prio, name, argv, ERRNO);

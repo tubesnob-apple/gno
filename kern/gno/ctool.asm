@@ -474,7 +474,7 @@ TIfork	START KERN2
 	clc
 	adc #3
 	tcs
-	jmp >KERNfork
+	jmp >KERNFORK
 	END
 
 TIfork2	START KERN2
@@ -482,7 +482,7 @@ TIfork2	START KERN2
 	clc
 	adc #3
 	tcs
-	jmp >KERNFORK2
+	jmp >KERNFORK
 	END
 
 *TIexec         START KERN2

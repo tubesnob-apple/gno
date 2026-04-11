@@ -12,7 +12,7 @@
  *   - int is 16-bit on the 65816
  *   - long is 32-bit
  *   - Pointers are 32-bit (24-bit address + bank byte)
- *   - fork() takes a NULL argument on GNO (GNO-specific variant)
+ *   - fork() takes a function pointer, stack size, priority, name, and args
  *   - signal() uses GNO kernel dispatch ($1603)
  *   - No <stdio.h> used -- all I/O via raw read()/write()/open()/close()
  *
@@ -640,7 +640,7 @@ launch_syslogd(void)
 {
     int pid;
 
-    pid = fork2(syslogd_child, 1024, 0, "syslogd", 0);
+    pid = fork(syslogd_child, 1024, 0, "syslogd", 0);
     if (pid < 0) {
         write_console("initd: fork failed for syslogd\r\n");
         return;
@@ -721,10 +721,9 @@ spawn_child(int cmd_offset)
 /* ---------------------------------------------------------------------------
  * spawn_process -- forks a child via fork2 and execs the inittab command.
  *
- * fork(NULL) is broken in the GNO kernel: commonFork passes funcptr=NULL
- * to createProc, so the child starts executing at address $000000 (zero
- * page) and immediately crashes.  fork2() supplies a real function pointer
- * and works correctly.  The child accesses cmd_pool[] via the shared data
+ * fork() requires a real function pointer — passing NULL causes the child
+ * to start executing at address $000000 (zero page) and crash.
+ * The child accesses cmd_pool[] via the shared data
  * bank — both parent and child run the same OMF image so the global is
  * valid in the child when DBR is set (#pragma databank 1).
  * --------------------------------------------------------------------------*/
@@ -741,7 +740,7 @@ spawn_process(int entry_idx)
     if (!cmd || !*cmd)
         return -1;
 
-    pid = fork2(spawn_child, 1024, 0, cmd, 1,
+    pid = fork(spawn_child, 1024, 0, cmd, 1,
                 (int)proc_table[entry_idx].cmd_offset);
     if (pid < 0)
         return -1;

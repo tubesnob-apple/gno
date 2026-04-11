@@ -18,7 +18,7 @@ extern pascal int   kernStatus() inline(0x0603, udispatch);
 
 #ifndef KERNEL
 int   getppid(void);
-int   fork(void *subr);
+int   fork(void *subr, int stack, int prio, char *name, int nargs, ...);
 int   exec(char *filename,char *cmdline);
 int   tcnewpgrp(int fdtty);
 int   settpgrp(int fdtty);
@@ -41,7 +41,6 @@ FILE *fdopen(int,char*);
 #endif
 
 int   execve(char *filename,char *cmdline);
-int   fork2(void *subr, int stack, int prio, char *name, int nargs, ...);
 int   screate(int count);
 int   ssignal(int sem);
 int   swait(int sem);

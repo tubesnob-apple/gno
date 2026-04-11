@@ -93,6 +93,16 @@ void timeout __P((int));
 void timewarn __P((int));
 void usage __P((void));
 
+#pragma databank 1
+static void
+shutdown_child(void)
+{
+	openlog("shutdown", LOG_CONS, LOG_AUTH);
+	loop();
+	_exit(0);
+}
+#pragma databank 0
+
 int
 main(argc, argv)
 	int argc;
@@ -190,24 +200,21 @@ main(argc, argv)
 
 #ifdef DEBUG
 	(void)putc('\n', stdout);
+	openlog("shutdown", LOG_CONS, LOG_AUTH);
+	loop();
 #else
 	(void)setpriority(PRIO_PROCESS, 0, PRIO_MIN);
 	{
 		int forkpid;
 
-		forkpid = fork();
+		forkpid = fork(shutdown_child, 1024, 0, "shutdown", 0);
 		if (forkpid == -1) {
 			perror("shutdown: fork");
 			exit(1);
 		}
-		if (forkpid) {
-			(void)printf("shutdown: [pid %d]\n", forkpid);
-			exit(0);
-		}
+		(void)printf("shutdown: [pid %d]\n", forkpid);
 	}
 #endif
-	openlog("shutdown", LOG_CONS, LOG_AUTH);
-	loop();
 	/* NOTREACHED */
 }
 

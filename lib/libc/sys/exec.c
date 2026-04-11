@@ -56,7 +56,6 @@ segment "libc_sys__";
 #include <unistd.h>
 #include <errno.h>
 #include <stdarg.h>
-#include <ktrace.h>
 
 #define PARMSGUESS 10    /* initial length of argv array in execl, execlp */
 
@@ -453,7 +452,7 @@ _exec_child (const char *filename, const char *cmdline) {
 
 int
 exec (const char *filename, const char *cmdline) {
-	return fork2 (_exec_child, 1024, 0, "forked child of exec(2)", 4,
+	return fork (_exec_child, 1024, 0, "forked child of exec(2)", 4,
                 filename, cmdline);
 }
 
@@ -486,12 +485,8 @@ execvp(const char *file, char * const *argv) {
    /* build the path name, if necessary */
    path = buildPath (file);
 
-   KTRACE_LOGF("execvp: path='%s'", path ? path : "(null)");
-
    /* build the command line */
    if ((comd = buildCmd (argv)) == NULL) return -1;
-
-   KTRACE_LOGF("execvp: comd='%s'", comd);
 
    /* execute it */
    return(Kexecve(path, comd, &errno));

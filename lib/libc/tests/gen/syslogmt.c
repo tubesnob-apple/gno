@@ -46,7 +46,7 @@ main (int argc, char **argv) {
 	/* create the children */
 	for (i=0; i<MAX_PROC; i++) {
 		syslogmt(LOG_NOTICE, "forking child %d", i);
-		fork(child_process);
+		fork(child_process, 1024, 0, "syslogmt", 0);
 	}
 
 	/* release the children */

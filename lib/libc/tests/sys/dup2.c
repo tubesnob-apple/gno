@@ -60,7 +60,7 @@ main (int argc, char **argv) {
 	write(STDOUT_FILENO, PARENT_MSG_1, LENGTH(PARENT_MSG_1));
 	sleep(1);
 
-	switch(fork(_child)) {
+	switch(fork(_child, 1024, 0, "dup2test", 0)) {
 	case -1:
 		perror("fork failed");
 		exit(1);

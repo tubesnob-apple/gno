@@ -99,7 +99,7 @@ pid_t vfork_and_run(void (*fn)(void*) NORETURN, void *arg) {
 	/* Block all signals for now */
 	oldmask = sigblock(-1);
 	
-	pid = fork2(fork_thunk, 1024, 0, forked_child_name, 
+	pid = fork(fork_thunk, 1024, 0, forked_child_name,
 				(sizeof(fn) + sizeof(arg) + sizeof(oldmask) + 1) / 2, 
 				fn, arg, oldmask);
 	if (pid < 0) 

@@ -86,10 +86,8 @@ int	 execve __P((const char *, char * const *, char * const *));
 int	 _execve __P((const char *, const char *));	/* GNO specific */
 #endif
 int	 execvp __P((const char *, char * const *));
-pid_t	 fork __P((void *));				/* non-POSIX */
-#ifndef _POSIX_SOURCE					/* GNO specific */
-pid_t	 fork2 __P((void *, unsigned short, unsigned short, const char *, unsigned short, ...));
-#endif
+pid_t	 fork __P((void (*)(), unsigned short, unsigned short, const char *, unsigned short, ...));
+
 long	 fpathconf __P((int, int));
 char	*getcwd __P((char *, size_t));
 gid_t	 getegid __P((void));
@@ -199,7 +197,7 @@ int	 ttyslot __P((void));
 unsigned int	 ualarm __P((unsigned int, unsigned int));
 void	 usleep __P((unsigned int));
 void	*valloc __P((size_t));			/* obsoleted by malloc() */
-pid_t	 vfork __P((void *));			/* non-BSD */
+pid_t	 vfork __P((void (*)(), unsigned short, unsigned short, const char *, unsigned short, ...));
 #endif /* !_POSIX_SOURCE */
 __END_DECLS
 

@@ -400,7 +400,7 @@ static struct sgttyb sb;
 	(void)signal(SIGINT, SIG_IGN);
 	setsignal(SIGHUP);
 	setsignal(SIGQUIT);
-	child = fork2(doit_child, 1024, 0, "rlogin child", 2, omask);
+	child = fork(doit_child, 1024, 0, "rlogin child", 2, omask);
 	if (child == -1) {
 		(void)fprintf(stderr, "rlogin: fork: %s.\n", strerror(errno));
 		done(1);

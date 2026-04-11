@@ -8,7 +8,6 @@ man2/chdir.2		man2/fchdir.2
 man2/chmod.2		man2/fchmod.2
 man2/dup.2		man2/dup2.2
 man2/execve.2		man2/_execve.2
-man2/fork.2		man2/fork2.2
 man2/fork.2		man2/vfork.2
 man2/getgid.2		man2/getegid.2
 man2/getlogin.2		man2/setlogin.2

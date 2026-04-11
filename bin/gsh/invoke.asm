@@ -461,7 +461,7 @@ doShell	anop
 	inc	biflag	;don't free argv...
 	jsr	prefork
 
-* int fork2(void *subr, int stack, int prio, char *name, word argc, ...)
+* int fork(void *subr, int stack, int prio, char *name, word argc, ...)
 	pea	0
 	ldy	#2
 	lda	[argv],y
@@ -472,7 +472,7 @@ doShell	anop
 	pea	1024
 	ph4	#exec0
 	case	on
-	jsl	fork2
+	jsl	fork
 	case	off
 
 	jsr	postfork
