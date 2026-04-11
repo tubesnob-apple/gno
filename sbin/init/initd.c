@@ -858,20 +858,8 @@ run_level_switch(char new_level)
     new_runlevel = new_level;
     in_transition = 1;
 
-    /* Print transition message (CODE $086D: "init:switching to run level x.") */
-    {
-        int k = 0;
-        msg[k++] = 'i'; msg[k++] = 'n'; msg[k++] = 'i'; msg[k++] = 't';
-        msg[k++] = ':'; msg[k++] = 's'; msg[k++] = 'w'; msg[k++] = 'i';
-        msg[k++] = 't'; msg[k++] = 'c'; msg[k++] = 'h'; msg[k++] = 'i';
-        msg[k++] = 'n'; msg[k++] = 'g'; msg[k++] = ' '; msg[k++] = 't';
-        msg[k++] = 'o'; msg[k++] = ' '; msg[k++] = 'r'; msg[k++] = 'u';
-        msg[k++] = 'n'; msg[k++] = ' '; msg[k++] = 'l'; msg[k++] = 'e';
-        msg[k++] = 'v'; msg[k++] = 'e'; msg[k++] = 'l'; msg[k++] = ' ';
-        msg[k++] = new_level;
-        msg[k++] = '.'; msg[k++] = '\r'; msg[k++] = '\n'; msg[k] = '\0';
-    }
-    write_console(msg);
+    /* Log transition to debug trace instead of console */
+    KTRACE_LOGF("init:switching to run level %c.", new_level);
 
     /* Kill all existing children */
     kill_all_children(SIGTERM);

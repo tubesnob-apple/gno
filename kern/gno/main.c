@@ -195,7 +195,7 @@ extern ConsoleHeader;
 	il_rec = InitialLoad2(ILuserID, (Pointer)&filename, 1, 1);
 	BOOT_LOG("loadttyconfig: after InitialLoad")
     	if ((e = toolerror())) {
-	    printf("Could not load driver: %s, error: %04X\n",filename.text,e);
+	    KTRACE_LOGF("Could not load driver: %s, error: %04X", filename.text, e);
         } else {
             InstallDriver(ILuserID & 0xF0FF, devNum, il_rec.startAddr);
 	    driverUserID[numDrivers++] = ILuserID;
