@@ -92,6 +92,9 @@ $(KERN_SRC)/build_time.h: FORCE
 
 $(KERN_OUT): $(KERN_SRC)/build_time.h $(ALL_KERN_OBJS) | $(OBJ_BASE)
 
+# main.c includes build_time.h — explicit dep ensures timestamp is fresh before compile
+$(KERN_OBJ)/main.a: $(KERN_SRC)/build_time.h
+
 $(KERN_OBJ)/%.a: $(KERN_SRC)/%.c | $(KERN_OBJ)
 	cd $(KERN_SRC) && $(CC) $(CFLAGS) $<
 	mv $(KERN_SRC)/$*.a $(KERN_OBJ)/
