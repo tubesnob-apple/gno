@@ -28,6 +28,7 @@ USRBIN_SRC  := $(REPO_ROOT)/usr.bin
 USRORCA_SRC := $(REPO_ROOT)/usr.orca.bin
 SBIN_SRC    := $(REPO_ROOT)/sbin
 USRSBIN_SRC := $(REPO_ROOT)/usr.sbin
+GAMES_SRC   := $(REPO_ROOT)/games
 
 BIN_OUT      := $(GNO_OBJ)/bin
 USRBIN_OUT   := $(GNO_OBJ)/usr/bin
@@ -625,15 +626,45 @@ usrsbin_nogetty:
 
 # ── usr.games/ ────────────────────────────────────────────────────────────────
 
-.PHONY: usr_games usrgames_calendar
+.PHONY: usr_games usrgames_calendar usrgames_bcd usrgames_caesar usrgames_morse usrgames_pig usrgames_ppt
 
-usr_games: usrgames_calendar
+usr_games: usrgames_calendar usrgames_bcd usrgames_caesar usrgames_morse usrgames_pig usrgames_ppt
 
 usrgames_calendar:
 	@echo "=== calendar ==="
 	@mkdir -p $(OBJ_BASE)/calendar $(USRGAMES_OUT)
 	$(call cc1,$(USRBIN_SRC)/calendar,calendar,$(OBJ_BASE)/calendar)
 	$(call ld1,$(OBJ_BASE)/calendar,$(USRGAMES_OUT),calendar,calendar)
+
+usrgames_bcd:
+	@echo "=== bcd ==="
+	@mkdir -p $(OBJ_BASE)/bcd $(USRGAMES_OUT)
+	$(call cc1,$(GAMES_SRC)/bcd,bcd,$(OBJ_BASE)/bcd)
+	$(call ld1,$(OBJ_BASE)/bcd,$(USRGAMES_OUT),bcd,bcd)
+
+usrgames_caesar:
+	@echo "=== caesar ==="
+	@mkdir -p $(OBJ_BASE)/caesar $(USRGAMES_OUT)
+	$(call cc1,$(GAMES_SRC)/caesar,caesar,$(OBJ_BASE)/caesar)
+	$(call ld1,$(OBJ_BASE)/caesar,$(USRGAMES_OUT),caesar,caesar)
+
+usrgames_morse:
+	@echo "=== morse ==="
+	@mkdir -p $(OBJ_BASE)/morse $(USRGAMES_OUT)
+	$(call cc1,$(GAMES_SRC)/morse,morse,$(OBJ_BASE)/morse)
+	$(call ld1,$(OBJ_BASE)/morse,$(USRGAMES_OUT),morse,morse)
+
+usrgames_pig:
+	@echo "=== pig ==="
+	@mkdir -p $(OBJ_BASE)/pig $(USRGAMES_OUT)
+	$(call cc1,$(GAMES_SRC)/pig,pig,$(OBJ_BASE)/pig)
+	$(call ld1,$(OBJ_BASE)/pig,$(USRGAMES_OUT),pig,pig)
+
+usrgames_ppt:
+	@echo "=== ppt ==="
+	@mkdir -p $(OBJ_BASE)/ppt $(USRGAMES_OUT)
+	$(call cc1,$(GAMES_SRC)/ppt,ppt,$(OBJ_BASE)/ppt)
+	$(call ld1,$(OBJ_BASE)/ppt,$(USRGAMES_OUT),ppt,ppt)
 
 # ── Convenience aliases (build by program name) ───────────────────────────────
 
@@ -673,6 +704,11 @@ getty: usrsbin_getty
 login: usrsbin_login
 nogetty: usrsbin_nogetty
 calendar: usrgames_calendar
+bcd: usrgames_bcd
+caesar: usrgames_caesar
+morse: usrgames_morse
+pig: usrgames_pig
+ppt: usrgames_ppt
 awk: usrbin_awk
 cpp: usrbin_cpp
 nroff: usrbin_nroff

@@ -1,0 +1,18 @@
+#define PROG "caesar"
+#define DESC "Decrypt caesar cyphers."
+
+#include "Types.rez"
+
+resource rVersion (1, purgeable3) {
+	{ 1, 0, 0,
+	  release,
+	  0 },
+	verUS,
+	PROG,
+	PROG " Released with GNO/ME."
+};
+
+resource rComment (1, purgeable3) {
+	PROG " v1.0\n"
+	"GNO game: " DESC
+};

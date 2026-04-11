@@ -356,10 +356,31 @@ $(OBJ_BASE)/usr/sbin/uptimed.rsrc.done:    $(REPO_ROOT)/usr.sbin/uptimed/uptimed
 # ── usr/games/ ───────────────────────────────────────────────────────────────
 
 .PHONY: usr_games
-usr_games: $(OBJ_BASE)/usr/games/calendar.rsrc.done
+usr_games: \
+	$(OBJ_BASE)/usr/games/calendar.rsrc.done \
+	$(OBJ_BASE)/usr/games/bcd.rsrc.done \
+	$(OBJ_BASE)/usr/games/caesar.rsrc.done \
+	$(OBJ_BASE)/usr/games/morse.rsrc.done \
+	$(OBJ_BASE)/usr/games/pig.rsrc.done \
+	$(OBJ_BASE)/usr/games/ppt.rsrc.done
 
 $(OBJ_BASE)/usr/games/calendar.rsrc.done: $(REPO_ROOT)/usr.bin/calendar/calendar.rez $(OBJ_BASE)/usr/games/calendar
 	$(call REZ,usr.bin/calendar/calendar.rez,usr/games/calendar)
+
+$(OBJ_BASE)/usr/games/bcd.rsrc.done: $(REPO_ROOT)/games/bcd/bcd.rez $(OBJ_BASE)/usr/games/bcd
+	$(call REZ,games/bcd/bcd.rez,usr/games/bcd)
+
+$(OBJ_BASE)/usr/games/caesar.rsrc.done: $(REPO_ROOT)/games/caesar/caesar.rez $(OBJ_BASE)/usr/games/caesar
+	$(call REZ,games/caesar/caesar.rez,usr/games/caesar)
+
+$(OBJ_BASE)/usr/games/morse.rsrc.done: $(REPO_ROOT)/games/morse/morse.rez $(OBJ_BASE)/usr/games/morse
+	$(call REZ,games/morse/morse.rez,usr/games/morse)
+
+$(OBJ_BASE)/usr/games/pig.rsrc.done: $(REPO_ROOT)/games/pig/pig.rez $(OBJ_BASE)/usr/games/pig
+	$(call REZ,games/pig/pig.rez,usr/games/pig)
+
+$(OBJ_BASE)/usr/games/ppt.rsrc.done: $(REPO_ROOT)/games/ppt/ppt.rez $(OBJ_BASE)/usr/games/ppt
+	$(call REZ,games/ppt/ppt.rez,usr/games/ppt)
 
 # ── Top-level targets ─────────────────────────────────────────────────────────
 
@@ -416,7 +437,12 @@ validate:
 	    usr.orca.bin/describe/descu.rez \
 	    usr.orca.bin/udl/udl.rez \
 	    usr.sbin/getty/getty.rez \
-	    usr.sbin/newuser/newuser.rez; \
+	    usr.sbin/newuser/newuser.rez \
+	    games/bcd/bcd.rez \
+	    games/caesar/caesar.rez \
+	    games/morse/morse.rez \
+	    games/pig/pig.rez \
+	    games/ppt/ppt.rez; \
 	do \
 	    printf "  %-50s " "$$rez"; \
 	    if $(COWREZ) $(REPO_ROOT)/$$rez --dry-run --verify 2>&1 | grep -q "verify: OK\|would write"; then \

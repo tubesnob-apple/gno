@@ -48,6 +48,14 @@
 * Nov 6, 1991 (jb) : I removed all references to kvm_xxxx routines.
 *   The variable code will probably run about twice as fast now.
 *
+* June 30, 2016 (Sherlock) : Calls that modify variables (set, unset, export)
+* will automatically create a new scope if necessary. Otherwise, the parent's
+* variables are clobbered. (Kill calls disposevar so they will be cleaned up
+* automatically)
+*
+* Calls that read variables (read, indexed) hide a parent's variables unless
+* they are exported.
+*
 **************************************************************************
 
 	case	on
@@ -56,6 +64,12 @@
 VTABSIZE	gequ  39                 ;Size of variable table
 
 VEXPORT	gequ  %0001              ;This is variable is exported.
+
+o_next	gequ 0
+o_vt	gequ 4
+o_name	gequ 4
+o_value	gequ 8
+o_flag	gequ 12
 
 ;=========================================================================
 ;
@@ -229,34 +243,39 @@ loop1	ldy   #2
 	ora   p
 	beq   nexttbl
 
-loop2	ldy   #12
+loop2	ldy   #o_flag
 	lda   [p],y
 	and   #VEXPORT
 	beq   nextvar
 
-	ldy   #4+2
+	ldy   #o_name+2
 	lda   [p],y
 	pha
 	dey2
 	lda   [p],y
 	pha
-	ldy   #8+2
+	ldy   #o_value+2
 	lda   [p],y
 	pha
 	dey2
 	lda   [p],y
 	pha
+
+	ldy   #o_flag
+	lda   [p],y
+	pha
+
 	jsl   setvar             ;Copy over the new variable
-	ldy   #4+2
-	lda   [p],y
-	pha
-	dey2
-	lda   [p],y
-	pha
-	ldy   #12
-	lda   [p],y
-	pha
-	jsl   exportvar          ;Copy over the var flags
+;	ldy   #o_name+2
+;	lda   [p],y
+;	pha
+;	dey2
+;	lda   [p],y
+;	pha
+;	ldy   #o_flag
+;	lda   [p],y
+;	pha
+;	jsl   exportvar          ;Copy over the var flags
 
 nextvar	ldy   #2
 	lda   [p]
@@ -395,14 +414,14 @@ loop2	anop
 *              pha
 *              jsl   exportvar          ;Copy over the var flags
 
-dispvar	ldy   #4+2               ;dispose the variable
+dispvar	ldy   #o_name+2               ;dispose the variable
 	lda   [p],y
 	pha
 	dey2
 	lda   [p],y
 	pha
 	jsl   ~NDISPOSE
-	ldy   #8+2
+	ldy   #o_value+2
 	lda   [p],y
 	pha
 	dey2
@@ -452,7 +471,7 @@ p	equ   tbl+4
 q	equ   p+4
 space	equ   q+4
 
-	subroutine (4:name,4:value),space
+	subroutine (4:name,4:value,2:flag),space
 
 	pei   (name+2)
 	pei   (name)
@@ -465,25 +484,31 @@ space	equ   q+4
 	lda   varDepth,x
 	bne   pointit
 
+	anop  ; set up variables for this pid.
+	jsl   initvar
 	lda   truepid
-folpid	anop
-	asl2  a
-	asl2  a
-	asl2  a
-	asl   a
-	sta   pidx128
-	tax
-	lda   ParentProc,x       ;parent id
-	jmi   done               ;can't do it
 	asl   a
 	tax
-	lda   varDepth,x
-	bne   tryit
-	ldx   pidx128
-	lda   ParentProc,x
-	bra   folpid
 
-tryit	anop
+;	lda   truepid
+;folpid	anop
+;	asl2  a
+;	asl2  a
+;	asl2  a
+;	asl   a
+;	sta   pidx128
+;	tax
+;	lda   ParentProc,x       ;parent id
+;	jmi   done               ;can't do it
+;	asl   a
+;	tax
+;	lda   varDepth,x
+;	bne   tryit
+;	ldx   pidx128
+;	lda   ParentProc,x
+;	bra   folpid
+
+;tryit	anop
 
 ;
 ; Point to table
@@ -534,7 +559,7 @@ pointit	txa
 changevar	anop
 	sta   var                ;point to variable
 	stx   var+2
-	ldy   #8+2               ;dispose old value
+	ldy   #o_value+2               ;dispose old value
 	lda   [var],y
 	pha
 	dey2
@@ -561,7 +586,7 @@ newvar	anop
 	sta   [p]
 	lda   var+2
 	sta   [p],y
-	ldy   #12                ;initialize flag to 0
+	ldy   #o_flag                ;initialize flag to 0
 	lda   #0
 	sta   [var],y
 	pei   (name+2)           ;get memory for the string
@@ -569,7 +594,7 @@ newvar	anop
 	jsl   alloccstr
 	sta   q
 	stx   q+2
-	ldy   #4                 ;point to name
+	ldy   #o_name                 ;point to name
 	sta   [var],y
 	txa
 	iny2
@@ -584,7 +609,7 @@ setvalue	pei   (value+2)          ;get memory for the string
 	jsl   alloccstr
 	sta   q
 	stx   q+2
-	ldy   #8                 ;point to value
+	ldy   #o_value                 ;point to value
 	sta   [var],y
 	txa
 	iny2
@@ -594,6 +619,12 @@ setvalue	pei   (value+2)          ;get memory for the string
 	pei   (q+2)
 	pei   (q)
 	jsl   copycstr
+
+setflag	anop
+	ldy   #o_flag
+	lda   [var],y
+	ora   flag
+	sta   [var],y
 
 done	return
 
@@ -616,7 +647,8 @@ hashval	equ   pidx128+2
 var	equ   hashval+2
 tbl	equ   var+4
 p	equ   tbl+4
-space	equ   p+4
+fmask	equ   p+4
+space	equ   fmask+2
 
 	subroutine (4:name),space
 
@@ -628,6 +660,8 @@ space	equ   p+4
 	jsl   hashvar
 	sta   hashval
 
+	lda   #-1
+	sta   fmask
 	lda   truepid
 	asl   a
 	tax
@@ -657,7 +691,7 @@ cont	asl   a
 	bra   folpid
 
 tryit	anop
-
+        inc   fmask
 ;
 ; Point to table
 ;
@@ -709,6 +743,17 @@ loop	clc
 found	sta   var
 	stx   var+2
 
+; check if variable is visible for this pid.
+	ora   var+2
+	beq   done
+
+	ldy   #o_flag
+	lda   [var],y
+	ora   fmask
+	bne   done
+	sta   var
+	sta   var+2
+
 done	return 4:var
 
 	END
@@ -730,7 +775,8 @@ hashval	equ   pidx128+2
 var	equ   hashval+2
 tbl	equ   var+4
 p	equ   tbl+4
-space	equ   p+4
+fmask	equ   p+4
+space	equ   fmask+2
 
 	subroutine (4:name),space
 
@@ -741,6 +787,9 @@ space	equ   p+4
 	pei   (name)
 	jsl   hashvar
 	sta   hashval
+
+	lda   #-1
+	sta   fmask
 
 	lda   truepid
 	asl   a
@@ -771,7 +820,7 @@ cont	asl   a
 	bra   folpid
 
 tryit	anop
-
+	inc   fmask
 ;
 ; Point to table
 ;
@@ -818,13 +867,23 @@ loop	clc
 ;               stx   p
 ;               ora   p
 ;               bne   loop
+
+notfound	anop
+
 	stz	p
 	stz	p+2
 	bra   done
 
 found	sta   var
 	stx   var+2
-	ldy   #8
+
+; check if visible in current scope
+	ldy   #o_flag
+	lda   [var],y
+	ora   fmask
+	beq   notfound
+
+	ldy   #o_value
 	lda   [var],y
 	sta   p
 	iny2
@@ -850,13 +909,17 @@ pidx128	equ   0
 count	equ   pidx128+2
 p	equ   count+2
 tbl	equ   p+4
-space	equ   tbl+4
+fmask	equ   tbl+4
+space	equ   fmask+2
 
 	subroutine (2:index),space
 
 	lda   index
 	jeq   nope
 	jmi   nope
+
+	lda   #-1
+	sta   fmask
 
 	lda   truepid
 	asl   a
@@ -883,7 +946,7 @@ folpid	anop
 	bra   folpid
 
 tryit	anop
-
+	inc   fmask          ; only include exported variables.
 ;
 ; Point to table
 ;
@@ -912,8 +975,19 @@ loop1	ldy   #2
 	ora   p
 	beq   nexttbl
 
-loop2	dec   index
+loop2	anop
+;
+;  only visible if varDepth,X || exported.
+;
+
+	ldy   #o_flag
+	lda   [p],y
+	ora   fmask
+	beq   skip
+	dec   index
 	beq   found
+
+skip	anop
 	ldy   #2
 	lda   [p]
 	tax
@@ -971,25 +1045,31 @@ space	equ   q+4
 	lda   varDepth,x
 	bne   pointit
 
+	anop  ; set up variables for this pid.
+	jsl   initvar
 	lda   truepid
-folpid	anop
-	asl2  a
-	asl2  a
-	asl2  a
-	asl   a
-	sta   pidx128
-	tax
-	lda   ParentProc,x       ;parent id
-	jmi   done               ;can't do it
 	asl   a
 	tax
-	lda   varDepth,x
-	bne   tryit
-	ldx   pidx128
-	lda   ParentProc,x
-	bra   folpid
 
-tryit	anop
+;	lda   truepid
+;folpid	anop
+;	asl2  a
+;	asl2  a
+;	asl2  a
+;	asl   a
+;	sta   pidx128
+;	tax
+;	lda   ParentProc,x       ;parent id
+;	jmi   done               ;can't do it
+;	asl   a
+;	tax
+;	lda   varDepth,x
+;	bne   tryit
+;	ldx   pidx128
+;	lda   ParentProc,x
+;	bra   folpid
+
+;tryit	anop
 
 ;
 ; Point to table
@@ -1030,7 +1110,7 @@ loop	lda   p
 ;
 ; Point to this variable name
 ;
-	ldy   #4
+	ldy   #o_name
 	lda   [p],y
 	sta   thisname
 	iny2
@@ -1060,14 +1140,14 @@ next	mv4   p,q
 ;
 ; We found it, now unset it
 ;
-found	ldy   #4+2               ;dispose the name
+found	ldy   #o_name+2               ;dispose the name
 	lda   [p],y
 	pha
 	dey2
 	lda   [p],y
 	pha
 	jsl   ~NDISPOSE
-	ldy   #8+2               ;dispose the value
+	ldy   #o_value+2               ;dispose the value
 	lda   [p],y
 	pha
 	dey2
@@ -1121,25 +1201,31 @@ space	equ   p+4
 	lda   varDepth,x
 	bne   pointit
 
+	anop  ; set up variables for this pid.
+	jsl   initvar
 	lda   truepid
-folpid	anop
-	asl2  a
-	asl2  a
-	asl2  a
-	asl   a
-	sta   pidx128
-	tax
-	lda   ParentProc,x       ;parent id
-	jmi   done               ;can't do it
 	asl   a
 	tax
-	lda   varDepth,x
-	bne   tryit
-	ldx   pidx128
-	lda   ParentProc,x
-	bra   folpid
 
-tryit	anop
+;	lda   truepid
+;folpid	anop
+;	asl2  a
+;	asl2  a
+;	asl2  a
+;	asl   a
+;	sta   pidx128
+;	tax
+;	lda   ParentProc,x       ;parent id
+;	jmi   done               ;can't do it
+;	asl   a
+;	tax
+;	lda   varDepth,x
+;	bne   tryit
+;	ldx   pidx128
+;	lda   ParentProc,x
+;	bra   folpid
+
+;tryit	anop
 
 ;
 ; Point to table
@@ -1179,7 +1265,7 @@ pointit	txa
 
 found	sta   var
 	stx   var+2
-	ldy   #12
+	ldy   #o_flag
 	lda   [var],y
 	ora   flag
 	sta   [var],y
@@ -1210,7 +1296,7 @@ loop	lda   p
 ;
 ; Point to this variable name
 ;
-	ldy   #4
+	ldy   #o_name
 	lda   [p],y
 	sta   thisname
 	iny2
