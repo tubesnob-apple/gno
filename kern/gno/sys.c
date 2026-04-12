@@ -828,6 +828,7 @@ extern void enableBuf(void);
    ctxtstuff.ctx_X = hiWord((longword) argscopy);
    ctxtstuff.ctx_Y = loWord((longword) argscopy);
    newStack = ctxtstuff.ctx_S1 = il_rec.dPageAddr+il_rec.buffSize-5;
+   asm { wdm 0x30 }   /* checkpoint A: just after newStack assignment */
    ctxtstuff.ctx_D = il_rec.dPageAddr;
    ctxtstuff.ctx_B = ctxtstuff.ctx_B1 = (((longword) il_rec.startAddr) >> 16);
    ctxtstuff.ctx_PC = (longword) il_rec.startAddr;
@@ -840,6 +841,8 @@ extern void enableBuf(void);
    if (force_norest) p->flags |= FL_NORESTART;
    p->SANEwap = 0; /* reset to the 'not started up' state */
    p->lastTool = 0x401E; /* reset res app to standard */
+
+   asm { wdm 0x31 }   /* checkpoint B: after p->flags assignments */
 
    /* is program compliant? */
    if (fi.auxType == 0xDC00l) {
@@ -882,9 +885,11 @@ extern void enableBuf(void);
     ourPFhand[2] = malloc(resBuf->bufString.length+2);
     copygsstr(ourPFhand[2],&resBuf->bufString);
 
+    asm { wdm 0x32 }   /* checkpoint C: after prefix setup */
     nfree(pfn);
     nfree(resBuf);
     nfree(optionList);
+    asm { wdm 0x33 }   /* checkpoint D: after the three nfree calls */
 
     /* If we're launching a S16 application, copy prefix 0 to prefix 8 */
     if (fi.fileType == 0xB3) {
@@ -897,12 +902,15 @@ extern void enableBuf(void);
 
 /* Ignored/blocked signals remain ignored/blocked, but caught signals
    are reset to their default state */
+   asm { wdm 0x34 }   /* checkpoint E: before signal loop */
    for (i = 0; i < 32; i++) {
        if (p->siginfo->v_signal[i] != SIG_IGN)
            p->siginfo->v_signal[i] = SIG_DFL;
    }
+   asm { wdm 0x35 }   /* checkpoint F: after signal loop */
 
    SET_STOP_FLAG(&ssf);
+   asm { wdm 0x36 }   /* checkpoint G: after SET_STOP_FLAG */
 
    if (!(oldFlags & FL_COMPLIANT)) {
       enableBuf();
@@ -917,7 +925,10 @@ extern void enableBuf(void);
    asm {
 	lda newStack
 	tcs
+	wdm 0x2d         /* bare WDM right after tcs - no C calls between */
    }
+   ktrace_write(0x28, "KERNexecve: post-tcs");
+   asm { wdm 0x28 }
 
    if ((fi.auxType == 0xDC00) && (p->ttyID != 3)) {
        fprintf(stderr, "Program can only run on console.\n");
@@ -935,11 +946,19 @@ extern void enableBuf(void);
        PANIC("EXECVE KILL OVERRUN");
    } else {
        if (oldFlags & FL_FORKED) {
+           ktrace_write(0x29, "KERNexecve: pre-DisposeAll");
+           asm { wdm 0x29 }
            DisposeAll(oldUserID);  /* process was fork()ed, don't USD */
            DeleteID(oldUserID);
+           ktrace_write(0x2a, "KERNexecve: post-DisposeAll");
+           asm { wdm 0x2a }
        } else {
+           ktrace_write(0x2b, "KERNexecve: pre-UserShutDown");
+           asm { wdm 0x2b }
            UserShutDown(oldUserID,
             ((oldFlags & FL_RESTART) && !(oldFlags & FL_NORESTART)) ? 0x4000 : 0);
+           ktrace_write(0x2c, "KERNexecve: post-UserShutDown");
+           asm { wdm 0x2c }
        }
        /* don't use any local variables beyond this point */
    }
