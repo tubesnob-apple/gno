@@ -798,6 +798,84 @@ extern void enableBuf(void);
        fstack = NewHandle(4096l,newID,0xC015, NULL);
        il_rec.dPageAddr = (word) *fstack;
        il_rec.buffSize = 4096;
+       /* Zero the freshly-allocated dp/stack page so no stale data
+        * from a prior occupant can leak into the new process's
+        * direct page or stack frame. NewHandle does not zero. */
+       memset((void *)((longword)*fstack), 0, 4096);
+   }
+
+   /* Dump the (post-fixup) il_rec via halting WDM:
+    *   $37: A = dPageAddr, X = buffSize, Y = startAddr_lo16
+    *   $38: A = startAddr_hi16
+    * Read A/X/Y from gsplus break info to see what the kernel will
+    * actually use for this new process. */
+   {
+       word _ilDPg = il_rec.dPageAddr;
+       word _ilBSz = il_rec.buffSize;
+       longword _ilSAddr = (longword)il_rec.startAddr;
+       word _ilSLo = (word)(_ilSAddr & 0xFFFFL);
+       word _ilSHi = (word)((_ilSAddr >> 16) & 0xFFFFL);
+       ktrace_write(0x37, "KERNexecve: il_rec dpg/bsz/saddrlo");
+       asm {
+           lda _ilDPg
+           ldx _ilBSz
+           ldy _ilSLo
+           wdm 0x37
+       }
+       ktrace_write(0x38, "KERNexecve: il_rec saddrhi");
+       asm {
+           lda _ilSHi
+           wdm 0x38
+       }
+   }
+
+   /* Probe Memory Manager: who owns these addresses right now?
+    *   $39: A=lo16, X=hi16 of FindHandle($002900)  (start of gsh's allocated page)
+    *   $3A:                            FindHandle($003000)  (FST table area)
+    *   $3B:                            FindHandle($003100)  (just past FST data)
+    *   $3C:                            FindHandle($001900)  (initd's stack page - should be live)
+    * Handle == NULL (A=X=0) means no handle owns that address.
+    */
+   {
+       handle h;
+       longword l;
+       word lo, hi;
+
+       h = FindHandle((Pointer)0x002900L);
+       l = (longword)h;
+       lo = (word)(l & 0xFFFFL);
+       hi = (word)((l >> 16) & 0xFFFFL);
+       ktrace_write(0x39, "FindHandle($2900)");
+       asm { lda lo
+             ldx hi
+             wdm 0x39 }
+
+       h = FindHandle((Pointer)0x003000L);
+       l = (longword)h;
+       lo = (word)(l & 0xFFFFL);
+       hi = (word)((l >> 16) & 0xFFFFL);
+       ktrace_write(0x3a, "FindHandle($3000)");
+       asm { lda lo
+             ldx hi
+             wdm 0x3a }
+
+       h = FindHandle((Pointer)0x003100L);
+       l = (longword)h;
+       lo = (word)(l & 0xFFFFL);
+       hi = (word)((l >> 16) & 0xFFFFL);
+       ktrace_write(0x3b, "FindHandle($3100)");
+       asm { lda lo
+             ldx hi
+             wdm 0x3b }
+
+       h = FindHandle((Pointer)0x001900L);
+       l = (longword)h;
+       lo = (word)(l & 0xFFFFL);
+       hi = (word)((l >> 16) & 0xFFFFL);
+       ktrace_write(0x3c, "FindHandle($1900)");
+       asm { lda lo
+             ldx hi
+             wdm 0x3c }
    }
 
 /*  S16s (and others) get no command line arguments, but we should put
