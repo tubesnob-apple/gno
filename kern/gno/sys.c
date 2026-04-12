@@ -713,13 +713,10 @@ extern void execveHook(void);
 extern void disableBuf(void);
 extern void enableBuf(void);
 
-#define EXEC_TRAP(n)  /* disabled */
-
-   EXEC_TRAP(0x70);  /* KERNexecve entry */
-
 /* always disableps() when screwing with process tables */
    disableps();
-   KTRACE_LOG(filename ? filename : "exec:(null)");
+   ktrace_write(0x22, "KERNexecve: enter");
+   asm { wdm 0x22 }
    if (kp->gsosDebug & 16) fprintf(stderr,"execve(%s,%s)\n",filename,cmdline);
   
    p = PROC; /* $$$ &(kp->procTable[Kgetpid()]);*//* aaaaaaaaaaarrrgghhh!!!!! */
@@ -737,7 +734,6 @@ extern void enableBuf(void);
    resBuf->bufSize = 1024;
    ep.outputPath = (ResultBuf255Ptr) resBuf;
    ExpandPathGS(&ep);
-   EXEC_TRAP(0x71);  /* after ExpandPath */
 
    restart = 1;
    newID = GetUserID2((Pointer)&resBuf->bufString);
@@ -757,15 +753,16 @@ extern void enableBuf(void);
        }
    }
 
-    EXEC_TRAP(0x72);  /* before InitialLoad/Restart */
+    ktrace_write(0x23, "KERNexecve: pre-load");
+    asm { wdm 0x23 }
     if (restart) {
 	r_rec = Restart(newID);
     } else {
 	il_rec = InitialLoad2(newID, (Pointer)&resBuf->bufString, 1, 1);
     }
-    EXEC_TRAP(0x73);  /* after InitialLoad/Restart */
+    ktrace_write(0x24, "KERNexecve: post-load");
+    asm { wdm 0x24 }
     if ((e = toolerror())) {
-	KTRACE_LOG("exec:LoadErr");
 	switch(e) {
 	  case volNotFound:
 	  case pathNotFound:
@@ -781,7 +778,6 @@ extern void enableBuf(void);
 	return -1;
     }
 
-   EXEC_TRAP(0x74);  /* load succeeded, getting file info */
 /* get info about the executable so we know how to set up the environment */
    optionList = malloc(48l); /* should be large enough for everything */
    fi.pCount = 8;
@@ -899,25 +895,22 @@ extern void enableBuf(void);
            p->siginfo->v_signal[i] = SIG_DFL;
    }
 
-   EXEC_TRAP(0x75);  /* prefixes set, about to switch stack + launch */
    SET_STOP_FLAG(&ssf);
-   EXEC_TRAP(0x76);  /* after SET_STOP_FLAG */
 
    if (!(oldFlags & FL_COMPLIANT)) {
       enableBuf();
    }
-   EXEC_TRAP(0x77);  /* after compliance check / enableBuf */
 
    if ((fi.auxType & 0xDB02) != 0xDB02)
      if (oldFlags & FL_QDSTARTUP) *((byte *)0xE0C029l) &= 0x7F;
 
-   EXEC_TRAP(0x78);  /* before stack switch */
+   ktrace_write(0x25, "KERNexecve: pre-tcs");
+   asm { wdm 0x25 }
 /* switch over to the new stack before we deallocate the one we're using */
    asm {
 	lda newStack
 	tcs
    }
-   EXEC_TRAP(0x79);  /* after stack switch — now on new process stack */
 
    if ((fi.auxType == 0xDC00) && (p->ttyID != 3)) {
        fprintf(stderr, "Program can only run on console.\n");
@@ -934,7 +927,6 @@ extern void enableBuf(void);
        /* not reached */
        PANIC("EXECVE KILL OVERRUN");
    } else {
-       EXEC_TRAP(0x7A);  /* normal path: about to dispose old userID */
        if (oldFlags & FL_FORKED) {
            DisposeAll(oldUserID);  /* process was fork()ed, don't USD */
            DeleteID(oldUserID);
@@ -942,10 +934,10 @@ extern void enableBuf(void);
            UserShutDown(oldUserID,
             ((oldFlags & FL_RESTART) && !(oldFlags & FL_NORESTART)) ? 0x4000 : 0);
        }
-       EXEC_TRAP(0x7B);  /* old userID disposed, about to jump to execveHook */
        /* don't use any local variables beyond this point */
    }
-   EXEC_TRAP(0x7C);  /* final — jumping to execveHook */
+   ktrace_write(0x27, "KERNexecve: pre-jmp execveHook");
+   asm { wdm 0x27 }
    asm {
      jmp >execveHook
    }

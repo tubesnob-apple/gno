@@ -290,6 +290,19 @@ word nargs = 0;
         emdp = NewHandle(0x0100l,kp->userID,0xC005,0l);
         i = _toolErr;
         EMStartUp((word)*emdp,0,0,0,0,0,kp->userID);
+
+        /* Reserve the hardware I/O area ($C000-$CFFF in bank 0) so that
+         * NewHandle with attrBank never allocates a process stack/DP there.
+         * On GSplus the ROM Memory Manager may not exclude this range from
+         * its bank-0 free list; pre-claiming it here closes that gap.
+         * attrAddr|attrFixed|attrLocked = 0xC002 (no attrPage, as required).
+         * If the range is already excluded (real hardware) the call fails
+         * harmlessly; we clear the tool error and continue. */
+        {
+            Handle io_guard = NewHandle(0x1000L, kp->userID, 0xC002, (Pointer)0x00C000L);
+            _toolErr = 0;   /* ignore error if range was already reserved */
+            (void)io_guard; /* intentionally leaked — permanently occupies $C000-$CFFF */
+        }
 #ifdef DEBUG_STARTUP
 	printf("After EMStartUp\n");
 #endif

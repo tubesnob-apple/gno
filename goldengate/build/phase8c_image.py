@@ -256,10 +256,24 @@ def populate_staging(staging: Path, metadata: list,
             # Binary required from source but not built — flag it
             msg = f'{prodos} ({ftype}, {size}B) — not in gno-obj/{gnoobj_rel}'
             errors.append(msg)
-            if verbose or warn_missing:
-                label = 'WARN' if warn_missing else 'ERROR'
-                print(f'  [{label}] MISSING BUILT BINARY: {msg}')
-            continue
+            if warn_missing:
+                # Fall back to reference extraction so the image is still bootable
+                if ref_src.exists():
+                    print(f'  WARN: {msg}')
+                    data_src  = ref_src
+                    type_sfx  = TYPE_SUFFIX.get(ftype, '000000')
+                    rsrc_data = b''
+                    if rsrc_rel:
+                        rsrc_path = EXTRACTED / rsrc_rel
+                        if rsrc_path.exists():
+                            rsrc_data = rsrc_path.read_bytes()
+                    src_tag = 'ref  '
+                else:
+                    print(f'  WARN: {msg}  (no reference fallback either)')
+                    continue
+            else:
+                print(f'  [ERROR] MISSING BUILT BINARY: {msg}')
+                continue
 
         elif is_exempt and (gg_path := GG_LOOKUP.get(local)) and gg_path.exists():
             # Exempt binary found in GoldenGate installation

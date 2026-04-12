@@ -957,6 +957,7 @@ newViaCOP	ENTRY
 	long  m
 	lda >int_A
 	plp
+	clc                      ; force C=0: prevent XCE from switching to emulation mode
 	xce
 	rti
 	END
@@ -972,7 +973,25 @@ InitKernel	START
 	plb
 
 	move3 $E10071,oldBrk+1
-;               move3 #BrkVect,$E10071
+; Write JML BrkVect to the bank-0 BRK dispatch stub at $0384.
+; $00FFE6/$00FFE7 = $0384: the native 65816 BRK vector target in bank-0 RAM.
+; Without this stub, BRK goes to uninitialized RAM and loops forever.
+	phb                    ; save current data bank
+	short a                ; 8-bit accumulator
+	lda   #$00
+	pha                    ; push $00 to stack for PLB
+	plb                    ; data bank = 0 (bank-0 RAM)
+	lda   #$5C             ; JML long absolute opcode
+	sta   $0384            ; write JML opcode to stub in bank 0
+	long  a                ; 16-bit accumulator
+	lda   #BrkVect         ; low 16 bits of BrkVect address
+	sta   $0385            ; write address bytes 0-1 to stub+1,+2
+	short a                ; 8-bit accumulator
+	lda   #^BrkVect        ; bank byte of BrkVect
+	sta   $0387            ; write address byte 2 to stub+3
+	plb                    ; restore data bank
+	long  a                ; 16-bit accumulator
+	move3 #BrkVect,$E10071 ; also patch GS/OS $E1 dispatch table entry
 
 	pha
 	pha
@@ -1266,6 +1285,7 @@ newViaVBL	ENTRY
 	long a
 	lda >int_A
 	plp
+	clc                      ; force C=0: prevent XCE from switching to emulation mode
 	xce
 	jmp oldInt
 	END

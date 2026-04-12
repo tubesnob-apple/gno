@@ -142,7 +142,7 @@ CON_signalIO	START KERN2
 	rtl
 	END
 
-ConInit	START
+ConInit	START KERN2
 dTermioPtr	equ  0
 result	equ  4
 	subroutine (2:devNum),6
@@ -211,7 +211,7 @@ result	equ  4
 	return 2:result
 	END
 
-ConDeInit	START
+ConDeInit	START KERN2
 	subroutine (2:devNum),0
 
 	return

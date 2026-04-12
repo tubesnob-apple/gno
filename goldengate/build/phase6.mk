@@ -616,7 +616,7 @@ usrsbin_login:
 	@echo "=== login ==="
 	@mkdir -p $(OBJ_BASE)/login $(USRSBIN_OUT)
 	$(call cc1,$(USRBIN_SRC)/login,login,$(OBJ_BASE)/login)
-	$(call ld1,$(OBJ_BASE)/login,$(USRSBIN_OUT),login,login,$(LIBUTIL) $(LIBCRYPT))
+	$(call ld1,$(OBJ_BASE)/login,$(USRSBIN_OUT),login,login,$(LIBUTIL) $(LIBCRYPT) $(GNO_OBJ)/usr/lib/libktrace)
 
 usrsbin_nogetty:
 	@echo "=== nogetty ==="

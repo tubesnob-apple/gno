@@ -74,6 +74,7 @@ static char sccsid[] = "@(#)login.c	8.4 (Berkeley) 4/2/94";
 #endif
 
 #include "pathnames.h"
+#include <ktrace.h>
 
 void	 badlogin __P((char *));
 void	 checknologin __P((void));
@@ -535,6 +536,8 @@ int permit_passwd = 0;
                 syslog(LOG_ERR, "setlogin() failure: %m");
 #endif
 
+	KTRACE_TRAP(0x20, "%s", "login: pre-setuid");
+
 	/* Discard permissions last so can't get killed and drop core. */
 	if (rootlogin)
 		(void) setuid(0);
@@ -549,7 +552,9 @@ int permit_passwd = 0;
 	}
 #endif
 
+	KTRACE_TRAP(0x21, "login: about to execlp %s", pwd->pw_shell);
 	execlp(pwd->pw_shell, tbuf, (char *)0);
+	KTRACE_TRAP(0x26, "%s", "login: execlp returned!");
 	err(1, "%s", pwd->pw_shell);
 }
 
