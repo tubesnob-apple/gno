@@ -244,7 +244,7 @@ NewTextShutDown	START
 	END
 
 ; FORKInitGlob
-; commonFork() jsl's this routine. x is source pid, y is destination pid.
+; KERNfork() jsl's this routine. x is source pid, y is destination pid.
 ; copies all the TextTools info from parent to child (source to dest)
 
 FORKInitGlob	START

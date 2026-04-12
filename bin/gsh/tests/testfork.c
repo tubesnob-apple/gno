@@ -333,7 +333,7 @@ int invoke(void *addr)
 
 	my_pid = getpid();
         fork_mutex = 1;
-	child_pid = fork(addr, 1024, 0, "testfork", 0);
+	child_pid = fork(addr);
 	add_event(my_pid, e_fork, child_pid, 0);
         while (fork_mutex)   {
 	        asm {

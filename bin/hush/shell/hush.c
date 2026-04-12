@@ -8486,7 +8486,7 @@ static int systemvec(const char *command)
 
 	args.command = command;
 
-	pid = fork(do_system, 512, 0, "system() executor",
+	pid = fork2(do_system, 512, 0, "system() executor", 
 				sizeof(&args) / 2, &args);
 	if (pid == -1) {
 		retval = -1;

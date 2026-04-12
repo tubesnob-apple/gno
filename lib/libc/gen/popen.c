@@ -207,7 +207,7 @@ popen(const char *command, const char *type)
 
 	
 #ifdef __GNO__
-	entry->pr_pid = fork(_popen_child, 4096, 0,
+	entry->pr_pid = fork2(_popen_child, 4096, 0, 
 			      "forked child of popen", 6, pdes, type,
 			      command);
 	switch (entry->pr_pid) {

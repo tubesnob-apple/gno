@@ -29,16 +29,6 @@ static const char sccsid[] = "@(#)unshar.c  GNO/ME 2.0.6";
  * Run /bin/sh on fname.
  * Returns the shell's exit status, or -1 on fork/exec error.
  */
-#pragma databank 1
-static void
-unshar_child(char *fname)
-{
-    execl(SHELL, "sh", fname, (char *)NULL);
-    perror("unshar: exec");
-    _exit(127);
-}
-#pragma databank 0
-
 static int
 run_sh(fname)
     char *fname;
@@ -47,10 +37,16 @@ run_sh(fname)
     union wait  st;
     int         ret;
 
-    pid = fork(unshar_child, 1024, 0, "unshar", 2, fname);
+    pid = fork(NULL);
     if (pid < 0) {
         perror("unshar: fork");
         return -1;
+    }
+    if (pid == 0) {
+        /* child */
+        execl(SHELL, "sh", fname, (char *)NULL);
+        perror("unshar: exec");
+        _exit(127);
     }
     /* parent: wait */
     ret = 0;

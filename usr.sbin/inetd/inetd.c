@@ -322,7 +322,7 @@ int ch, pid, dofork;
 					}
 				}
 			    }
-			    pid = fork(fork_child, 768, 0, "inetd fork", 4, sep, dofork, ctrl);
+			    pid = fork2(fork_child, 768, 0, "inetd fork", 4, sep, dofork, ctrl);
 		    }
 		    if (pid < 0) {
 			    syslog(LOG_ERR, "fork: %m");
