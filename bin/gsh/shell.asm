@@ -156,6 +156,7 @@ fskip1	anop
 
 	ph4	#pathname	Get $PATH environment variable string
 	jsl	getenv
+	wdm	$5f		; bisect: after getenv returns
 	sta	p	Save address of allocated buffer.
 	stx	p+2	 in direct page variable
 	ora	p+2	If null,
@@ -218,6 +219,7 @@ npthcnv	anop
 ; Initialization that is not specific to login shells
 ;
 nologin	anop
+	wdm	$60		; bisect: at nologin label (past login-shell block)
 	lda	FastFlag	If fast startup flag isn't set,
 	bne	fskip2
 	jsr	InitHist	 Init: histFN->"$HOME/history",
