@@ -27,14 +27,18 @@ dummy	START		; ends up in .root file
 argv	equ	0
 argc	equ	4
 
+	wdm	$40		; bisect: at very entry of ~GNO_COMMAND
 	phk
 	plb
+	wdm	$41		; bisect: after phk/plb (DBR set up)
 
 	sta	~USER_ID
 	sty	~COMMANDLINE
 	stx	~COMMANDLINE+2
+	wdm	$42		; bisect: after USER_ID/COMMANDLINE saves
 
 	jsl	~MM_INIT
+	wdm	$43		; bisect: after ~MM_INIT returns
 
 	ph4	~COMMANDLINE
 	clc
@@ -42,7 +46,9 @@ argc	equ	4
 	adc	#argv
 	pea	0
 	pha
+	wdm	$44		; bisect: about to jsl ~GNO_PARSEARG
 	jsl	~GNO_PARSEARG
+	wdm	$45		; bisect: after ~GNO_PARSEARG returns
 	sta	argc
 
 	cmp	#0
@@ -53,7 +59,9 @@ argc	equ	4
 	pei	(argc)
 	pei	(argv+2)
 	pei	(argv)
+	wdm	$46		; bisect: about to jsl main
 	jsl	main
+	wdm	$47		; bisect: after jsl main returns
 
 	pha		;save return value
 
