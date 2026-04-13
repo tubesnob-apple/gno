@@ -382,10 +382,43 @@ def populate_staging(staging: Path, metadata: list,
 
 GOLDENGATE_LANG_MAP = {
     # <GoldenGate subdir>: <prodos path under /lang/orca>
+    #
+    # Note: /lang/orca/libraries is populated from ~/Library/GoldenGate/lib,
+    # not from ~/Library/GoldenGate/Libraries.  The lowercase lib dir is the
+    # one GoldenGate's iix tools actively read at link time; it contains the
+    # current set of runtime libraries, headers, and include files.
     'Shell':     'lang/orca/shell',
     'Languages': 'lang/orca/languages',
     'Utilities': 'lang/orca/utilities',
-    'Libraries': 'lang/orca/libraries',
+    'lib':       'lang/orca/libraries',
+}
+
+# Per-subdir whitelists: when present, only top-level entries in the set are
+# staged (compared case-insensitively).  Entries may name either files or
+# directories; a whitelisted directory is staged recursively in full.  Subdirs
+# without an entry here are staged with no restriction.
+GOLDENGATE_LANG_WHITELIST = {
+    'Languages': {
+        'Asm65816', 'BASIC', 'Linker', 'Pascal', 'Rez',
+        'cc', 'IBASIC', 'Modula2',
+    },
+    'Utilities': {
+        'CAL', 'Help', 'DISASM', 'MakeLib', 'CHECK', 'DISASM.Data',
+        'RemoveRez', 'ResEqual', 'CMP', 'DiskCheck', 'Compact',
+        'DumpObj', 'SORT', 'CompileTool', 'STRIPC', 'EnTab', 'STRIPW',
+        'Convert', 'Express', 'TCMP', 'Crunch', 'TEE', 'DebugBreak',
+        'UNIQ', 'DebugFast', 'linker', 'UPPER', 'DebugNoFast', 'LOWER',
+        'WC', 'DeRez', 'MacGen', 'DeToke', 'MakeBin', 'PRIZM',
+    },
+}
+
+# Staged renames: some GoldenGate files have names that violate ProDOS rules
+# (underscores, hyphens, etc).  Rather than drop them, map them to ProDOS-safe
+# names here.  Key is the path relative to GG_ROOT, value is the replacement
+# basename used in the ProDOS image.  No references in this repo or in the
+# GoldenGate tree itself point at these files by name, so renaming is safe.
+GOLDENGATE_RENAMES = {
+    'lib/ORCACDefs/gno_compat.h': 'gnocompat.h',
 }
 
 
@@ -422,6 +455,8 @@ def populate_goldengate_lang(staging: Path, verbose: bool) -> dict:
         if not src_root.exists():
             print(f'  WARN: {src_root} does not exist; skipping')
             continue
+        whitelist = GOLDENGATE_LANG_WHITELIST.get(gg_sub)
+        whitelist_lower = {n.lower() for n in whitelist} if whitelist else None
         for path in sorted(src_root.rglob('*')):
             if path.is_dir():
                 continue
@@ -435,9 +470,24 @@ def populate_goldengate_lang(staging: Path, verbose: bool) -> dict:
             if lower.endswith('.bak') or '.bak.' in lower or lower.endswith('.new_tmp'):
                 skipped += 1
                 continue
-            if not is_valid_prodos_name(path.name):
+            # Per-subdir whitelist: if defined, the first path component
+            # (file or directory) under <gg_sub> must be in the whitelist.
+            # Whitelisted directories are staged recursively in full.
+            rel_from_sub = path.relative_to(src_root)
+            if whitelist_lower is not None:
+                first_comp = rel_from_sub.parts[0].lower()
+                if first_comp not in whitelist_lower:
+                    skipped += 1
+                    continue
+
+            # Apply any explicit GOLDENGATE_RENAMES before ProDOS validation
+            # (so renamed entries get validated under their new name).
+            rel_from_root = path.relative_to(GG_ROOT).as_posix()
+            stage_name    = GOLDENGATE_RENAMES.get(rel_from_root, path.name)
+
+            if not is_valid_prodos_name(stage_name):
                 if verbose:
-                    print(f'  [skip ] {path.relative_to(GG_ROOT)} (invalid ProDOS name)')
+                    print(f'  [skip ] {rel_from_root} (invalid ProDOS name)')
                 skipped += 1
                 continue
 
@@ -448,7 +498,7 @@ def populate_goldengate_lang(staging: Path, verbose: bool) -> dict:
 
             rel_dir = (prodos_sub + '/' + '/'.join(rel.parent.parts)).rstrip('/')
             rel_dir = rel_dir.lower()
-            name    = path.name.lower()
+            name    = stage_name.lower()
 
             staged_file = stage_file(
                 staging, rel_dir, name, type_sfx, path, rsrc_data
