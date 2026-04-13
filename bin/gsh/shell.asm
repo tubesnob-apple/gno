@@ -103,6 +103,8 @@ settty	mv2	ttyref,gshtty
 	jsr	InitTerm
 	wdm	$53		; bisect: after InitTerm
 
+	wdm	$54		; bisect: entering copyright-print block
+
 	lda	FastFlag	If FastFlag is set,
 	bne	fskip1	 skip copyright message.
 	lda	gshpid	Only print the copyright msg
@@ -112,25 +114,34 @@ settty	mv2	ttyref,gshtty
 	lda	#gnostr
 	jsr	puts
 fskip1	anop
+	wdm	$55		; bisect: after copyright-print block
 
 ;
 ; Set up signal handlers
 ;
 	signal (#SIGINT,#signal2)
+	wdm	$56		; bisect: after SIGINT signal
 	signal (#SIGTSTP,#signal18)
+	wdm	$57		; bisect: after SIGTSTP signal
 	signal (#SIGCHLD,#pchild)
+	wdm	$58		; bisect: after SIGCHLD signal
 	signal (#SIGTTIN,#signal21)
+	wdm	$59		; bisect: after SIGTTIN signal
 ;
 ; Set entry point for users calling system
 ;
 	setsystemvector #system
+	wdm	$5a		; bisect: after setsystemvector
 
 ;
 ; Initialize some stuff
 ;
 	jsr	initals	Set all AliTbl entries to 0.
+	wdm	$5b		; bisect: after initals
 	jsr	InitDStk	Zero out directory stack.
+	wdm	$5c		; bisect: after InitDStk
 	jsr	InitVars	Set value of all env var flags.
+	wdm	$5d		; bisect: after InitVars
 ;
 ; Check for login shell (argv[0] starts with '-')
 ;
