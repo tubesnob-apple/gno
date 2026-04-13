@@ -1394,13 +1394,13 @@ expglob	phx
 ; Was there a globbing error?
 	lda	ptr_glob
 	ora	ptr_glob+2
-	bne	expalias
+	bne	doexpali
 	pha		Put null pointer
 	pha		 on stack
 	jmp	errexit	Go to error exit.
 
 ; Expand aliases in the modified command line (final expansion)
-expalias	ldx	ptr_glob+2
+doexpali	ldx	ptr_glob+2
 	phx
 	lda	ptr_glob
 	pha
@@ -1454,7 +1454,7 @@ loop	pea	0	;Bank 0		waitpid (hi)
 	clc
 	adc	#waitsts
 	pha				status (low)
-	jsl	command  
+	jsl	command
 
 	sta	term	Save result in term.
 	jmi	errexit	If < 0, all done.

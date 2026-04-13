@@ -72,18 +72,14 @@ space	equ	cflag+2
 
 	subroutine (0:dummy),space
 
-	wdm	$4c		; bisect: shell top, after subroutine prologue
 	tsc		Save stack pointer
 	sta	cmdctx	 in cmdctx
 	tdc		  and direct page reg
 	sta	cmddp	   in cmddp.
-	wdm	$4d		; bisect: after tsc/tdc saves
 
 	PushVariablesGS NullPB	Save environment variables.
-	wdm	$4e		; bisect: after PushVariablesGS
 
 	Open	ttyopen	Open tty,
-	wdm	$4f		; bisect: after Open ttyopen
 	bcc	settty	 checking for error.
 	ErrWriteCString #ttyerr
 	jmp	quit
@@ -93,17 +89,12 @@ ttyerr	dc	c'gsh: Failed opening tty.',h'0d00'
 
 settty	mv2	ttyref,gshtty
 	tcnewpgrp gshtty
-	wdm	$50		; bisect: after tcnewpgrp
 	settpgrp gshtty
-	wdm	$51		; bisect: after settpgrp
 	getpid
 	sta	gshpid
-	wdm	$52		; bisect: after getpid
 
 	jsr	InitTerm
-	wdm	$53		; bisect: after InitTerm
 
-	wdm	$54		; bisect: entering copyright-print block
 
 	lda	FastFlag	If FastFlag is set,
 	bne	fskip1	 skip copyright message.
@@ -114,34 +105,25 @@ settty	mv2	ttyref,gshtty
 	lda	#gnostr
 	jsr	puts
 fskip1	anop
-	wdm	$55		; bisect: after copyright-print block
 
 ;
 ; Set up signal handlers
 ;
 	signal (#SIGINT,#signal2)
-	wdm	$56		; bisect: after SIGINT signal
 	signal (#SIGTSTP,#signal18)
-	wdm	$57		; bisect: after SIGTSTP signal
 	signal (#SIGCHLD,#pchild)
-	wdm	$58		; bisect: after SIGCHLD signal
 	signal (#SIGTTIN,#signal21)
-	wdm	$59		; bisect: after SIGTTIN signal
 ;
 ; Set entry point for users calling system
 ;
 	setsystemvector #system
-	wdm	$5a		; bisect: after setsystemvector
 
 ;
 ; Initialize some stuff
 ;
 	jsr	initals	Set all AliTbl entries to 0.
-	wdm	$5b		; bisect: after initals
 	jsr	InitDStk	Zero out directory stack.
-	wdm	$5c		; bisect: after InitDStk
 	jsr	InitVars	Set value of all env var flags.
-	wdm	$5d		; bisect: after InitVars
 ;
 ; Check for login shell (argv[0] starts with '-')
 ;
@@ -156,7 +138,6 @@ fskip1	anop
 
 	ph4	#pathname	Get $PATH environment variable string
 	jsl	getenv
-	wdm	$5f		; bisect: after getenv returns
 	sta	p	Save address of allocated buffer.
 	stx	p+2	 in direct page variable
 	ora	p+2	If null,
@@ -211,15 +192,14 @@ npthcnv	anop
 	lda	#$8000
 	pha		jobflag = $8000
 	jsl	ShlExec
-	
+
 ; Read and execute $HOME/glogin
 	jsr	Doglogin
-	
+
 ;
 ; Initialization that is not specific to login shells
 ;
 nologin	anop
-	wdm	$60		; bisect: at nologin label (past login-shell block)
 	lda	FastFlag	If fast startup flag isn't set,
 	bne	fskip2
 	jsr	InitHist	 Init: histFN->"$HOME/history",
