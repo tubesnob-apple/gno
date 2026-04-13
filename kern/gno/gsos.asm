@@ -685,7 +685,7 @@ newPath	equ   24
 	jmp GSOSReturn
 
 ok1	anop
-	pea	1	; don't do the named pfx expansion
+	pea	0	; do named-pfx expansion (e.g. /lib -> :gno:lib)
 	ldy   #2                 ; push the prefix number
 	lda   [pBlock],y
 	pha

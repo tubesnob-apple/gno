@@ -170,6 +170,65 @@ def read_resource_fork_xattr(path: Path) -> bytes:
     return b''
 
 
+def read_finder_info(path: Path) -> tuple[int, int] | None:
+    """Read ProDOS type+aux from macOS FinderInfo xattr.
+
+    macOS stores GS/OS file types in com.apple.FinderInfo as:
+      bytes 0-3  = Mac file type (4 chars)
+      bytes 4-7  = Mac creator (4 chars)
+    When creator is 'pdos', the type field encodes ProDOS metadata:
+      - 'p' + <1 byte prodos-type> + <2 bytes aux type>  (the common case)
+      - 'TEXT' / 'PSYS' / etc. for well-known synonyms
+    Returns (type, aux) or None if not a GS/OS-tagged file.
+    """
+    try:
+        result = subprocess.run(
+            ['xattr', '-px', 'com.apple.FinderInfo', str(path)],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+        fi = bytes.fromhex(result.stdout.replace('\n', '').replace(' ', ''))
+        if len(fi) < 8:
+            return None
+        creator = fi[4:8]
+        if creator != b'pdos':
+            return None
+        mac_type = fi[0:4]
+        if mac_type[0:1] == b'p':
+            # 'p' + prodos-type + 2-byte aux (big-endian in FinderInfo)
+            prodos_type = mac_type[1]
+            aux = (mac_type[2] << 8) | mac_type[3]
+            return (prodos_type, aux)
+        if mac_type == b'TEXT':
+            return (0x04, 0x0000)
+        if mac_type == b'BINA':
+            return (0x06, 0x0000)
+        if mac_type == b'PSYS':
+            return (0xFF, 0x0000)
+        return None
+    except Exception:
+        return None
+
+
+def goldengate_type_for(path: Path, is_rsrc: bool = False) -> str:
+    """Return cadius-style #TTAAAA suffix for a GoldenGate file.
+
+    Resource-forked EXE/S16 files need aux $0100; otherwise use FinderInfo
+    if available. Fall back to $04 (TEXT) for files with no metadata.
+    """
+    fi = read_finder_info(path)
+    if fi is not None:
+        ptype, aux = fi
+        return f'{ptype:02X}{aux:04X}'
+    # Fall back: if adjacent _rsrc_ sibling exists, assume EXE
+    rsrc = path.parent / (path.name + '_rsrc_')
+    if rsrc.exists():
+        return 'B50100'
+    # Plain text default
+    return '040000'
+
+
 def lf_to_cr(data: bytes) -> bytes:
     """Convert Unix LF line endings to IIgs CR line endings."""
     return data.replace(b'\r\n', b'\r').replace(b'\n', b'\r')
@@ -321,6 +380,103 @@ def populate_staging(staging: Path, metadata: list,
     return placed, covered_gnoobj, errors
 
 
+GOLDENGATE_LANG_MAP = {
+    # <GoldenGate subdir>: <prodos path under /lang/orca>
+    'Shell':     'lang/orca/shell',
+    'Languages': 'lang/orca/languages',
+    'Utilities': 'lang/orca/utilities',
+    'Libraries': 'lang/orca/libraries',
+}
+
+
+def is_valid_prodos_name(name: str) -> bool:
+    """ProDOS filenames: 1-15 chars, start with letter, letters/digits/dots only."""
+    if not name or len(name) > 15:
+        return False
+    if not (name[0].isalpha()):
+        return False
+    for c in name:
+        if not (c.isalnum() or c == '.'):
+            return False
+    return True
+
+
+def populate_goldengate_lang(staging: Path, verbose: bool) -> dict:
+    """Stage /lang/orca/{shell,languages,utilities,libraries} from the local
+    GoldenGate SDK installation (~/Library/GoldenGate).  Each file's ProDOS
+    type is read from its macOS FinderInfo xattr; resource forks stored as
+    _rsrc_ sidecar files are staged alongside the data fork.
+
+    Files whose names don't fit ProDOS rules (e.g. .bak backups, files with
+    hyphens, overly long names, timestamped tmp files) are skipped with a
+    warning so ADDFOLDER doesn't abort on them.
+    """
+    placed = {}
+    skipped = 0
+    if not GG_ROOT.exists():
+        print(f'  WARN: GoldenGate root not found: {GG_ROOT}; skipping /lang')
+        return placed
+
+    for gg_sub, prodos_sub in GOLDENGATE_LANG_MAP.items():
+        src_root = GG_ROOT / gg_sub
+        if not src_root.exists():
+            print(f'  WARN: {src_root} does not exist; skipping')
+            continue
+        for path in sorted(src_root.rglob('*')):
+            if path.is_dir():
+                continue
+            if path.name.startswith('.'):
+                continue
+            # Skip resource-fork sidecars; they are paired with their data file
+            if path.name.endswith('_rsrc_'):
+                continue
+            # Skip build-artifact and timestamped backup files
+            lower = path.name.lower()
+            if lower.endswith('.bak') or '.bak.' in lower or lower.endswith('.new_tmp'):
+                skipped += 1
+                continue
+            if not is_valid_prodos_name(path.name):
+                if verbose:
+                    print(f'  [skip ] {path.relative_to(GG_ROOT)} (invalid ProDOS name)')
+                skipped += 1
+                continue
+
+            rel      = path.relative_to(src_root)
+            type_sfx = goldengate_type_for(path)
+            rsrc_sib = path.parent / (path.name + '_rsrc_')
+            rsrc_data = rsrc_sib.read_bytes() if rsrc_sib.exists() else b''
+
+            rel_dir = (prodos_sub + '/' + '/'.join(rel.parent.parts)).rstrip('/')
+            rel_dir = rel_dir.lower()
+            name    = path.name.lower()
+
+            staged_file = stage_file(
+                staging, rel_dir, name, type_sfx, path, rsrc_data
+            )
+            prodos_path = '/' + rel_dir.upper() + '/' + name.upper()
+            placed[prodos_path] = staged_file
+            if verbose:
+                rsrc_tag = f' +rsrc({len(rsrc_data)}B)' if rsrc_data else ''
+                print(f'  [gg   ] {prodos_path:50s} #{type_sfx}{rsrc_tag}')
+    if skipped:
+        print(f'  [gg   ] skipped {skipped} files (invalid ProDOS names / backups)')
+    return placed
+
+
+def populate_tmp(staging: Path, verbose: bool) -> dict:
+    """Create /tmp with a placeholder text file 'stuff'."""
+    tmp_dir = staging / 'tmp'
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    staged = tmp_dir / 'stuff#040000'
+    staged.write_bytes(
+        b'placeholder\rthis file exists so /tmp is a real directory\r'
+    )
+    os.chmod(staged, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+    if verbose:
+        print(f'  [tmp  ] /TMP/STUFF                                         #040000')
+    return {'/TMP/STUFF': staged}
+
+
 def populate_gnoobj_extras(staging: Path, covered_gnoobj: set, verbose: bool) -> dict:
     """
     Stage gno-obj files not covered by the reference metadata pass.
@@ -413,6 +569,15 @@ def build_image(output: Path, metadata: list, dry_run: bool,
         extras = populate_gnoobj_extras(staging, covered_gnoobj, verbose)
         placed.update(extras)
         print(f'  {len(extras)} extra files staged  ({len(placed)} total)')
+
+        print('Staging /lang/orca/* from local GoldenGate installation...')
+        gg_placed = populate_goldengate_lang(staging, verbose)
+        placed.update(gg_placed)
+        print(f'  {len(gg_placed)} GoldenGate files staged')
+
+        print('Creating /tmp with placeholder file...')
+        tmp_placed = populate_tmp(staging, verbose)
+        placed.update(tmp_placed)
 
         # ── Create volume ──────────────────────────────────────────────────
         if output.exists():

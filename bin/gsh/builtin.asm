@@ -999,7 +999,9 @@ dir	equ	1
 numstr	equ	dir+4
 pfxnum	equ	numstr+4
 status	equ	pfxnum+2
-space	equ	status+2
+arg2	equ	status+2
+numval	equ	arg2+4
+space	equ	numval+2
 argc	equ	space+3
 argv	equ	argc+2
 end	equ	argv+4
@@ -1145,13 +1147,103 @@ setprfx	ldy	#1*4+2	Put pointer to
 
 	lda	PRecNum
 	cmp	#32	If prefix num >= 32,
-	bcs	done		nothing to do.
+	jcs	done		nothing to do.
 
-	ldy	#2*4+2	Put pointer to
-	lda	[argv],y	 second command
-	pha		  argument (value)
-	dey2		   on stack as parameter.
+;
+; Get pointer to the second argument (the value).  We need this both for the
+; numeric-reference path ("prefix 2 13") and for the normal pathname path.
+;
+	ldy	#2*4+2	Get second argument
+	lda	[argv],y	 pointer into
+	sta	arg2		  arg2 (saved for later
+	iny2			   conditional use).
 	lda	[argv],y
+	sta	arg2+2
+
+;
+; Check whether the second argument is a bare decimal number (0..31).
+; If so, it's an ORCA-style "prefix N M" directive meaning "set prefix N to
+; the CURRENT value of prefix M".  Fetch prefix M via GetPrefix and jump
+; straight to SetPrefix with that result — no GetFileInfo validation needed
+; because we trust whatever's already in the prefix table.
+;
+	short	a
+	ldy	#0
+	lda	#0
+	sta	numval	Accumulate parsed number in numval.
+	sta	numval+1
+chknum	lda	[arg2],y
+	beq	chknumd	End of C-string — done parsing.
+	cmp	#'0'
+	bcs	chkhi	<'0' → not a digit, go to trampoline.
+	bra	notntr
+chkhi	cmp	#'9'+1
+	bcc	isdig	<='9' → is a digit.
+notntr	brl	notnum	Long branch to notnum (out of short range).
+isdig	sec
+	sbc	#'0'	Shift '0'..'9' to 0..9.
+	pha
+	lda	numval	numval *= 10 (short-mode: 8-bit * 10)
+	asl	a	 numval*2
+	sta	numval
+	asl	a	 numval*4
+	asl	a	 numval*8
+	clc
+	adc	numval	 numval*8 + numval*2 = numval*10
+	sta	numval
+	pla
+	clc
+	adc	numval
+	sta	numval	numval += digit
+	iny
+	cpy	#4	Max 3 digits ("31" or less)
+	bcs	notntr
+	bra	chknum
+chknumd	cpy	#0	Zero-length string isn't a number.
+	beq	notntr
+	lda	numval
+	cmp	#32	Must be 0..31.
+	bcs	notntr
+	long	a
+
+;
+; It's a numeric reference.  Call GetPrefix to fetch the source prefix's
+; current value into GPBuf, then point PRecPath at the result string.
+;
+	sta	GPRecNum	Source prefix number.
+	lda	#GPBuf		Point GetPrefix at our result buffer.
+	sta	GPRecDat
+	lda	#^GPBuf
+	sta	GPRecDat+2
+	lda	#255		Tell GS/OS the max buffer size.
+	sta	GPBuf
+	GetPrefix GPRec		Fetch it.
+	bcc	gpok
+	sta	ErrError	If GetPrefix failed, print its error and quit.
+	ErrorGS Err
+	jmp	done
+
+gpok	lda	#GPBuf+2	Point PRecPath at GSString inside the result buffer.
+	sta	PRecPath
+	lda	#^GPBuf
+	sta	PRecPath+2
+	SetPrefix PRec	Set the destination prefix.
+	jcc	setpfxok
+	sta	ErrError
+	ErrorGS Err
+	inc	status
+setpfxok	stz	PRecPath	Clear PRecPath so 'finish' won't try to
+	stz	PRecPath+2	 nullfree the static GPBuf.
+	jmp	done
+
+notnum	long	a
+;
+; Second arg is a pathname.  Proceed with the original path — push it onto
+; the stack for c2gsstr, validate with GetFileInfo, then SetPrefix.
+;
+	lda	arg2+2
+	pha
+	lda	arg2
 	pha
 	jsr	c2gsstr	Convert to GS string.
 
@@ -1167,14 +1259,14 @@ setprfx	ldy	#1*4+2	Put pointer to
 	bcc	ok
 	sta	ErrError
 	ErrorGS Err
-	bra	done
+	jmp	done
 
 ok	if2	GRecFT,eq,#$F,ok2	If filetype != $F,
 	ldx	#^direrr		print error message
 	lda	#direrr		 'Not a directory'
 	jsr	errputs
 badstat	inc	status	Return status = 1.
-	bra	done
+	jmp	done
 
 ok2	SetPrefix PRec	Set the prefix.
 	bcc	finish	If error flag set,
@@ -1209,7 +1301,7 @@ done	unlock prfxmtx
 
 	tya
 
-	rtl	  
+	rtl
 
 prfxmtx	key
 
@@ -1234,6 +1326,19 @@ GRecFT	ds	2	fileType (result)
 PRec	dc	i'2'	pCount
 PRecNum	dc	i'0'	prefix number
 PRecPath	ds	4	pointer to GS/OS string with value
+
+;
+; Parameter block for GetPrefix GS/OS call (used by "prefix N M" numeric form)
+;
+GPRec	dc	i'2'	pCount
+GPRecNum	dc	i'0'	source prefix number
+GPRecDat	ds	4	pointer to ResultBuf (GPBuf)
+
+;
+; ResultBuf257 for GetPrefix result: 2-byte bufSize + 2-byte length + 255 text
+;
+GPBuf	dc	i'255'	bufSize (client fills in the available space)
+	ds	257	bufString (length-prefixed result from GetPrefix)
 
 ;
 ; Parameter block for shell ErrorGS call (p 393 in ORCA/M manual)
