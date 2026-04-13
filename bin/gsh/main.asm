@@ -68,7 +68,9 @@ space	equ	arg+4
 
 	subroutine (2:argc,4:argv),space
 
+	wdm	$48		; bisect: MAIN top, after subroutine prologue
 	kernStatus @a
+	wdm	$49		; bisect: after kernStatus
 	bcc	ok
 
 	ErrWriteCString #str
@@ -180,7 +182,9 @@ parsec	clc
 ; When preliminary setup is complete, control transfers to here!
 ;
 start	case	on
+	wdm	$4a		; bisect: about to JSL shell
 	jsl	shell
+	wdm	$4b		; bisect: after JSL shell returns
 	case	off
 
 done	return

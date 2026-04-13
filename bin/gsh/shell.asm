@@ -72,14 +72,18 @@ space	equ	cflag+2
 
 	subroutine (0:dummy),space
 
+	wdm	$4c		; bisect: shell top, after subroutine prologue
 	tsc		Save stack pointer
 	sta	cmdctx	 in cmdctx
 	tdc		  and direct page reg
 	sta	cmddp	   in cmddp.
+	wdm	$4d		; bisect: after tsc/tdc saves
 
 	PushVariablesGS NullPB	Save environment variables.
+	wdm	$4e		; bisect: after PushVariablesGS
 
 	Open	ttyopen	Open tty,
+	wdm	$4f		; bisect: after Open ttyopen
 	bcc	settty	 checking for error.
 	ErrWriteCString #ttyerr
 	jmp	quit
@@ -89,11 +93,15 @@ ttyerr	dc	c'gsh: Failed opening tty.',h'0d00'
 
 settty	mv2	ttyref,gshtty
 	tcnewpgrp gshtty
+	wdm	$50		; bisect: after tcnewpgrp
 	settpgrp gshtty
+	wdm	$51		; bisect: after settpgrp
 	getpid
 	sta	gshpid
+	wdm	$52		; bisect: after getpid
 
 	jsr	InitTerm
+	wdm	$53		; bisect: after InitTerm
 
 	lda	FastFlag	If FastFlag is set,
 	bne	fskip1	 skip copyright message.
