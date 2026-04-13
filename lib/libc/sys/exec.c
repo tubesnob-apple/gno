@@ -486,12 +486,8 @@ execvp(const char *file, char * const *argv) {
    /* build the path name, if necessary */
    path = buildPath (file);
 
-   KTRACE_LOGF("execvp: path='%s'", path ? path : "(null)");
-
    /* build the command line */
    if ((comd = buildCmd (argv)) == NULL) return -1;
-
-   KTRACE_LOGF("execvp: comd='%s'", comd);
 
    /* execute it */
    return(Kexecve(path, comd, &errno));
