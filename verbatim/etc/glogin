@@ -45,3 +45,5 @@ setenv EDITOR		/bin/vi
 setenv MAKESTARTUP	/usr/lib/startup.mk
 setenv MANPATH		/usr/man:/usr/local/man:/usr/orca/man
 setenv TMACDIR		/usr/lib/tmac
+
+alias dir ls -al
