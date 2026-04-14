@@ -1154,11 +1154,11 @@ setprfx	ldy	#1*4+2	Put pointer to
 ; numeric-reference path ("prefix 2 13") and for the normal pathname path.
 ;
 	ldy	#2*4+2	Get second argument
-	lda	[argv],y	 pointer into
-	sta	arg2		  arg2 (saved for later
-	iny2			   conditional use).
-	lda	[argv],y
-	sta	arg2+2
+	lda	[argv],y	 pointer's high word into
+	sta	arg2+2		  arg2+2 (saved for later
+	dey2			   conditional use).
+	lda	[argv],y	 Then low word into arg2.
+	sta	arg2
 
 ;
 ; Check whether the second argument is a bare decimal number (0..31).
@@ -1205,6 +1205,7 @@ chknumd	cpy	#0	Zero-length string isn't a number.
 	cmp	#32	Must be 0..31.
 	bcs	notntr
 	long	a
+	and	#$00FF	Clear stale high byte from earlier 16-bit loads.
 
 ;
 ; It's a numeric reference.  Call GetPrefix to fetch the source prefix's
@@ -1345,6 +1346,38 @@ GPBuf	dc	i'255'	bufSize (client fills in the available space)
 ;
 Err	dc	i2'1'	pCount
 ErrError	ds	2	Error number
+
+	END
+
+**************************************************************************
+*
+* ktraceStr: copy null-term C string to $D0/0000 and fire wdm $00
+*
+**************************************************************************
+
+ktraceStr	START
+
+space	equ	0
+
+	subroutine (4:msgPtr),space
+
+	php
+	sep	#$20
+	longa off
+	ldx	#0
+	ldy	#0
+ktcploop	lda	[msgPtr],y
+	sta	>$00D00000,x
+	beq	ktcpdone
+	inx
+	iny
+	cpy	#254
+	bcc	ktcploop
+ktcpdone	rep	#$20
+	longa on
+	plp
+	wdm	$00
+	return
 
 	END
 
