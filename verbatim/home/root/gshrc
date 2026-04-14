@@ -15,7 +15,7 @@ set path=". /usr/orca/utilities /usr/bin /bin /usr/local/bin"
 export path
 
 # other shell items
-set	prompt="%C> "
+set	prompt="%d # "
 set	term=gnocon
 set	nonewline=1
 export	prompt term nonewline
