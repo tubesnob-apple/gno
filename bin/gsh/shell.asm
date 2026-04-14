@@ -72,7 +72,6 @@ space	equ	cflag+2
 
 	subroutine (0:dummy),space
 
-	wdm	$00	; bisect: gsh shell entry reached
 	tsc		Save stack pointer
 	sta	cmdctx	 in cmdctx
 	tdc		  and direct page reg
@@ -133,7 +132,7 @@ fskip1	anop
 	lda	[p],y	 to get first char of
 	and	#$FF	  command name.
 	cmp	#'-'	If not '-',
-	bne	nologin	 skip over login initialization.
+	jne	nologin	 skip over login initialization.
 
 ; Change ":" to " " in $PATH if it doesn't start with ":" or contain a " "
 
@@ -185,7 +184,6 @@ freepath	ph4	p	Free the $PATH C string.
 npthcnv	anop
 
 ; Read and execute /etc/glogin
-	wdm	$00	; bisect: pre-ShlExec(/etc/glogin)
 	ph4	#etcglog	path = "/etc/glogin"
 	lda	#0
 	pha		argc = 0
@@ -372,7 +370,6 @@ Dogshrc	START
 ; Alternate entry point: execute $HOME/glogin
 
 Doglogin	ENTRY
-	wdm	$00	; bisect: Doglogin entry (post-ShlExec /etc/glogin)
 	ph4	#glogNm
 
 doit	jsl	AppHome

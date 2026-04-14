@@ -723,7 +723,6 @@ extern void enableBuf(void);
 /* always disableps() when screwing with process tables */
    disableps();
    ktrace_write(0x22, "KERNexecve: enter");
-   asm { wdm 0x00 }
    if (kp->gsosDebug & 16) fprintf(stderr,"execve(%s,%s)\n",filename,cmdline);
   
    p = PROC; /* $$$ &(kp->procTable[Kgetpid()]);*//* aaaaaaaaaaarrrgghhh!!!!! */
@@ -761,14 +760,12 @@ extern void enableBuf(void);
    }
 
     ktrace_write(0x23, "KERNexecve: pre-load");
-    asm { wdm 0x00 }
     if (restart) {
 	r_rec = Restart(newID);
     } else {
 	il_rec = InitialLoad2(newID, (Pointer)&resBuf->bufString, 1, 1);
     }
     ktrace_write(0x24, "KERNexecve: post-load");
-    asm { wdm 0x00 }
     if ((e = toolerror())) {
 	switch(e) {
 	  case volNotFound:
@@ -804,80 +801,6 @@ extern void enableBuf(void);
        memset((void *)((longword)*fstack), 0, 4096);
    }
 
-   /* Dump the (post-fixup) il_rec via halting WDM:
-    *   $37: A = dPageAddr, X = buffSize, Y = startAddr_lo16
-    *   $38: A = startAddr_hi16
-    * Read A/X/Y from gsplus break info to see what the kernel will
-    * actually use for this new process. */
-   {
-       word _ilDPg = il_rec.dPageAddr;
-       word _ilBSz = il_rec.buffSize;
-       longword _ilSAddr = (longword)il_rec.startAddr;
-       word _ilSLo = (word)(_ilSAddr & 0xFFFFL);
-       word _ilSHi = (word)((_ilSAddr >> 16) & 0xFFFFL);
-       ktrace_write(0x37, "KERNexecve: il_rec dpg/bsz/saddrlo");
-       asm {
-           lda _ilDPg
-           ldx _ilBSz
-           ldy _ilSLo
-           wdm 0x00
-       }
-       ktrace_write(0x38, "KERNexecve: il_rec saddrhi");
-       asm {
-           lda _ilSHi
-           wdm 0x00
-       }
-   }
-
-   /* Probe Memory Manager: who owns these addresses right now?
-    *   $39: A=lo16, X=hi16 of FindHandle($002900)  (start of gsh's allocated page)
-    *   $3A:                            FindHandle($003000)  (FST table area)
-    *   $3B:                            FindHandle($003100)  (just past FST data)
-    *   $3C:                            FindHandle($001900)  (initd's stack page - should be live)
-    * Handle == NULL (A=X=0) means no handle owns that address.
-    */
-   {
-       handle h;
-       longword l;
-       word lo, hi;
-
-       h = FindHandle((Pointer)0x002900L);
-       l = (longword)h;
-       lo = (word)(l & 0xFFFFL);
-       hi = (word)((l >> 16) & 0xFFFFL);
-       ktrace_write(0x39, "FindHandle($2900)");
-       asm { lda lo
-             ldx hi
-             wdm 0x00 }
-
-       h = FindHandle((Pointer)0x003000L);
-       l = (longword)h;
-       lo = (word)(l & 0xFFFFL);
-       hi = (word)((l >> 16) & 0xFFFFL);
-       ktrace_write(0x3a, "FindHandle($3000)");
-       asm { lda lo
-             ldx hi
-             wdm 0x00 }
-
-       h = FindHandle((Pointer)0x003100L);
-       l = (longword)h;
-       lo = (word)(l & 0xFFFFL);
-       hi = (word)((l >> 16) & 0xFFFFL);
-       ktrace_write(0x3b, "FindHandle($3100)");
-       asm { lda lo
-             ldx hi
-             wdm 0x00 }
-
-       h = FindHandle((Pointer)0x001900L);
-       l = (longword)h;
-       lo = (word)(l & 0xFFFFL);
-       hi = (word)((l >> 16) & 0xFFFFL);
-       ktrace_write(0x3c, "FindHandle($1900)");
-       asm { lda lo
-             ldx hi
-             wdm 0x00 }
-   }
-
 /*  S16s (and others) get no command line arguments, but we should put
     their name in the process table anyway */
 
@@ -906,7 +829,6 @@ extern void enableBuf(void);
    ctxtstuff.ctx_X = hiWord((longword) argscopy);
    ctxtstuff.ctx_Y = loWord((longword) argscopy);
    newStack = ctxtstuff.ctx_S1 = il_rec.dPageAddr+il_rec.buffSize-5;
-   asm { wdm 0x00 }   /* checkpoint A: just after newStack assignment */
    ctxtstuff.ctx_D = il_rec.dPageAddr;
    ctxtstuff.ctx_B = ctxtstuff.ctx_B1 = (((longword) il_rec.startAddr) >> 16);
    ctxtstuff.ctx_PC = (longword) il_rec.startAddr;
@@ -919,8 +841,6 @@ extern void enableBuf(void);
    if (force_norest) p->flags |= FL_NORESTART;
    p->SANEwap = 0; /* reset to the 'not started up' state */
    p->lastTool = 0x401E; /* reset res app to standard */
-
-   asm { wdm 0x00 }   /* checkpoint B: after p->flags assignments */
 
    /* is program compliant? */
    if (fi.auxType == 0xDC00l) {
@@ -963,11 +883,9 @@ extern void enableBuf(void);
     ourPFhand[2] = malloc(resBuf->bufString.length+2);
     copygsstr(ourPFhand[2],&resBuf->bufString);
 
-    asm { wdm 0x00 }   /* checkpoint C: after prefix setup */
     nfree(pfn);
     nfree(resBuf);
     nfree(optionList);
-    asm { wdm 0x00 }   /* checkpoint D: after the three nfree calls */
 
     /* If we're launching a S16 application, copy prefix 0 to prefix 8 */
     if (fi.fileType == 0xB3) {
@@ -980,15 +898,12 @@ extern void enableBuf(void);
 
 /* Ignored/blocked signals remain ignored/blocked, but caught signals
    are reset to their default state */
-   asm { wdm 0x00 }   /* checkpoint E: before signal loop */
    for (i = 0; i < 32; i++) {
        if (p->siginfo->v_signal[i] != SIG_IGN)
            p->siginfo->v_signal[i] = SIG_DFL;
    }
-   asm { wdm 0x00 }   /* checkpoint F: after signal loop */
 
    SET_STOP_FLAG(&ssf);
-   asm { wdm 0x00 }   /* checkpoint G: after SET_STOP_FLAG */
 
    if (!(oldFlags & FL_COMPLIANT)) {
       enableBuf();
@@ -998,15 +913,12 @@ extern void enableBuf(void);
      if (oldFlags & FL_QDSTARTUP) *((byte *)0xE0C029l) &= 0x7F;
 
    ktrace_write(0x25, "KERNexecve: pre-tcs");
-   asm { wdm 0x00 }
 /* switch over to the new stack before we deallocate the one we're using */
    asm {
 	lda newStack
 	tcs
-	wdm 0x00         /* bare WDM right after tcs - no C calls between */
    }
    ktrace_write(0x28, "KERNexecve: post-tcs");
-   asm { wdm 0x00 }
 
    if ((fi.auxType == 0xDC00) && (p->ttyID != 3)) {
        fprintf(stderr, "Program can only run on console.\n");
@@ -1025,23 +937,18 @@ extern void enableBuf(void);
    } else {
        if (oldFlags & FL_FORKED) {
            ktrace_write(0x29, "KERNexecve: pre-DisposeAll");
-           asm { wdm 0x00 }
            DisposeAll(oldUserID);  /* process was fork()ed, don't USD */
            DeleteID(oldUserID);
            ktrace_write(0x2a, "KERNexecve: post-DisposeAll");
-           asm { wdm 0x00 }
        } else {
            ktrace_write(0x2b, "KERNexecve: pre-UserShutDown");
-           asm { wdm 0x00 }
            UserShutDown(oldUserID,
             ((oldFlags & FL_RESTART) && !(oldFlags & FL_NORESTART)) ? 0x4000 : 0);
            ktrace_write(0x2c, "KERNexecve: post-UserShutDown");
-           asm { wdm 0x00 }
        }
        /* don't use any local variables beyond this point */
    }
    ktrace_write(0x27, "KERNexecve: pre-jmp execveHook");
-   asm { wdm 0x00 }
    asm {
      jmp >execveHook
    }
