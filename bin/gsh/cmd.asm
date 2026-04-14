@@ -821,12 +821,15 @@ space	equ	0
 
 	subroutine (4:path,2:argc,4:argv),space
 
+	wdm	$00	; bisect: argfree entry
 	pei	path+2	Free the path.
 	pei	path
 	jsl	nullfree
+	wdm	$00	; bisect: after path nullfree
 
 free1	lda	argc	Free each of the argv elements.
 	beq	free2
+	wdm	$00	; bisect: free1 loop body
 	dec	a
 	asl2	a
 	tay
@@ -840,9 +843,11 @@ free1	lda	argc	Free each of the argv elements.
 	dec	argc
 	bra	free1
 
-free2	pei	(argv+2)	Free the argv array.
+free2	wdm	$00	; bisect: free2 argv array free
+	pei	(argv+2)	Free the argv array.
 	pei	(argv)
 	jsl	nullfree
+	wdm	$00	; bisect: argfree pre-return
 	return
 
 	END

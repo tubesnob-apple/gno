@@ -147,18 +147,22 @@ return	sta	val	Save return status.
 	pei	(argv+2)
 	pei	(argv)
 	jsl	argfree
+	wdm	$00	; bisect: post-argfree in builtin.return
 
-done	ldy	val	Y-reg = return value.
+done	wdm	$00	; bisect: builtin.done entry
+	ldy	val	Y-reg = return value.
 
 	lda	space
 	sta	end-3
 	lda	space+1
 	sta	end-2
+	wdm	$00	; bisect: builtin.done after ret-addr copy
 	pld
 	tsc
 	clc
 	adc	#end-4
 	tcs
+	wdm	$00	; bisect: builtin.done pre-rtl
 
 	tya		Accumulator = return value.
 

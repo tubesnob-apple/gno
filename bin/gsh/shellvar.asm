@@ -86,6 +86,7 @@ end	equ	argv+4
 ; Entry point for setenv command: set export flag after setting up params.
 ;
 setenv	ENTRY
+	wdm	$00	; bisect: setenv builtin entry
 
 ;	 subroutine (4:argv,2:argc),space
 
@@ -202,7 +203,8 @@ showdone	anop
 ;
 ; Set the value of a variable (loop begins here)
 ;
-setvar	lock	setmutex
+setvar	wdm	$00	; bisect: pre-lock setmutex
+	lock	setmutex
 	lda	argc	If we've run out of parameters,
 	jeq	doneset	 we are done setting values.
 	lda	[argv]
@@ -291,6 +293,7 @@ skipvar	add2	argv,#4,argv
 ; Display the value of a single variable
 ;
 shwonev	anop
+	wdm	$00	; bisect: shwonev entry
 
 	jsl	alcMxln	Allocate
 	sta	valbuf	 result buffer.
@@ -314,6 +317,7 @@ shwonev	anop
 		  
 	stz	RSexport
 
+	wdm	$00	; bisect: pre-ReadVariableGS
 	ReadVariableGS RdSetVar 	Read value of variable.
 
 	lda	RSexport	If export flag is set, it's defined.
@@ -342,9 +346,11 @@ doneone	anop
 	jsl	nullfree	Free varbuf.
 
 
-doneset	unlock setmutex
+doneset	wdm	$00	; bisect: doneset reached (iter 2 argc=0 path)
+	unlock setmutex
 
-exit	ldy	status
+exit	wdm	$00	; bisect: setenv exit epilogue
+	ldy	status
 	lda	space
 	sta	end-3
 	lda	space+1
@@ -355,8 +361,8 @@ exit	ldy	status
 	tcs
 
 	tya		Return status
-
-	rtl	  
+	wdm	$00	; bisect: setenv pre-rtl
+	rtl
 
 ;
 ; Utility subroutine to print name and value in varname and varval
