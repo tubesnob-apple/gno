@@ -269,7 +269,7 @@ set1	jsr	c2gsstr	Convert value to GS/OS string.
 
 	lda	exflag	Set export flag in parameter block.
 	sta	RSexport
-		
+
 	SetGS RdSetVar	Set variable value & export flag.
 
 	pei	(arg+2)
