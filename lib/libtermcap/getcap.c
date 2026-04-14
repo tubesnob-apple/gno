@@ -62,7 +62,7 @@ read_entry(int fd, char *buf)
 			return len;
 		}
 
-		if (ch == '\n') {
+		if (ch == '\n' || ch == '\r') {
 			if (len > 0 && buf[len - 1] == '\\') {
 				/* continuation: remove the backslash, skip leading ws */
 				len--;
@@ -87,7 +87,7 @@ read_entry(int fd, char *buf)
 		/* skip comment lines (start with #) that we haven't begun yet */
 		if (len == 0 && ch == '#') {
 			/* consume rest of line */
-			while ((n = read(fd, &ch, 1)) > 0 && ch != '\n')
+			while ((n = read(fd, &ch, 1)) > 0 && ch != '\n' && ch != '\r')
 				;
 			continue;
 		}
