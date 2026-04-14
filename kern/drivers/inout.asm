@@ -136,7 +136,7 @@ TempHandle	equ  1
 
 	short	m
 	lda	>$E0C035
-	and	#%11111110
+	ora	#%00000001       ; inhibit text-page-1 shadow (console writes go direct to $E0/$E1)
 	sta	>$E0C035
 	long	m
 
@@ -1153,6 +1153,7 @@ Calc2	lsr a
 	lda   #0          ; c = 1 if main mem, 0 if auxmem
 	rol a
 	eor #%00000001    ; not quite as fast as before, but hey...
+	ora #$E0          ; target display banks $E0/$E1 directly
 	sta IODP_BASL+2
 	rts
 
@@ -1259,8 +1260,8 @@ Loop	jsr	VTAB        ; set the line
 	ldy	#20         ; only 40 per bank, and 2 bytes/pass
 	lda	#$A0A0      ; har har
 Loop1	anop
-	sta   >$000000,x
-	sta   >$010000,x
+	sta   >$E00000,x
+	sta   >$E10000,x
 	inx
 	inx
 	dey
@@ -1496,10 +1497,10 @@ QSNextLine	inc IODP_CV
 	sta CopyOne1+1
 
 	ldx #38         ; yeah, oh yeah
-CopyOne0	lda >$000000,x
-CopyTwo0	sta >$000000,x
-CopyOne1	lda >$010000,x
-CopyTwo1	sta >$010000,x
+CopyOne0	lda >$E00000,x
+CopyTwo0	sta >$E00000,x
+CopyOne1	lda >$E10000,x
+CopyTwo1	sta >$E10000,x
 	dex
 	dex
 	bpl CopyOne0
@@ -1515,12 +1516,12 @@ CopyTwo1	sta >$010000,x
 	ldx CopyOne1+1
 clearline	lda #$A0A0               ; spaces out the ass
 	ldy #10                  ;TM
-clrloop	sta >$010000,x
-	sta >$000000,x
+clrloop	sta >$E10000,x
+	sta >$E00000,x
 	inx
 	inx
-	sta >$010000,x           ;TM
-	sta >$000000,x           ;
+	sta >$E10000,x           ;TM
+	sta >$E00000,x           ;
 	inx                      ;
 	inx                      ;
 	dey
@@ -1636,10 +1637,10 @@ QSNextLine	dec IODP_CV
 	sta CopyOne1+1
 
 	ldx #38         ; yeah, oh yeah
-CopyOne0	lda >$000000,x
-CopyTwo0	sta >$000000,x
-CopyOne1	lda >$010000,x
-CopyTwo1	sta >$010000,x
+CopyOne0	lda >$E00000,x
+CopyTwo0	sta >$E00000,x
+CopyOne1	lda >$E10000,x
+CopyTwo1	sta >$E10000,x
 	dex
 	dex
 	bpl CopyOne0
@@ -1655,12 +1656,12 @@ CopyTwo1	sta >$010000,x
 	ldx CopyOne1+1
 clearline	lda #$A0A0               ; spaces out the ass
 	ldy #10                  ; TM
-clrloop	sta >$010000,x
-	sta >$000000,x
+clrloop	sta >$E10000,x
+	sta >$E00000,x
 	inx
 	inx
-	sta >$010000,x           ;TM
-	sta >$000000,x           ;
+	sta >$E10000,x           ;TM
+	sta >$E00000,x           ;
 	inx                      ;
 	inx                      ;
 	dey
