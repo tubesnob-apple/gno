@@ -228,6 +228,16 @@ extern int OldGSOSSt(word callnum, void *pBlock);
 
     if (i_path->length > 1024) return (Gstr) 0xFFFF0040l;
 
+    /* Virtual root: "/" resolves to itself, not to an empty string. The
+     * downstream GS/OS wrappers (GetFileInfo, SetPrefix, etc.) detect the
+     * single-byte "/" path and handle it specially to present the set of
+     * mounted volumes as if they were directory entries under a unified
+     * filesystem root. */
+    if (i_path->length == 1 && i_path->text[0] == '/') {
+        go->length = 1;
+        go->text[0] = '/';
+        return go;
+    }
 
     g_out = go;
     rbuf.bufSize = 32;

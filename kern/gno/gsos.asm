@@ -743,6 +743,21 @@ nodispose	lda   [pfxpathname]
 	ph4   pfxpathname        ; copy the string
 	ph4   newPath
 	jsl   copygsstr
+
+* Virtual root bypass: if the stored prefix is exactly "/", don't
+* append a trailing ':' — the virtual-root marker must stay as the
+* single character '/'.
+	lda   [newPath]
+	and   #$00FF
+	cmp   #1
+	bne   notVroot
+	ldy   #2
+	lda   [newPath],y
+	and   #$00FF
+	cmp   #'/'
+	beq   alright
+notVroot	anop
+
 	lda   [newPath]
 	inc   a
 	tay
@@ -885,6 +900,25 @@ exppath	equ   14
 noerr	anop
 	sta   exppath
 	stx   exppath+2
+
+*
+* Virtual root check: if the expanded path is the single character "/",
+* handle this call locally (don't pass through to real GS/OS, which would
+* reject "/" as invalid pathname syntax).  Phase A supports only
+* GetFileInfo ($2006) at the virtual root; other calls return access
+* denied.
+*
+	lda   [exppath]           ; GS/OS string length word
+	cmp   #1
+	bne   ns_notvr
+	ldy   #2
+	lda   [exppath],y
+	and   #$00FF
+	cmp   #'/'
+	bne   ns_notvr
+	jmp   vrootStd
+
+ns_notvr	anop
 	ph4   exppath
 	jsl   findDevice
 	cmp   #$FFFF
@@ -925,6 +959,68 @@ noff	anop
 	sta   [pBlock],y
 	pla
 goaway	jmp   GSOSReturn
+
+*
+* Virtual root handler for GNOStandard calls.  Restore caller's original
+* pathname ptr in the PB, then synthesize a response based on cmdNum.
+* Only GetFileInfo ($2006) is supported here; every other class-2 call
+* that reaches GNOStandard with a "/" target returns $4E (access denied).
+*
+* Expected new-style GetFileInfo PB layout (from pBlock+0):
+*   0..1  pCount
+*   2..5  pathname ptr
+*   6..7  access       (out, set when pCount>=2)
+*   8..9  fileType     (out, set when pCount>=3)
+*  10..13 auxType      (out, zeroed when pCount>=4)
+*
+vrootStd	anop
+	ldy   #2                  ; restore caller's original path ptr
+	lda   oldpath
+	sta   [pBlock],y
+	ldy   #4
+	lda   oldpath+2
+	sta   [pBlock],y
+
+	lda   cmdNum
+	cmp   #$2006              ; GetFileInfo?
+	bne   vrDeny
+
+	lda   [pBlock]            ; pCount
+	and   #$00FF
+	cmp   #2
+	bcc   vrOk                ; pCount < 2: nothing to fill in
+
+	ldy   #6                  ; access = $00C3 (read/write/destroy/rename)
+	lda   #$00C3
+	sta   [pBlock],y
+
+	lda   [pBlock]
+	and   #$00FF
+	cmp   #3
+	bcc   vrOk                ; pCount < 3: access only
+
+	ldy   #8                  ; fileType = $000F (directory)
+	lda   #$000F
+	sta   [pBlock],y
+
+	lda   [pBlock]
+	and   #$00FF
+	cmp   #4
+	bcc   vrOk                ; pCount < 4: no auxType
+
+	ldy   #10                 ; auxType = 0
+	lda   #0
+	sta   [pBlock],y
+	ldy   #12
+	lda   #0
+	sta   [pBlock],y
+
+vrOk	lda   #0
+	jmp   GSOSReturn
+
+vrDeny	lda   #$4E              ; access denied
+	jmp   GSOSReturn
+
 	END
 
 checkFF	START
