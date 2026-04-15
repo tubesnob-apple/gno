@@ -239,6 +239,85 @@ extern int OldGSOSSt(word callnum, void *pBlock);
         return go;
     }
 
+    /* Phase C: if the base prefix is the virtual root "/", plain
+     * relative inputs (those that aren't already special-cased by the
+     * existing expander — numeric prefixes, `.devname` device paths,
+     * `*` boot-volume, `@` prefix-0, absolute `:` / `/` paths) need a
+     * rewrite because the normal output loop below produces malformed
+     * colon paths like ":/:." when it tries to concatenate components
+     * onto a "/" base.  Only fire for the specific case we care about:
+     * a top-level component that names a volume under the virtual
+     * root, e.g.:
+     *    ""         → "/"      (just the virtual root)
+     *    "."        → "/"
+     *    ".."       → "/"      (root has no parent)
+     *    "NAME"     → ":NAME:"      where NAME starts with a letter
+     *    "NAME/sub" → ":NAME:sub"
+     *    "NAME:sub" → ":NAME:sub"
+     * Downstream GS/OS recognizes ":NAME:" as the mount point for the
+     * NAME volume, so ls -R can chdir into each volume and recurse. */
+    if (num >= 0 && num <= 31 && i_path->length > 0
+        && !isSeparator(i_path->text[0])) {
+        Gstr base = (Gstr) PROC->prefix[num+1];
+        if (base != NULL && base->length == 1 && base->text[0] == '/') {
+            char c0 = i_path->text[0];
+            int is_special;
+
+            /* "." and ".." resolve to the virtual root itself. */
+            if ((i_path->length == 1 && c0 == '.') ||
+                (i_path->length == 2 && c0 == '.'
+                                     && i_path->text[1] == '.')) {
+                go->length = 1;
+                go->text[0] = '/';
+                return go;
+            }
+
+            /* Skip special-prefix forms; the existing expander below
+             * handles them correctly even with base="/". */
+            is_special = 0;
+            if (c0 == '*' && i_path->length == 1) is_special = 1;
+            else if (c0 == '@' && i_path->length == 1) is_special = 1;
+            else if (c0 >= '0' && c0 <= '9') is_special = 1;
+            else if (c0 == '.' && i_path->length > 1
+                                && i_path->text[1] != '.') is_special = 1;
+
+            if (!is_special) {
+                unsigned short srcIdx = 0;
+                unsigned short dstIdx = 0;
+
+                /* Emit ":<first-component>:" */
+                go->text[dstIdx++] = ':';
+                while (srcIdx < i_path->length
+                       && !isSeparator(i_path->text[srcIdx])) {
+                    go->text[dstIdx++] = i_path->text[srcIdx++];
+                }
+                go->text[dstIdx++] = ':';
+                /* Skip the separator we stopped at, if any. */
+                if (srcIdx < i_path->length) srcIdx++;
+                /* Append the rest, translating '/' separators to ':'. */
+                while (srcIdx < i_path->length) {
+                    char c = i_path->text[srcIdx++];
+                    if (c == '/') c = ':';
+                    go->text[dstIdx++] = c;
+                }
+                go->length = dstIdx;
+                return go;
+            }
+        }
+    }
+
+    /* Also short-circuit a zero-length input when the base prefix is
+     * the virtual root — ls at cwd=/ may pass an empty GSString for
+     * "current directory" in some contexts. */
+    if (num >= 0 && num <= 31 && i_path->length == 0) {
+        Gstr base = (Gstr) PROC->prefix[num+1];
+        if (base != NULL && base->length == 1 && base->text[0] == '/') {
+            go->length = 1;
+            go->text[0] = '/';
+            return go;
+        }
+    }
+
     g_out = go;
     rbuf.bufSize = 32;
     ep.pCount = 3;
