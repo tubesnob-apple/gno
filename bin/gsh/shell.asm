@@ -648,8 +648,14 @@ msg	dc	c'^Z',h'0d0a00'
 ;=========================================================================
 
 ;
-; Work-around for kernel problem: if background read error signal
-; is received, gsh will hang forever.  Instead, quit.
+; SIGTTIN fires when gsh tries to read from the controlling tty while
+; it's not the foreground process group.  This can happen after a
+; foreground child exits if there's a tctpgrp race between pchild's
+; tty reclaim and gsh's next read.  Historical gsh quit on this signal
+; as a workaround for an older kernel hang, but that just trades one
+; hang for another (the shell dies and the tty is left without a
+; foreground).  Instead, reclaim the tty ourselves and return — the
+; interrupted read will retry and succeed on the next pass.
 ;
 
 signal21	START
@@ -659,11 +665,8 @@ signal21	START
 	subroutine (4:fubar),0
 
 	WriteCString #bg_msg	Print message.
-
-	Quit	QuitParm
-
-QuitParm	dc	i'0'
-;	return           
+	tctpgrp (gshtty,gshpid)	Make gsh the tty's foreground group.
+	return
 
 bg_msg	dc	c'gsh: SIGTTIN received!!',h'0d0a00'
 
