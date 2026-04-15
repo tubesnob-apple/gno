@@ -1095,6 +1095,7 @@ files	equ   14
 fd	equ   18
 fdPtr	equ   20
 ttyn	equ   24
+exppath	equ   28
 
 * Save the old pathname so we can restore before we exit
 
@@ -1119,6 +1120,35 @@ ttyn	equ   24
 	bne   noerr
 	jmp   GSOSReturn
 noerr	anop
+	sta   exppath
+	stx   exppath+2
+
+* Virtual root check: if the expanded path is the single character "/",
+* don't hit real GS/OS.  Call vroot_open to allocate a fake refNum and
+* populate the slot with a snapshot of the live volume list.  The
+* caller (typically `ls /`) will then use that refNum with GetDirEntry
+* (intercepted in GNORefCommon) and Close (intercepted in PGClose).
+	lda   [exppath]          ; length word of expanded GS/OS string
+	and   #$00FF
+	cmp   #1
+	bne   op_notvr
+	ldy   #2
+	lda   [exppath],y        ; first text byte
+	and   #$00FF
+	cmp   #'/'
+	bne   op_notvr
+	jsl   vroot_open         ; → refNum in A, 0 on failure
+	cmp   #0
+	bne   op_vrOk
+	lda   #$46               ; fail → file not found
+	jmp   GSOSReturn
+op_vrOk	ldy   #2                 ; store fake refNum at pBlock+2 (output)
+	sta   [pBlock],y
+	lda   #0
+	jmp   GSOSReturn
+
+op_notvr	lda   exppath
+	ldx   exppath+2
 	phx
 	pha
 	phx
@@ -1756,6 +1786,23 @@ fdPtr	equ	12
 	ldy   #2
 	lda   [pBlock],y
 	sta   oldRN
+
+* Virtual root intercept: refNums in $FE00..$FEFF belong to the fake
+* slot table populated by vroot_open.  Only GetDirEntry ($201C) is
+* supported on a fake refNum; everything else returns $43 (bad refnum)
+* since we don't track mark/EOF/etc for a synthetic directory.
+	cmp   #$7F00
+	bcc   rc_notvr
+	lda   cmdNum
+	cmp   #$201C
+	bne   rc_vrBadOp
+	ph4   pBlock             ; → word vroot_dirent(void *pBlock)
+	jsl   vroot_dirent
+	jmp   GSOSReturn
+rc_vrBadOp	lda   #$43
+	jmp   GSOSReturn
+
+rc_notvr	lda   oldRN
 	pha
 	bne	notzero
 	lda	cmdNum
@@ -2048,6 +2095,19 @@ level	equ	24
 pCountOkay	ldy   #2                 ; GSOS refNum is at offset 2
 whichOS	lda   [pBlock],y
 	sta   rn
+
+* Virtual root intercept: refNums in $FE00..$FEFF belong to the fake
+* slot table populated by vroot_open.  Don't hit real GS/OS or the
+* per-process FD table for these — just release the slot.
+	cmp   #$7F00
+	bcc   cl_notvr
+	pha
+	jsl   vroot_close        ; void vroot_close(word refNum)
+	lda   #0
+	jmp   GSOSReturn
+cl_notvr	anop
+
+	lda   rn
 	beq   doClose0
 	pha
 	jsl	getFDptr

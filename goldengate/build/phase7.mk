@@ -53,7 +53,7 @@ ASFLAGS := +T
 # ── Module lists ──────────────────────────────────────────────────────────────
 
 # C modules from kern/gno/
-KERN_C_MODS := main patch sys signal sem queue data diag stat sleep net ep ports fastfile ktrace
+KERN_C_MODS := main patch sys signal sem queue data diag stat sleep net ep ports fastfile ktrace vroot
 
 # ASM modules from kern/gno/ (assembled from kern/gno/ dir)
 KERN_ASM_MODS := kern gsos texttool shellcall tty p16 ctool resource var pipe pty select util err regexp driver
