@@ -59,9 +59,11 @@ extern int OldGSOSSt(word callnum, void *pBlock);
 #define VROOT_NAME_LEN   32
 
 typedef struct {
-    word walkIndex;   /* next entry GetDirEntry will emit */
-    word nVols;       /* volumes captured at open time */
-    char names[VROOT_MAX_VOLS][VROOT_NAME_LEN];
+    word walkIndex;                                /* current read position (1-based, 0=before-first) */
+    word nVols;                                    /* volumes captured at open time */
+    char names[VROOT_MAX_VOLS][VROOT_NAME_LEN];    /* null-terminated vol name */
+    longword sizes[VROOT_MAX_VOLS];                /* totalBlocks * blockSize (bytes) */
+    longword blocks[VROOT_MAX_VOLS];               /* totalBlocks */
 } vroot_buf;
 
 static vroot_buf *vroot_slots[VROOT_SLOT_COUNT] = { 0, 0, 0, 0 };
@@ -105,10 +107,10 @@ static void vroot_enum(vroot_buf *buf)
                 devNameCopy.text[i] = devNameBuf.bufString.text[i];
         }
 
-        /* Volume: get mounted volume name by device name.  If the
-         * device has no media or isn't a filesystem volume, Volume
-         * returns an error and we skip it. */
-        vol.pCount = 2;
+        /* Volume: get mounted volume name + size metadata.  pCount=6
+         * gets us through blockSize, which we need alongside
+         * totalBlocks to compute the volume's byte size. */
+        vol.pCount = 6;
         vol.devName = &devNameCopy;
         volNameBuf.bufSize = sizeof(volNameBuf);
         vol.volName = (ResultBuf255Ptr) &volNameBuf;
@@ -130,6 +132,14 @@ static void vroot_enum(vroot_buf *buf)
                 buf->names[buf->nVols][i] = src[i];
             buf->names[buf->nVols][srcLen] = 0;
         }
+
+        /* Capture volume size: totalBlocks * blockSize (bytes).
+         * For any real volume this fits comfortably in a 32-bit
+         * longword (2^32 bytes = 4 GB of addressable volume). */
+        buf->blocks[buf->nVols] = vol.totalBlocks;
+        buf->sizes[buf->nVols] =
+            (longword) vol.totalBlocks * (longword) vol.blockSize;
+
         buf->nVols++;
     }
 }
@@ -166,47 +176,38 @@ void vroot_close(word refNum)
 }
 
 /*
- * Write a GS/OS-format length-prefix string into the ResultBuf255 that
- * lives at *nameResPtr.  nameResPtr itself is the word[5,6] pair from
- * the caller's DirEntryRecGS PB — so we need to reconstruct it from
- * its low and high halves, then poke bufString.length and bufString.text
- * via plain byte arithmetic (ORCA/C's pointer-from-longword cast is
- * reliable enough for this).
+ * Write a GS/OS-format length-prefix string into a ResultBuf255 pointed
+ * to by resBuf.  Used to fill the `name` output of a DirEntryRecGS.
  */
-static void vroot_write_name(word loAddr, word hiAddr, const char *name)
+static void vroot_write_name(ResultBuf255Ptr resBuf, const char *name)
 {
-    longword addr = ((longword) hiAddr << 16) | (longword) loAddr;
-    char *buf;
     word maxText;
-    word *lenField;
-    char *textField;
     word len;
     word i;
 
-    if (addr == 0) return;
-    buf = (char *) addr;
-    maxText = *((word *) buf);      /* bufSize at offset 0 */
-    lenField = (word *)(buf + 2);   /* bufString.length at offset 2 */
-    textField = buf + 4;            /* bufString.text at offset 4 */
-
+    if (resBuf == NULL) return;
+    maxText = resBuf->bufSize;
     len = strlen(name);
-    if (maxText < 2) { *lenField = 0; return; }
+    if (maxText < 2) {
+        resBuf->bufString.length = 0;
+        return;
+    }
     if (len > maxText - 2) len = maxText - 2;
-    *lenField = len;
+    resBuf->bufString.length = len;
     for (i = 0; i < len; i++)
-        textField[i] = name[i];
+        resBuf->bufString.text[i] = name[i];
 }
 
 /*
  * Fill a GS/OS DirEntryRecGS parameter block for a virtual-root read.
  * The asm intercept in GNORefCommon passes the raw pBlock pointer; we
- * read refNum/base/displacement from it and synthesize entryNum,
- * fileType, access, and the name.  Optional metadata fields (dates,
- * aux type, resource fork info) are zeroed.
+ * cast it to DirEntryRecGS* so field writes land exactly where ls and
+ * libc expect them, regardless of how ORCA/C lays out longwords
+ * relative to word-indexed math.
  *
  * GetDirEntry semantics honored:
  *   base=0, displacement=0  → "info" probe.  Return total entry count
- *                             in entryNum, put directory name ("/") in
+ *                             in entryNum, put directory name ("") in
  *                             the name result buffer.  Do not advance.
  *   base=1, displacement=N  → advance forward by N from current position
  *                             and read the new current entry.
@@ -214,28 +215,60 @@ static void vroot_write_name(word loAddr, word hiAddr, const char *name)
  *   base=3, displacement=N  → seek to absolute entry N (1-indexed) and
  *                             read.
  *
- * Position model: `walkIndex` is the 0-based index of the NEXT entry to
- * emit.  For base=1 disp=1 (ls's sequential read), we emit names[walkIndex]
- * and post-increment.
+ * Position model: `walkIndex` is the 1-based index of the entry just
+ * returned.  Initially 0, meaning "no entry has been read yet".
  *
  * Return: 0 on success, $43 (bad refnum) if the slot is stale,
  * $46 (file not found) when the walk runs past the end of the volume list.
  */
+
+/* Clear all optional output fields we don't synthesize.  Called after
+ * the base-specific logic has decided which entry to emit.  eof and
+ * blockCount are set by the caller (to the real volume totals) before
+ * this function runs and must not be overwritten — we only zero them
+ * for the info-probe case where no specific volume is being emitted. */
+static void vroot_clear_optional(DirEntryRecGS *de)
+{
+    word pc = de->pCount;
+
+    /* eof (pc>=8) and blockCount (pc>=9) are caller's responsibility. */
+    if (pc >= 10) {
+        de->createDateTime.second = 0;
+        de->createDateTime.minute = 0;
+        de->createDateTime.hour = 0;
+        de->createDateTime.year = 0;
+        de->createDateTime.day = 0;
+        de->createDateTime.month = 0;
+        de->createDateTime.extra = 0;
+        de->createDateTime.weekDay = 0;
+    }
+    if (pc >= 11) {
+        de->modDateTime.second = 0;
+        de->modDateTime.minute = 0;
+        de->modDateTime.hour = 0;
+        de->modDateTime.year = 0;
+        de->modDateTime.day = 0;
+        de->modDateTime.month = 0;
+        de->modDateTime.extra = 0;
+        de->modDateTime.weekDay = 0;
+    }
+    if (pc >= 12) de->access = 0x00C3;
+    if (pc >= 13) de->auxType = 0;
+    if (pc >= 14) de->fileSysID = 0;
+    /* optionList (pc>=15) is caller-provided input; don't touch. */
+    if (pc >= 16) de->resourceEOF = 0;
+    if (pc >= 17) de->resourceBlocks = 0;
+}
+
 word vroot_dirent(void *pBlockV)
 {
-    word *pb = (word *) pBlockV;
-    word pCount;
+    DirEntryRecGS *de = (DirEntryRecGS *) pBlockV;
     word refNum;
-    word base;
-    word displacement;
     word slot;
     vroot_buf *buf;
     word emitIndex;
 
-    pCount = pb[0];
-    refNum = pb[1];
-    base = (pCount >= 3) ? pb[3] : 0;
-    displacement = (pCount >= 4) ? pb[4] : 0;
+    refNum = de->refNum;
 
     if (refNum < VROOT_FAKE_BASE) return 0x43;
     slot = refNum - VROOT_FAKE_BASE;
@@ -244,48 +277,38 @@ word vroot_dirent(void *pBlockV)
     if (buf == 0) return 0x43;
 
     /* base=0 disp=0 is an info probe: return total entry count and the
-     * directory name itself, without advancing. */
-    if (base == 0 && displacement == 0) {
-        if (pCount >= 5)
-            vroot_write_name(pb[5], pb[6], "");   /* dir name = empty for / */
-        if (pCount >= 6) pb[7] = buf->nVols;       /* total entries */
-        if (pCount >= 7) pb[8] = 0x000F;           /* fileType = directory */
-        if (pCount >= 8) { pb[9] = 0; pb[10] = 0; }
-        if (pCount >= 9) { pb[11] = 0; pb[12] = 0; }
-        if (pCount >= 10) { pb[13] = 0; pb[14] = 0; pb[15] = 0; pb[16] = 0; }
-        if (pCount >= 11) { pb[17] = 0; pb[18] = 0; pb[19] = 0; pb[20] = 0; }
-        if (pCount >= 12) pb[21] = 0x00C3;
-        if (pCount >= 13) { pb[22] = 0; pb[23] = 0; }
-        if (pCount >= 14) pb[24] = 0;
+     * directory name, without advancing. */
+    if (de->base == 0 && de->displacement == 0) {
+        if (de->pCount >= 5) vroot_write_name(de->name, "");
+        if (de->pCount >= 6) de->entryNum = buf->nVols;
+        if (de->pCount >= 7) de->fileType = 0x000F;
+        if (de->pCount >= 8) de->eof = 0;
+        if (de->pCount >= 9) de->blockCount = 0;
+        vroot_clear_optional(de);
         return 0;
     }
 
-    /* Compute which entry we should emit, then advance walkIndex past it. */
-    if (base == 1) {                    /* forward from current */
-        buf->walkIndex += displacement;
-    } else if (base == 2) {             /* backward from current */
-        if (displacement >= buf->walkIndex) buf->walkIndex = 0;
-        else buf->walkIndex -= displacement;
-    } else if (base == 3) {             /* absolute seek */
-        buf->walkIndex = (displacement > 0) ? displacement : 1;
+    /* Advance walkIndex per base/displacement, then emit the entry at
+     * the new position. */
+    if (de->base == 1) {
+        buf->walkIndex += de->displacement;
+    } else if (de->base == 2) {
+        if (de->displacement >= buf->walkIndex) buf->walkIndex = 0;
+        else buf->walkIndex -= de->displacement;
+    } else if (de->base == 3) {
+        buf->walkIndex = (de->displacement > 0) ? de->displacement : 1;
     } else {
-        return 0x40;                    /* invalid base */
+        return 0x40;   /* invalid base */
     }
 
     if (buf->walkIndex == 0 || buf->walkIndex > buf->nVols) return 0x46;
     emitIndex = buf->walkIndex - 1;
 
-    if (pCount >= 5)
-        vroot_write_name(pb[5], pb[6], buf->names[emitIndex]);
-    if (pCount >= 6) pb[7] = buf->walkIndex;   /* 1-based entry index */
-    if (pCount >= 7) pb[8] = 0x000F;           /* fileType = directory */
-    if (pCount >= 8) { pb[9] = 0; pb[10] = 0; }
-    if (pCount >= 9) { pb[11] = 0; pb[12] = 0; }
-    if (pCount >= 10) { pb[13] = 0; pb[14] = 0; pb[15] = 0; pb[16] = 0; }
-    if (pCount >= 11) { pb[17] = 0; pb[18] = 0; pb[19] = 0; pb[20] = 0; }
-    if (pCount >= 12) pb[21] = 0x00C3;
-    if (pCount >= 13) { pb[22] = 0; pb[23] = 0; }
-    if (pCount >= 14) pb[24] = 0;
-
+    if (de->pCount >= 5) vroot_write_name(de->name, buf->names[emitIndex]);
+    if (de->pCount >= 6) de->entryNum = buf->walkIndex;
+    if (de->pCount >= 7) de->fileType = 0x000F;
+    if (de->pCount >= 8) de->eof = buf->sizes[emitIndex];
+    if (de->pCount >= 9) de->blockCount = buf->blocks[emitIndex];
+    vroot_clear_optional(de);
     return 0;
 }
