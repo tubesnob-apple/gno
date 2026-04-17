@@ -44,7 +44,6 @@
 
 #ifdef __ORCAC__
 #pragma optimize 78
-#pragma memorymodel 1  /* code + libc exceeds 64KB bank */
 #endif
 #include <stdlib.h>
 #include <string.h>
@@ -92,65 +91,52 @@ static int infp  = -1;
 static int outfp = -1;
 static int g_in_eof;
 
-static unsigned char ibuf[IBUFSZ];
+/* All large arrays are heap-allocated to avoid a 45KB static ~ARRAYS
+ * segment that pushes the linked binary past the 64KB code bank limit.
+ * freeze_alloc_tables() in main allocates them all in one pass. */
+
+static unsigned char *ibuf;          /* IBUFSZ bytes */
 static int           ibuf_pos;
 static int           ibuf_len;
 
-static unsigned char obuf[OBUFSZ];
+static unsigned char *obuf;          /* OBUFSZ bytes */
 static int           obuf_len;
 
 /* Bit output state */
-static int  bitcount;       /* # bits filled in subbitbuf (0..7) */
-static int  subbitbuf;      /* accumulates output bits           */
+static int  bitcount;
+static int  subbitbuf;
 
 /* Bit input state */
-static u32  bitbuf;         /* 32-bit shift register             */
-static int  bitsin;         /* # valid bits in bitbuf            */
+static u32  bitbuf;
+static int  bitsin;
 
 /* ── globals: LZSS tree ───────────────────────────────────────────────── */
 
-/* text_buf holds WSIZE bytes of window + MAXMATCH bytes of lookahead */
-static unsigned char text_buf[WSIZE + MAXMATCH];  /* 4114 bytes */
+static unsigned char *text_buf;      /* WSIZE + MAXMATCH bytes */
 static int           match_pos;
 static int           match_len;
 
-/* LZSS binary search tree.
- * Nodes 0..WSIZE-1 index positions in text_buf.
- * rson[WSIZE+1 .. WSIZE+256] are root slots for first-character hash.
- * lson and dad are WSIZE entries; rson needs WSIZE+257 entries.
- */
-static int lson[WSIZE];          /* left child  (4096 ints = 8 KB) */
-static int rson[WSIZE + 257];    /* right child (4353 ints ≈ 8.7 KB) */
-static int dad[WSIZE];           /* parent      (4096 ints = 8 KB) */
+static int *lson;                    /* WSIZE ints */
+static int *rson;                    /* WSIZE + 257 ints */
+static int *dad;                     /* WSIZE ints */
 
 /* ── globals: Huffman tables ──────────────────────────────────────────── */
 
-/* Encoder tables */
-static unsigned char c_len[NC];   /* code lengths for C alphabet  */
-static u16           c_code[NC];  /* canonical codes for C alphabet */
-static unsigned char p_len[NP];   /* code lengths for P alphabet  */
-static u16           p_code[NP];  /* canonical codes for P alphabet */
-static unsigned char t_len[NT];   /* code lengths for T alphabet  */
-static u16           t_code[NT];  /* canonical codes for T alphabet */
+static unsigned char *c_len;         /* NC bytes */
+static u16           *c_code;        /* NC u16s */
+static unsigned char *p_len;         /* NP bytes */
+static u16           *p_code;        /* NP u16s */
+static unsigned char *t_len;         /* NT bytes */
+static u16           *t_code;        /* NT u16s */
+static u16  *c_table;               /* 512 u16s */
+static u16  *p_table;               /* 256 u16s */
 
-/* Decoder tables (direct lookup)
- * c_table: 2^CBIT = 512 entries (9-bit index)
- * p_table: 2^8    = 256 entries (8-bit index, top byte of bitbuf)
- */
-static u16  c_table[512];   /* 512 * 2 = 1 KB */
-static u16  p_table[256];   /* 256 * 2 = 512 B */
-
-/* Huffman build workspace */
-#define TMAX (NC * 2)        /* max tree nodes */
-static u16  freq[TMAX];      /* node frequencies (544 entries = 1088 B) */
-
-/* T-table workspace: same size as NT */
-static int  t_table[256];    /* temporary for T-decode; 256 * 2 = 512 B */
-
-/* Block buffer */
-static u16  blk_code[BLOCKSIZE];  /* symbol codes per block (512 * 2 = 1 KB) */
-static u16  blk_pos[BLOCKSIZE];   /* match positions per block (1 KB) */
-static int  blk_cnt;              /* entries buffered so far */
+#define TMAX (NC * 2)
+static u16  *freq;                   /* TMAX u16s */
+static int  *t_table;               /* 256 ints */
+static u16  *blk_code;              /* BLOCKSIZE u16s */
+static u16  *blk_pos;               /* BLOCKSIZE u16s */
+static int  blk_cnt;
 
 /* ── option flags ─────────────────────────────────────────────────────── */
 static int verbose_flag;
@@ -173,6 +159,7 @@ static void   init_tree        (void);
 static void   insert_node      (int);
 static void   delete_node      (int);
 
+static void   make_codes_from_lens (unsigned char *, u16 *, int);
 static void   build_tree       (unsigned char *, u16 *, int);
 static void   init_p_table     (void);
 static void   make_c_table     (void);
@@ -401,6 +388,36 @@ delete_node(p)
 /* ── Huffman tree construction ───────────────────────────────────────── */
 
 /*
+ * make_codes_from_lens: given already-computed code lengths in len[0..n-1],
+ * assign canonical Huffman codes into code[0..n-1].  Does NOT use freq[].
+ * Used by the decoder after reading code lengths from the bitstream.
+ */
+static void
+make_codes_from_lens(len, code, n)
+    unsigned char *len;
+    u16           *code;
+    int            n;
+{
+    int bl_count[17];
+    int next_code[17];
+    int k, i, c2;
+
+    for (k = 0; k <= 16; k++) bl_count[k] = 0;
+    for (i = 0; i < n; i++) bl_count[(int)len[i]]++;
+
+    c2 = 0;
+    for (k = 1; k <= 16; k++) {
+        c2 = (c2 + bl_count[k - 1]) << 1;
+        next_code[k] = c2;
+    }
+
+    for (i = 0; i < n; i++) {
+        if (len[i] == 0) { code[i] = 0; continue; }
+        code[i] = (u16)next_code[(int)len[i]]++;
+    }
+}
+
+/*
  * build_tree: given freq[] (0..n-1), produce canonical Huffman codes
  * in len[] and code[].
  *
@@ -502,7 +519,7 @@ make_c_table()
     int    i, j, k;
     int    tblsz = (1 << CBIT);   /* 512 */
 
-    memset(c_table, 0xFF, sizeof(c_table));   /* 0xFFFF = invalid */
+    memset(c_table, 0xFF, 512 * sizeof(u16));   /* 0xFFFF = invalid */
     for (i = 0; i < NC; i++) {
         int l = (int)c_len[i];
         if (l == 0 || l > CBIT) continue;
@@ -519,7 +536,7 @@ make_p_table()
 {
     int i, j, k;
 
-    memset(p_table, 0xFF, sizeof(p_table));
+    memset(p_table, 0xFF, 256 * sizeof(u16));
     for (i = 0; i < NP; i++) {
         int l = (int)p_len[i];
         if (l == 0 || l > 8) continue;
@@ -565,7 +582,7 @@ write_pt_len(la, n, nbit, special)
     int            nbit;
     int            special;
 {
-    int i, k;
+    int i, k, cnt;
     while (n > 0 && la[n - 1] == 0) n--;
     putbits(nbit, (u16)n);
     for (i = 0; i < n; i++) {
@@ -577,11 +594,13 @@ write_pt_len(la, n, nbit, special)
             putbits(k - 3, (u16)((((long)1 << (k - 3)) - 1L) << 1));
         }
         if (i == special) {
-            /* run-length skip for consecutive zeros */
-            while (i + 1 < n && la[i + 1] == 0) {
-                putbits(2, 0);
-                i++;
-            }
+            /* write one 2-bit count of consecutive zeros that follow;
+             * read_pt_len reads this as a count (0..3) to skip. */
+            cnt = 0;
+            while (cnt < 3 && i + 1 + cnt < n && la[i + 1 + cnt] == 0)
+                cnt++;
+            putbits(2, (u16)cnt);
+            i += cnt;
         }
     }
 }
@@ -738,7 +757,7 @@ read_pt_len(la, ca, n, nbit, special)
         }
     }
     while (i < n) la[i++] = 0;
-    build_tree(la, ca, n);
+    make_codes_from_lens(la, ca, n);
 }
 
 static void
@@ -805,6 +824,7 @@ read_c_len()
         }
     }
     while (i < NC) c_len[i++] = 0;
+    make_codes_from_lens(c_len, c_code, NC);
     make_c_table();
 }
 
@@ -869,7 +889,7 @@ decode_p()
 static void
 do_freeze()
 {
-    int   i, r, s, lastlen;
+    int   i, r, s, lastlen, len;
     int   c;
 
     init_tree();
@@ -881,19 +901,22 @@ do_freeze()
     r = WSIZE - MAXMATCH;
     s = 0;
 
-    /* fill lookahead buffer */
-    for (i = r; i < WSIZE + MAXMATCH; i++) {
+    /* fill lookahead buffer (exactly MAXMATCH bytes).
+     * The advance loop's text_buf[s+WSIZE] duplication extends the
+     * lookahead one byte at a time.  Pre-filling 2*MAXMATCH corrupts
+     * the extended region when s < MAXMATCH-1. */
+    for (len = 0; len < MAXMATCH; len++) {
         c = read_byte();
         if (c < 0) break;
-        text_buf[i] = (unsigned char)c;
+        text_buf[r + len] = (unsigned char)c;
     }
     /* insert initial tree nodes */
     for (i = 1; i <= MAXMATCH; i++)
         insert_node(r - i);
     insert_node(r);
 
-    while (i < WSIZE + MAXMATCH) {
-        if (match_len > i) match_len = i;
+    while (len > 0) {
+        if (match_len > len) match_len = len;
 
         if (match_len < THRESHOLD) {
             match_len = 1;
@@ -918,6 +941,8 @@ do_freeze()
             s = (s + 1) & WMASK;
             r = (r + 1) & WMASK;
             insert_node(r);
+            if (c >= 0) len++;
+            len--;
         }
     }
 
@@ -931,7 +956,7 @@ do_freeze()
 static void
 do_melt()
 {
-    unsigned char  outwin[WSIZE];   /* 4096-byte ring buffer */
+    static unsigned char  outwin[WSIZE];   /* 4096-byte ring buffer */
     int            r;
     int            blksize;
     int            count;
@@ -972,14 +997,13 @@ do_melt()
             c = decode_c();
             count++;
             if (c < 256) {
-                /* literal */
                 outwin[r] = (unsigned char)c;
                 r = (r + 1) & WMASK;
                 write_byte((unsigned char)c);
             } else {
-                /* match */
                 int matchlen = (int)c - 256 + THRESHOLD;
-                int matchpos = (r - (int)decode_p() - 1) & WMASK;
+                int dp = (int)decode_p();
+                int matchpos = (r - dp - 1) & WMASK;
                 int m;
                 for (m = 0; m < matchlen; m++) {
                     unsigned char ch = outwin[(matchpos + m) & WMASK];
@@ -1117,6 +1141,32 @@ main(argc, argv)
     int   rc;
     char *p;
 
+    /* Allocate all large tables on the heap. */
+    ibuf     = (unsigned char *)malloc((unsigned long)IBUFSZ);
+    obuf     = (unsigned char *)malloc((unsigned long)OBUFSZ);
+    text_buf = (unsigned char *)malloc((unsigned long)(WSIZE + MAXMATCH));
+    lson     = (int *)malloc((unsigned long)WSIZE * sizeof(int));
+    rson     = (int *)malloc((unsigned long)(WSIZE + 257) * sizeof(int));
+    dad      = (int *)malloc((unsigned long)WSIZE * sizeof(int));
+    c_len    = (unsigned char *)malloc((unsigned long)NC);
+    c_code   = (u16 *)malloc((unsigned long)NC * sizeof(u16));
+    p_len    = (unsigned char *)malloc((unsigned long)NP);
+    p_code   = (u16 *)malloc((unsigned long)NP * sizeof(u16));
+    t_len    = (unsigned char *)malloc((unsigned long)NT);
+    t_code   = (u16 *)malloc((unsigned long)NT * sizeof(u16));
+    c_table  = (u16 *)malloc(512UL * sizeof(u16));
+    p_table  = (u16 *)malloc(256UL * sizeof(u16));
+    freq     = (u16 *)malloc((unsigned long)TMAX * sizeof(u16));
+    t_table  = (int *)malloc(256UL * sizeof(int));
+    blk_code = (u16 *)malloc((unsigned long)BLOCKSIZE * sizeof(u16));
+    blk_pos  = (u16 *)malloc((unsigned long)BLOCKSIZE * sizeof(u16));
+    if (!ibuf || !obuf || !text_buf || !lson || !rson || !dad ||
+        !c_len || !c_code || !p_len || !p_code || !t_len || !t_code ||
+        !c_table || !p_table || !freq || !t_table || !blk_code || !blk_pos) {
+        fprintf(stderr, "freeze: out of memory\n");
+        exit(1);
+    }
+
     p = argv[0];
     { char *q = strrchr(p, '/'); if (q) p = q + 1; }
     if (strcmp(p, "melt") == 0) decompress_flag = 1;
@@ -1164,5 +1214,11 @@ main(argc, argv)
             rc |= process_file(argv[i]);
     }
 
+    free(ibuf); free(obuf); free(text_buf);
+    free(lson); free(rson); free(dad);
+    free(c_len); free(c_code); free(p_len); free(p_code);
+    free(t_len); free(t_code);
+    free(c_table); free(p_table); free(freq);
+    free(t_table); free(blk_code); free(blk_pos);
     return rc;
 }

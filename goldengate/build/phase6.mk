@@ -112,10 +112,10 @@ BIN_MULTI_TAIL   := tail tail_extern tail_special tail_regular tail_stdin
 BIN_MULTI_TEST   := test test_operator
 
 .PHONY: bin $(BIN_SIMPLE:%=bin_%) \
-	bin_aroff bin_binprint bin_chmod bin_chtyp bin_cmp bin_compress bin_cp bin_date bin_df bin_echo bin_egrep bin_false bin_fgrep bin_freeze bin_grep bin_hostname bin_less bin_ls bin_more bin_mkdir bin_passwd bin_ps bin_purge bin_rm bin_rmdir bin_tail bin_test bin_tr bin_true bin_uncompress bin_vi
+	bin_aroff bin_binprint bin_chmod bin_chtyp bin_cmp bin_compress bin_cp bin_date bin_df bin_echo bin_egrep bin_false bin_fgrep bin_freeze bin_grep bin_hostname bin_less bin_ls bin_more bin_mkdir bin_passwd bin_ps bin_purge bin_rm bin_rmdir bin_sysinfo bin_tail bin_test bin_tr bin_true bin_uncompress bin_vi
 
 bin: $(BIN_SIMPLE:%=bin_%) \
-	bin_aroff bin_binprint bin_chmod bin_chtyp bin_cmp bin_compress bin_cp bin_date bin_df bin_echo bin_egrep bin_false bin_fgrep bin_freeze bin_grep bin_hostname bin_less bin_ls bin_more bin_mkdir bin_passwd bin_ps bin_purge bin_rm bin_rmdir bin_tail bin_test bin_tr bin_true bin_uncompress bin_vi
+	bin_aroff bin_binprint bin_chmod bin_chtyp bin_cmp bin_compress bin_cp bin_date bin_df bin_echo bin_egrep bin_false bin_fgrep bin_freeze bin_grep bin_hostname bin_less bin_ls bin_more bin_mkdir bin_passwd bin_ps bin_purge bin_rm bin_rmdir bin_sysinfo bin_tail bin_test bin_tr bin_true bin_uncompress bin_vi
 
 $(BIN_SIMPLE:%=bin_%):
 	$(call build_simple,$(BIN_SRC),$(BIN_OUT),$(@:bin_%=%))
@@ -172,6 +172,7 @@ bin_freeze:
 	@mkdir -p $(OBJ_BASE)/freeze $(BIN_OUT)
 	$(call cc1,$(BIN_SRC)/compress,freeze,$(OBJ_BASE)/freeze)
 	$(call ld1,$(OBJ_BASE)/freeze,$(BIN_OUT),freeze,freeze)
+	cp $(BIN_OUT)/freeze $(BIN_OUT)/melt
 
 # asm utilities: assemble in source dir, patch both .A and .ROOT, link with plain iix link
 
@@ -270,7 +271,7 @@ bin_more:
 	@echo "=== more ==="
 	@mkdir -p $(OBJ_BASE)/more $(BIN_OUT)
 	$(call cc1,$(BIN_SRC)/more,more,$(OBJ_BASE)/more)
-	$(call ld1,$(OBJ_BASE)/more,$(BIN_OUT),more,more,$(LIBTERMCAP))
+	$(call ld1,$(OBJ_BASE)/more,$(BIN_OUT),more,more,$(LIBTERMCAP) $(GNO_OBJ)/usr/lib/libktrace)
 
 bin_rmdir:
 	@echo "=== rmdir ==="
@@ -329,6 +330,27 @@ bin_hostname:
 	$(call cc1,$(BIN_SRC)/hostname,hostname,$(OBJ_BASE)/hostname)
 	$(call ld1,$(OBJ_BASE)/hostname,$(BIN_OUT),hostname,hostname,$(GNO_OBJ)/usr/lib/libktrace)
 
+# sysinfo: kernel introspection dumper; links libktrace for KTRACE_LOG markers
+bin_sysinfo:
+	@echo "=== sysinfo ==="
+	@mkdir -p $(OBJ_BASE)/sysinfo $(BIN_OUT)
+	$(call cc1,$(BIN_SRC)/sysinfo,sysinfo,$(OBJ_BASE)/sysinfo)
+	$(call ld1,$(OBJ_BASE)/sysinfo,$(BIN_OUT),sysinfo,sysinfo,$(GNO_OBJ)/usr/lib/libktrace)
+
+# ktlog: emits a WDM $00 ktrace marker from a shell script (systests helper)
+usrbin_ktlog:
+	@echo "=== ktlog ==="
+	@mkdir -p $(OBJ_BASE)/ktlog $(USRBIN_OUT)
+	$(call cc1,$(USRBIN_SRC)/ktlog,ktlog,$(OBJ_BASE)/ktlog)
+	$(call ld1,$(OBJ_BASE)/ktlog,$(USRBIN_OUT),ktlog,ktlog,$(GNO_OBJ)/usr/lib/libktrace)
+
+# testcmp: byte-compares two files and logs PASS/FAIL via ktrace (systests helper)
+usrbin_testcmp:
+	@echo "=== testcmp ==="
+	@mkdir -p $(OBJ_BASE)/testcmp $(USRBIN_OUT)
+	$(call cc1,$(USRBIN_SRC)/testcmp,testcmp,$(OBJ_BASE)/testcmp)
+	$(call ld1,$(OBJ_BASE)/testcmp,$(USRBIN_OUT),testcmp,testcmp,$(GNO_OBJ)/usr/lib/libktrace)
+
 # ps: kernel-dependent at runtime; compiles cleanly for the disk image
 bin_ps:
 	@echo "=== ps ==="
@@ -366,7 +388,8 @@ USRBIN_SIMPLE := \
 	usrbin_uptime \
 	usrbin_wall usrbin_whereis usrbin_whois \
 	usrbin_awk usrbin_cpp usrbin_nroff usrbin_man_suite \
-	usrbin_describe usrbin_udl
+	usrbin_describe usrbin_udl \
+	usrbin_ktlog usrbin_testcmp
 
 usr_bin: $(USRBIN_SIMPLE:%=usrbin_%) \
 	usrbin_asml usrbin_assemble usrbin_cmpl \
@@ -375,7 +398,8 @@ usr_bin: $(USRBIN_SIMPLE:%=usrbin_%) \
 	usrbin_uptime \
 	usrbin_wall usrbin_whereis usrbin_whois \
 	usrbin_awk usrbin_cpp usrbin_nroff usrbin_man_suite \
-	usrbin_describe usrbin_udl
+	usrbin_describe usrbin_udl \
+	usrbin_ktlog usrbin_testcmp
 
 $(USRBIN_SIMPLE:%=usrbin_%):
 	$(call build_simple,$(USRBIN_SRC),$(USRBIN_OUT),$(@:usrbin_%=%))
@@ -483,12 +507,17 @@ usrbin_sed:
 	 cd $(OBJ_BASE)/sed && iix --gno link -P -o $(USRBIN_OUT)/sed $$allobjs
 
 usrbin_sort:
-	@echo "=== sort (msort + dsort) ==="
+	@echo "=== sort (msort + dsort + /usr/bin/sort alias) ==="
 	@mkdir -p $(OBJ_BASE)/sort $(USRBIN_OUT)
 	$(foreach s,msort linecount loadarray sortarray disksort dsort initdisksort mergeone tempnam, \
 		cd $(USRBIN_SRC)/sort && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/sort/ && { mv $(s).root $(OBJ_BASE)/sort/ 2>/dev/null || true; };)
 	cd $(OBJ_BASE)/sort && iix --gno link -P -o $(USRBIN_OUT)/msort msort linecount loadarray sortarray
 	cd $(OBJ_BASE)/sort && iix --gno link -P -o $(USRBIN_OUT)/dsort dsort disksort initdisksort mergeone tempnam sortarray
+	# Install a /usr/bin/sort copy of msort so POSIX-style `sort file` and
+	# `cat file | sort` work at the shell.  The 1987 ORCA-shell SORT from
+	# /lang/orca/utilities still ships alongside for backward compat with
+	# ORCA scripts, but /usr/bin/sort wins PATH precedence.
+	cp $(USRBIN_OUT)/msort $(USRBIN_OUT)/sort
 
 usrbin_wall:
 	@echo "=== wall ==="
