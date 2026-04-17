@@ -21,8 +21,18 @@
 #
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),/Library/GoldenGate)
 GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno_obj)
+
+# Emit gsh.symbols JSON for GSplus symbolic debugging. ON by default;
+# disable with GSPLUS_SYMBOLS= (empty). The flag is an iix-level -D shell
+# variable and MUST precede the "link" sub-command.
+GSPLUS_SYMBOLS ?= 1
+ifneq ($(strip $(GSPLUS_SYMBOLS)),)
+IIX_DFLAGS := -DgsplusSymbols=1
+else
+IIX_DFLAGS :=
+endif
 
 SRC_DIR   := $(REPO_ROOT)/bin/gsh
 GSH_OBJ   := $(GNO_OBJ)/gsh_obj
@@ -30,7 +40,7 @@ BIN_OUT   := $(GNO_OBJ)/bin
 GSH_OUT   := $(BIN_OUT)/gsh
 
 AS      := iix assemble
-LD      := iix --gno link
+LD      := iix $(IIX_DFLAGS) --gno link
 ASFLAGS := +T
 
 

@@ -31,7 +31,18 @@
 #     from kern/drivers/ where port.mac lives directly.
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),/Library/GoldenGate)
+
+# Emit <target>.symbols JSON next to kernel/drivers for GSplus symbolic
+# debugging. ON by default; disable with GSPLUS_SYMBOLS= (empty). The flag
+# is an iix-level -D shell variable; it MUST precede the "link" sub-command
+# (see ~/source/orca/linker/gsplusSymbols.md).
+GSPLUS_SYMBOLS ?= 1
+ifneq ($(strip $(GSPLUS_SYMBOLS)),)
+IIX_DFLAGS := -DgsplusSymbols=1
+else
+IIX_DFLAGS :=
+endif
 OBJ_BASE  := $(abspath $(REPO_ROOT)/gno_obj)
 KERN_OBJ  := $(OBJ_BASE)/kern_obj
 DRV_OBJ   := $(OBJ_BASE)/drv_obj
@@ -43,7 +54,7 @@ DRV_SRC   := $(REPO_ROOT)/kern/drivers
 
 CC    := iix --gno compile
 AS    := iix assemble
-LD    := iix link
+LD    := iix $(IIX_DFLAGS) link
 
 CFLAGS  := -P
 ASFLAGS := +T
@@ -143,8 +154,8 @@ $(KERN_OBJ)/conpatch.a: $(DRV_SRC)/conpatch.asm | $(KERN_OBJ)
 
 LIBSIM := $(OBJ_BASE)/usr/lib/libsim
 
-drivers: $(DEV_OUT)/null $(DEV_OUT)/zero $(DEV_OUT)/full $(DEV_OUT)/console \
-         $(DEV_OUT)/modem $(DEV_OUT)/printer
+drivers: $(DEV_OUT)/null $(DEV_OUT)/zero $(DEV_OUT)/full $(DEV_OUT)/random \
+         $(DEV_OUT)/console $(DEV_OUT)/modem $(DEV_OUT)/printer
 
 # null
 $(DRV_OBJ)/null.a: $(DRV_SRC)/null.asm | $(DRV_OBJ)
@@ -178,6 +189,17 @@ $(DRV_OBJ)/full.a: $(DRV_SRC)/full.asm | $(DRV_OBJ)
 $(DEV_OUT)/full: $(DRV_OBJ)/full.a | $(DEV_OUT)
 	cd $(DRV_OBJ) && $(LD) -o $(DEV_OUT)/full full
 	iix chtyp -t dvr -a 0x7e01 $(DEV_OUT)/full
+
+# random
+$(DRV_OBJ)/random.a: $(DRV_SRC)/random.asm | $(DRV_OBJ)
+	cd $(DRV_SRC) && $(AS) $(ASFLAGS) random.asm
+	iix chtyp -t obj $(DRV_SRC)/random.A
+	mv $(DRV_SRC)/random.A $(DRV_OBJ)/random.a
+	-mv $(DRV_SRC)/random.ROOT $(DRV_OBJ)/random.root 2>/dev/null || true
+
+$(DEV_OUT)/random: $(DRV_OBJ)/random.a | $(DEV_OUT)
+	cd $(DRV_OBJ) && $(LD) -o $(DEV_OUT)/random random
+	iix chtyp -t dvr -a 0x7e01 $(DEV_OUT)/random
 
 # console (four modules, assembled from DRV_SRC)
 $(DRV_OBJ)/console_drv.a: $(DRV_SRC)/console.asm | $(DRV_OBJ)

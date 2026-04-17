@@ -1,7 +1,5 @@
 {
-  "model": "claude-sonnet-4-6",
   "permissions": {
-    "defaultMode": "bypassPermissions",
     "allow": [
       "Bash(xargs ls:*)",
       "Bash(iix ls:*)",
@@ -10,9 +8,9 @@
       "Read(//usr/local/share/**)",
       "Read(//usr/share/**)",
       "Read(//usr/local/**)",
-      "Bash(find ~/Library/GoldenGate -name *.conf -o -name *.cfg -o -name *.ini -o -name iix*)",
-      "Bash(find ~/Library/GoldenGate -maxdepth 2 -name *.cnf -o -name *.map -o -name volumes*)",
-      "Bash(find ~/Library/GoldenGate -name *.json -o -name volumes*)",
+      "Bash(find /Library/GoldenGate -name *.conf -o -name *.cfg -o -name *.ini -o -name iix*)",
+      "Bash(find /Library/GoldenGate -maxdepth 2 -name *.cnf -o -name *.map -o -name volumes*)",
+      "Bash(find /Library/GoldenGate -name *.json -o -name volumes*)",
       "Bash(ls:*)",
       "Bash(unzip -l /Volumes/Storage/IIgs/GoldenGate-r2.0.4.zip)",
       "Bash(tar -tf /Volumes/Storage/IIgs/GoldenGate-Working-220b3)",
@@ -58,7 +56,11 @@
       "Bash(cd:*)",
       "Bash(DOCS=\"/Volumes/Storage/IIgs/DocTemple/docs\" echo \"=== hardware/ ===\")",
       "Read(//Users/smentzer/source/gno/$DOCS/**)",
-      "Read(//Users/smentzer/source/gno/**)"
-    ]
-  }
+      "Read(//Users/smentzer/source/gno/**)",
+      "Bash(sed -i '' 's|/Library/GoldenGate|/Library/GoldenGate|g' /Users/smentzer/source/gno/goldengate/index.html)",
+      "Bash(sed -i '' 's|/Library/GoldenGate|/Library/GoldenGate|g' /Users/smentzer/source/gno/.claude/settings.local.json)"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "model": "claude-sonnet-4-6"
 }

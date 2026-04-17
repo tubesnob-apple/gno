@@ -74,7 +74,7 @@ def _gg_root() -> Path:
         v = os.environ.get(env)
         if v:
             return Path(v)
-    return Path.home() / 'Library' / 'GoldenGate'
+    return Path('/Library/GoldenGate')
 
 GG_ROOT = _gg_root()
 
@@ -134,7 +134,7 @@ GNOOBJ_PATH_REMAP = {
 GNOOBJ_OUTPUT_DIRS = {'bin', 'sbin', 'usr', 'dev', 'lib'}
 
 # Skip these suffixes in gno-obj (build artifacts / sentinel files)
-GNOOBJ_SKIP_SUFFIXES = {'.done', '.root', '.sym', '.a', '.A'}
+GNOOBJ_SKIP_SUFFIXES = {'.done', '.root', '.sym', '.a', '.A', '.symbols'}
 
 
 def get_type_suffix_for_gnoobj(rel_path: str) -> str:
@@ -383,8 +383,8 @@ def populate_staging(staging: Path, metadata: list,
 GOLDENGATE_LANG_MAP = {
     # <GoldenGate subdir>: <prodos path under /lang/orca>
     #
-    # Note: /lang/orca/libraries is populated from ~/Library/GoldenGate/lib,
-    # not from ~/Library/GoldenGate/Libraries.  The lowercase lib dir is the
+    # Note: /lang/orca/libraries is populated from /Library/GoldenGate/lib,
+    # not from /Library/GoldenGate/Libraries.  The lowercase lib dir is the
     # one GoldenGate's iix tools actively read at link time; it contains the
     # current set of runtime libraries, headers, and include files.
     'Shell':     'lang/orca/shell',
@@ -436,7 +436,7 @@ def is_valid_prodos_name(name: str) -> bool:
 
 def populate_goldengate_lang(staging: Path, verbose: bool) -> dict:
     """Stage /lang/orca/{shell,languages,utilities,libraries} from the local
-    GoldenGate SDK installation (~/Library/GoldenGate).  Each file's ProDOS
+    GoldenGate SDK installation (/Library/GoldenGate).  Each file's ProDOS
     type is read from its macOS FinderInfo xattr; resource forks stored as
     _rsrc_ sidecar files are staged alongside the data fork.
 
@@ -513,6 +513,69 @@ def populate_goldengate_lang(staging: Path, verbose: bool) -> dict:
     return placed
 
 
+SYSTESTS_SRC = REPO_ROOT / 'systests'
+
+
+def populate_systests(staging: Path, verbose: bool) -> dict:
+    """Stage repo /systests/ to /GNO/SYSTESTS/ on the image.
+
+    Script files (*.sh) are typed as ProDOS $B0/aux $0006 — gsh recognises
+    this combination as a shell-command EXEC file and runs them directly
+    when invoked by name (see bin/gsh/invoke.asm: ft02 check and
+    bin/gsh/hash.asm: filetype $B0 subtype $0006 check).  All other files
+    (fixtures, docs) are plain text $04/0000.  Every text file gets
+    LF→CR conversion.  Names are validated against ProDOS rules; anything
+    that wouldn't survive ADDFOLDER is skipped with a warning.
+    """
+    placed = {}
+    if not SYSTESTS_SRC.exists():
+        return placed
+
+    for src in sorted(SYSTESTS_SRC.rglob('*')):
+        if src.is_dir():
+            continue
+        if src.name.startswith('.'):
+            continue
+        rel = src.relative_to(SYSTESTS_SRC)
+        bad = [p for p in rel.parts if not is_valid_prodos_name(p)]
+        if bad:
+            print(f'  WARN: skipping {rel} (invalid ProDOS name: {bad})')
+            continue
+        rel_dir = 'home/root/systests'
+        if len(rel.parts) > 1:
+            rel_dir = 'home/root/systests/' + '/'.join(rel.parts[:-1])
+        # Type selection:
+        #   .sh   → $B0 aux $0006 (gsh EXEC script)   + LF→CR text conversion
+        #   .bin  → $06 aux $0000 (ProDOS BIN)        + NO conversion (raw bytes)
+        #   other → $04 aux $0000 (ProDOS TXT)        + LF→CR text conversion
+        suffix = src.suffix.lower()
+        if suffix == '.sh':
+            # gsh dispatches $B0 / aux $0006 as a shell EXEC file
+            # (bin/gsh/invoke.asm ft02 and bin/gsh/hash.asm).  Encoded as
+            # the cadius 6-digit suffix: type byte + 4-hex-char aux in
+            # big-endian → 'B0' + '0006' → 'B00006'.
+            type_sfx = 'B00006'
+            convert = True
+        elif suffix == '.bin':
+            type_sfx = '060000'
+            convert = False
+        else:
+            type_sfx = '040000'
+            convert = True
+        stage_file(staging,
+                   rel_dir=rel_dir,
+                   name=rel.name,
+                   type_sfx=type_sfx,
+                   data_src=src,
+                   rsrc_data=b'',
+                   convert_lf=convert)
+        prodos = '/' + (rel_dir + '/' + rel.name).upper()
+        placed[prodos] = staging / rel_dir / f'{rel.name}#{type_sfx}'
+        if verbose:
+            print(f'  [systst] {prodos}  #{type_sfx}')
+    return placed
+
+
 def populate_tmp(staging: Path, verbose: bool) -> dict:
     """Create /tmp with a placeholder text file 'stuff'."""
     tmp_dir = staging / 'tmp'
@@ -524,7 +587,19 @@ def populate_tmp(staging: Path, verbose: bool) -> dict:
     os.chmod(staged, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
     if verbose:
         print(f'  [tmp  ] /TMP/STUFF                                         #040000')
-    return {'/TMP/STUFF': staged}
+    placed = {'/TMP/STUFF': staged}
+
+    # Create /lang/orca/{shell,languages,utilities} as empty directories so
+    # glogin's prefix 15/16/17 assignments don't trigger $0046.
+    for orca_sub in ('shell', 'languages', 'utilities'):
+        sub_dir = staging / 'lang' / 'orca' / orca_sub
+        sub_dir.mkdir(parents=True, exist_ok=True)
+        sub_ph = sub_dir / 'placeholder#040000'
+        sub_ph.write_bytes(b'empty directory placeholder\r')
+        os.chmod(sub_ph, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+        placed[f'/LANG/ORCA/{orca_sub.upper()}/PLACEHOLDER'] = sub_ph
+
+    return placed
 
 
 def populate_gnoobj_extras(staging: Path, covered_gnoobj: set, verbose: bool) -> dict:
@@ -628,6 +703,11 @@ def build_image(output: Path, metadata: list, dry_run: bool,
         print('Creating /tmp with placeholder file...')
         tmp_placed = populate_tmp(staging, verbose)
         placed.update(tmp_placed)
+
+        print('Staging /systests/ from repo...')
+        st_placed = populate_systests(staging, verbose)
+        placed.update(st_placed)
+        print(f'  {len(st_placed)} systests files staged')
 
         # ── Create volume ──────────────────────────────────────────────────
         if output.exists():

@@ -31,7 +31,7 @@ $(OBJ_DIR)/%.a: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	@echo "--- compile $*.c ---"
 	cd $(OBJ_DIR) && $(CC) $(CFLAGS) $(SRC_DIR)/$*.c
 
-GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),/Library/GoldenGate)
 AINCLUDE  := $(GG_ROOT)/Libraries/AINClude
 
 # fpspecnum.asm uses COPY E16.SANE (SANE equates).

@@ -19,7 +19,7 @@ LIB_OUT   := $(GNO_OBJ)/libc_stdio.a
 CC        := iix --gno compile
 MAKELIB   := iix makelib
 CFLAGS    := -P +O
-GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),/Library/GoldenGate)
 
 # From original Makefile SRCS — note vfprintf.c is NOT compiled directly;
 # vfprintf1.c and vfprintf2.c are the wrapper files.

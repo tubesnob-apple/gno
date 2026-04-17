@@ -21,6 +21,16 @@
 REPO_ROOT  ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
 GNO_OBJ    ?= $(abspath $(REPO_ROOT)/gno_obj)
 
+# Emit hush.symbols JSON for GSplus symbolic debugging. ON by default;
+# disable with GSPLUS_SYMBOLS= (empty). The flag is an iix-level -D shell
+# variable and MUST precede the "link" sub-command.
+GSPLUS_SYMBOLS ?= 1
+ifneq ($(strip $(GSPLUS_SYMBOLS)),)
+IIX_DFLAGS := -DgsplusSymbols=1
+else
+IIX_DFLAGS :=
+endif
+
 SRC        := $(REPO_ROOT)/bin/hush
 OBJ        := $(GNO_OBJ)/hush_obj
 BIN_OUT    := $(GNO_OBJ)/bin
@@ -144,7 +154,7 @@ $(BIN_OUT)/hush: $(OBJ)/.objs_done | $(BIN_OUT) $(OBJ)
 	    +skip.whitespc.a +wfopen.a +verror.msg.a +time.a +xrealloc.vec.a \
 	    +unicode.a +vfork.and.run.a +waitpid.emul.a
 	@echo "=== hush: final link ==="
-	cd $(OBJ) && iix --gno link -P -o $(BIN_OUT)/hush hush hush_lib $(LIBTERMCAP) $(LIBKTRACE)
+	cd $(OBJ) && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/hush hush hush_lib $(LIBTERMCAP) $(LIBKTRACE)
 	@echo "=== hush: done ===" && ls -l $(BIN_OUT)/hush
 
 # Segment layout (each source file has segment "SEGNAME"; prepended):

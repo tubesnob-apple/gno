@@ -8,7 +8,7 @@
 #     1. Removing any stale symlinks (cleanup from prior install approach)
 #     2. Copying ORCA toolbox headers from Libraries/ORCACDefs/ (base layer)
 #     3. Copying GNO headers from include/ on top — GNO wins for all overlapping files
-#     4. Installing defaults.h from this repo (defines __GNO__, sets pragma paths)
+#     4. Installing Defaults.h from this repo (defines __GNO__, sets pragma paths)
 #
 # Result: lib/ORCACDefs/ contains everything needed for --gno compilation.
 #         No symlinks. No usr/include/ dependency.
@@ -16,7 +16,7 @@
 # Usage:
 #   make -f goldengate/install-gno-headers.mk
 
-GOLDENGATE    := $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
+GOLDENGATE    := $(or $(GOLDEN_GATE),$(ORCA_ROOT),/Library/GoldenGate)
 LIBRARIES_ORC := $(GOLDENGATE)/Libraries/ORCACDefs
 LIB_ORC       := $(GOLDENGATE)/lib/ORCACDefs
 
@@ -36,7 +36,7 @@ all: lib-orcacdefs
 # Step 3: rsync GNO include/ tree on top — overwrites ORCA versions for overlapping
 #          headers; also brings in subdirs (arpa/, gno/, machine/, net/, netinet/,
 #          protocols/, rpc/, sys/) and their contents as regular files
-# Step 4: Install defaults.h from this repo (must come last to win over any other version)
+# Step 4: Install Defaults.h from this repo (must come last to win over any other version)
 lib-orcacdefs:
 	@echo "==> Rebuilding $(LIB_ORC)/"
 	@mkdir -p "$(LIB_ORC)"
@@ -50,9 +50,9 @@ lib-orcacdefs:
 	@# Step 3: GNO headers (overwrite ORCA versions; also installs subdirs)
 	@rsync -a "$(GNO_INCLUDE)/" "$(LIB_ORC)/"
 	@echo "    $$(find "$(GNO_INCLUDE)" -name '*.h' | wc -l | tr -d ' ') GNO headers synced (flat + subdirs)"
-	@# Step 4: defaults.h from this repo
-	@cp "$(GNO_ORCACDEFS)/defaults.h" "$(LIB_ORC)/defaults.h"
-	@echo "    defaults.h installed from repo"
+	@# Step 4: Defaults.h from this repo
+	@cp "$(GNO_ORCACDEFS)/Defaults.h" "$(LIB_ORC)/Defaults.h"
+	@echo "    Defaults.h installed from repo"
 	@echo "==> Done. lib/ORCACDefs/: $$(find "$(LIB_ORC)" -name '*.h' | wc -l | tr -d ' ') total headers."
 
 # ── Diagnostic ────────────────────────────────────────────────────────────
@@ -63,4 +63,4 @@ status:
 	 regular=$$(find "$(LIB_ORC)" -maxdepth 1 -type f | wc -l | tr -d ' '); \
 	 dirs=$$(find "$(LIB_ORC)" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' '); \
 	 echo "  top-level: $$regular files, $$dirs subdirs, $$symlinks symlinks (want 0)"
-	@echo "  defaults.h: $$([ -f "$(LIB_ORC)/defaults.h" ] && echo present || echo MISSING)"
+	@echo "  Defaults.h: $$([ -f "$(LIB_ORC)/Defaults.h" ] && echo present || echo MISSING)"

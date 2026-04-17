@@ -11,7 +11,7 @@
 #   bash goldengate/build/rebuild-all.sh phase6 phase7 # specific phases
 #
 # Phases (in order):
-#   headers   -- install GNO headers to ~/Library/GoldenGate/lib/ORCACDefs/
+#   headers   -- install GNO headers to /Library/GoldenGate/lib/ORCACDefs/
 #   phase3    -- libc
 #   phase5    -- support libraries (lsaneglue, libcrypt, libutil, libtermcap,
 #                libcurses, liby, libnetdb, libcontrib)
@@ -22,6 +22,11 @@
 #
 # Prerequisites: iix, python3, GoldenGate installation.
 # Run goldengate/setup.sh first to verify the environment.
+#
+# By default each linker invocation emits a <target>.symbols JSON file next
+# to the binary/kernel/driver (consumed by the GSplus emulator for symbolic
+# debugging). Set GSPLUS_SYMBOLS= (empty) to suppress emission if you need
+# byte-identical output to pre-symbol-table builds.
 #
 
 set -euo pipefail
@@ -107,6 +112,13 @@ for phase in "${PHASES[@]}"; do
         phase3|libc)
             run_phase "Phase 3 — libc" \
                 make -f "${BUILD}/libc.mk"
+            GG_ROOT_INSTALL="${GOLDEN_GATE:-${ORCA_ROOT:-/Library/GoldenGate}}"
+            if [[ -f "${OBJ_DIR}/lib/libc" && -d "${GG_ROOT_INSTALL}/lib" ]]; then
+                cp "${OBJ_DIR}/lib/libc" "${GG_ROOT_INSTALL}/lib/libc"
+                ok "Installed libc → ${GG_ROOT_INSTALL}/lib/libc"
+            else
+                die "libc install failed: source or destination missing"
+            fi
             ;;
         phase5|libs)
             run_phase "Phase 5 — support libraries" \

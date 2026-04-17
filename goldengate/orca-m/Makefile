@@ -21,7 +21,7 @@
 #   File.asm → keep obj/file → obj/file.a + obj/file.root
 #
 # The linker writes to 16/Asm65816 which iix resolves to:
-#   ~/Library/GoldenGate/Languages/Asm65816
+#   /Library/GoldenGate/Languages/Asm65816
 # We redirect output to ./Asm65816 instead via -o.
 #
 # Assembly flags (NOTE: iix getopt_orca only accepts uppercase +[A-Z] flags):
@@ -41,7 +41,7 @@
 
 REPO_ROOT  ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
 SRC_DIR    := $(REPO_ROOT)/goldengate/orca-m
-GG_ROOT    ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
+GG_ROOT    ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),/Library/GoldenGate)
 INSTALLED  := $(GG_ROOT)/Languages/Asm65816
 
 AS         := iix assemble

@@ -14,7 +14,7 @@ REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
 
 SRC       := $(HOME)/source/iigs-official-repos/byteworksinc-syslib
 OBJ       := $(SRC)/obj
-GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),/Library/GoldenGate)
 INSTALL   := $(GG_ROOT)/lib/SysLib
 
 # OMF files output by assembler (keep directive is "keep obj/<name>" but GoldenGate

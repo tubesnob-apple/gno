@@ -208,13 +208,13 @@
   <table>
     <thead><tr><th>Path / Variable</th><th>macOS Location</th><th>Status</th></tr></thead>
     <tbody>
-      <tr><td>GoldenGate root</td><td><code>~/Library/GoldenGate/</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
+      <tr><td>GoldenGate root</td><td><code>/Library/GoldenGate/</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
       <tr><td>iix binary</td><td><code>/usr/local/bin/iix</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
-      <tr><td>ORCA/C compiler</td><td><code>~/Library/GoldenGate/Languages/cc</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
-      <tr><td>Linker</td><td><code>~/Library/GoldenGate/Languages/Linker</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
-      <tr><td>MakeLib</td><td><code>~/Library/GoldenGate/Utilities/MakeLib</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
-      <tr><td>Assembler</td><td><code>~/Library/GoldenGate/Languages/Asm65816</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
-      <tr><td>Prefix 17 (= ORCA utilities)</td><td><code>~/Library/GoldenGate/Utilities/</code></td><td><span class="badge badge-ok">MAPPED</span></td></tr>
+      <tr><td>ORCA/C compiler</td><td><code>/Library/GoldenGate/Languages/cc</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
+      <tr><td>Linker</td><td><code>/Library/GoldenGate/Languages/Linker</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
+      <tr><td>MakeLib</td><td><code>/Library/GoldenGate/Utilities/MakeLib</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
+      <tr><td>Assembler</td><td><code>/Library/GoldenGate/Languages/Asm65816</code></td><td><span class="badge badge-ok">FOUND</span></td></tr>
+      <tr><td>Prefix 17 (= ORCA utilities)</td><td><code>/Library/GoldenGate/Utilities/</code></td><td><span class="badge badge-ok">MAPPED</span></td></tr>
       <tr><td><code>/src</code> namespace</td><td>(not mounted)</td><td><span class="badge badge-fail">NOT WORKING</span></td></tr>
       <tr><td><code>/obj</code> namespace</td><td>(not mounted)</td><td><span class="badge badge-fail">NOT WORKING</span></td></tr>
       <tr><td><code>/lang/orca</code> namespace</td><td>(not mounted)</td><td><span class="badge badge-fail">NOT WORKING</span></td></tr>
@@ -265,7 +265,7 @@ iix makelib libfoo.o +file1.a +file2.a
       <div class="phase-num">1</div>
       <div class="phase-body">
         <h4>Header Installation</h4>
-        <p>Copy all GNO headers (<code>include/</code>, <code>ainclude/</code>, <code>rinclude/</code>, <code>orcacdefs/</code>) into GoldenGate's <code>~/Library/GoldenGate/usr/include/</code> with correct ProDOS file types set via <code>iix /bin/chtyp</code>. Currently partially done — <code>ainclude/</code> and <code>orcacdefs/</code> need updating.</p>
+        <p>Copy all GNO headers (<code>include/</code>, <code>ainclude/</code>, <code>rinclude/</code>, <code>orcacdefs/</code>) into GoldenGate's <code>/Library/GoldenGate/usr/include/</code> with correct ProDOS file types set via <code>iix /bin/chtyp</code>. Currently partially done — <code>ainclude/</code> and <code>orcacdefs/</code> need updating.</p>
       </div>
     </li>
     <li>
@@ -354,7 +354,7 @@ lib/libc/        ← top level LAST (for resource fork)</code></pre>
       <tr>
         <td>GoldenGate-Working-220b3</td>
         <td>tar archive</td>
-        <td>Working GoldenGate binary install + ORCA/C 2.2.0 beta 3. Same structure as current <code>~/Library/GoldenGate/</code>. Useful as backup/reference.</td>
+        <td>Working GoldenGate binary install + ORCA/C 2.2.0 beta 3. Same structure as current <code>/Library/GoldenGate/</code>. Useful as backup/reference.</td>
       </tr>
       <tr>
         <td>GoldenGate-r2.0.4.zip</td>

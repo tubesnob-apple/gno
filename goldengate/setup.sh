@@ -14,7 +14,7 @@
 #
 # GoldenGate is found in this order:
 #   1. $GOLDEN_GATE or $ORCA_ROOT environment variable
-#   2. ~/Library/GoldenGate (macOS per-user default)
+#   2. /Library/GoldenGate (macOS system install — GoldenGate 2.1.0+)
 #   3. /usr/local/share/GoldenGate (Linux typical)
 #   4. /usr/share/GoldenGate (Linux system)
 #
@@ -41,14 +41,14 @@ if [[ -n "${GOLDEN_GATE:-}" ]]; then
     GG_ROOT="${GOLDEN_GATE}"
 elif [[ -n "${ORCA_ROOT:-}" ]]; then
     GG_ROOT="${ORCA_ROOT}"
-elif [[ -d "${HOME}/Library/GoldenGate" ]]; then
-    GG_ROOT="${HOME}/Library/GoldenGate"
+elif [[ -d "/Library/GoldenGate" ]]; then
+    GG_ROOT="/Library/GoldenGate"
 elif [[ -d "/usr/local/share/GoldenGate" ]]; then
     GG_ROOT="/usr/local/share/GoldenGate"
 elif [[ -d "/usr/share/GoldenGate" ]]; then
     GG_ROOT="/usr/share/GoldenGate"
 else
-    GG_ROOT="${HOME}/Library/GoldenGate"  # fallback (will fail check below)
+    GG_ROOT="/Library/GoldenGate"  # fallback (will fail check below)
 fi
 
 # ── Colors ──────────────────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ if [[ -d "${GG_ROOT}" ]]; then
 else
     fail "GoldenGate root not found. Set \$GOLDEN_GATE to your GoldenGate directory."
     case "${HOST_OS}" in
-      macOS)   warn "  Default location: ~/Library/GoldenGate" ;;
+      macOS)   warn "  Default location: /Library/GoldenGate" ;;
       Linux)   warn "  Typical location: /usr/local/share/GoldenGate" ;;
       Windows) warn "  Set GOLDEN_GATE=C:/path/to/GoldenGate in your shell" ;;
     esac

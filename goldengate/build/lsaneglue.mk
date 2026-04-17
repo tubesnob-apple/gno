@@ -16,7 +16,7 @@
 #   - Assembly output gets $B0 type by default; patched to $B1 for makelib
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
-GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),/Library/GoldenGate)
 LIB_OUT   ?= $(abspath $(REPO_ROOT)/gno_obj/lib/lsaneglue)
 
 SRC_DIR   := $(REPO_ROOT)/lib/lsaneglue

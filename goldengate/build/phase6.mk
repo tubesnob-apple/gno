@@ -21,7 +21,19 @@
 
 REPO_ROOT ?= $(shell cd "$(dir $(lastword $(MAKEFILE_LIST)))/../.." && pwd)
 GNO_OBJ   ?= $(abspath $(REPO_ROOT)/gno_obj)
-GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),$(HOME)/Library/GoldenGate)
+GG_ROOT   ?= $(or $(GOLDEN_GATE),$(ORCA_ROOT),/Library/GoldenGate)
+
+# Emit <target>.symbols JSON next to each linked binary for GSplus symbolic
+# debugging. ON by default; disable with GSPLUS_SYMBOLS= (empty) to match
+# pre-symbol-table build output. The flag is an iix-level -D shell variable;
+# it MUST precede the "link" sub-command (see
+# ~/source/orca/linker/gsplusSymbols.md).
+GSPLUS_SYMBOLS ?= 1
+ifneq ($(strip $(GSPLUS_SYMBOLS)),)
+IIX_DFLAGS := -DgsplusSymbols=1
+else
+IIX_DFLAGS :=
+endif
 
 BIN_SRC     := $(REPO_ROOT)/bin
 USRBIN_SRC  := $(REPO_ROOT)/usr.bin
@@ -55,7 +67,7 @@ endef
 # objs = space-separated list of base names (no extension).
 # Usage: $(call ld1,objdir,outdir,progname,objs[,extra_libs])
 define ld1
-rm -f $(2)/$(3); cd $(1) && iix --gno link -P -o $(2)/$(3) $(4) $(5)
+rm -f $(2)/$(3); cd $(1) && iix $(IIX_DFLAGS) --gno link -P -o $(2)/$(3) $(4) $(5)
 endef
 
 # Library paths
@@ -125,7 +137,7 @@ bin_binprint:
 	@mkdir -p $(OBJ_BASE)/binprint $(BIN_OUT)
 	$(foreach s,binprint doline, \
 		cd $(BIN_SRC)/binprint && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/binprint/ && { mv $(s).root $(OBJ_BASE)/binprint/ 2>/dev/null || true; } && { rm -f $(s).sym 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/binprint && iix --gno link -P -o $(BIN_OUT)/binprint binprint doline
+	cd $(OBJ_BASE)/binprint && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/binprint binprint doline
 
 # cp: single-file GNO-native utility (from ksherlock-gno-sources)
 # Implements cp, rm, mv via argv[0] detection; only cp is needed here.
@@ -133,7 +145,7 @@ bin_cp:
 	@echo "=== cp ==="
 	@mkdir -p $(OBJ_BASE)/cp $(BIN_OUT)
 	cd $(BIN_SRC)/cp && iix --gno compile -P cp.c && mv cp.a $(OBJ_BASE)/cp/ && { mv cp.root $(OBJ_BASE)/cp/ 2>/dev/null || true; } && { rm -f cp.sym 2>/dev/null || true; }
-	cd $(OBJ_BASE)/cp && iix --gno link -P -o $(BIN_OUT)/cp cp
+	cd $(OBJ_BASE)/cp && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/cp cp
 
 # grep/egrep/fgrep/chmod: BSD ports using POSIX regex (grep=4.3BSD Reno, egrep/fgrep=4.3BSD Reno, chmod=4.4BSD-Lite2)
 bin_grep:
@@ -150,7 +162,7 @@ bin_chmod:
 	@mkdir -p $(OBJ_BASE)/chmod $(BIN_OUT)
 	$(foreach s,chmod setmode, \
 		cd $(BIN_SRC)/chmod && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/chmod/ && { mv $(s).root $(OBJ_BASE)/chmod/ 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/chmod && iix --gno link -P -o $(BIN_OUT)/chmod chmod setmode
+	cd $(OBJ_BASE)/chmod && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/chmod chmod setmode
 
 # compress: LZW compress/decompress (single binary handles both; detect via argv[0])
 bin_compress:
@@ -185,7 +197,7 @@ bin_date:
 	iix chtyp -t obj $(BIN_SRC)/date/date.ROOT
 	mv $(BIN_SRC)/date/date.A    $(OBJ_BASE)/date/date.a
 	mv $(BIN_SRC)/date/date.ROOT $(OBJ_BASE)/date/date.root.a
-	cd $(OBJ_BASE)/date && iix --gno link -P -o $(BIN_OUT)/date date.root.a date.a
+	cd $(OBJ_BASE)/date && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/date date.root.a date.a
 
 bin_purge:
 	@echo "=== purge ==="
@@ -193,7 +205,7 @@ bin_purge:
 	cd $(BIN_SRC)/purge && iix assemble +T purge.asm
 	iix chtyp -t obj $(BIN_SRC)/purge/purge.ROOT
 	mv $(BIN_SRC)/purge/purge.ROOT $(OBJ_BASE)/purge/purge.root.a
-	cd $(OBJ_BASE)/purge && iix --gno link -P -o $(BIN_OUT)/purge purge.root.a
+	cd $(OBJ_BASE)/purge && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/purge purge.root.a
 
 bin_passwd:
 	@echo "=== passwd ==="
@@ -209,7 +221,7 @@ bin_aroff:
 		cd $(BIN_SRC)/aroff && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/aroff/ && { mv $(s).root $(OBJ_BASE)/aroff/ 2>/dev/null || true; };)
 	@mainobj=$$(ls $(OBJ_BASE)/aroff/*.root | head -1 | xargs basename | sed 's/\.root//'); \
 	 allobjs=$$(ls $(OBJ_BASE)/aroff/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/aroff && iix --gno link -P -o $(BIN_OUT)/aroff $$allobjs
+	 cd $(OBJ_BASE)/aroff && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/aroff $$allobjs
 
 bin_chtyp:
 	@echo "=== chtyp ==="
@@ -217,7 +229,7 @@ bin_chtyp:
 	$(foreach s,$(shell ls $(BIN_SRC)/chtyp/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(BIN_SRC)/chtyp && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/chtyp/ && { mv $(s).root $(OBJ_BASE)/chtyp/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/chtyp/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/chtyp && iix --gno link -P -o $(BIN_OUT)/chtyp $$allobjs
+	 cd $(OBJ_BASE)/chtyp && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/chtyp $$allobjs
 
 bin_cmp:
 	@echo "=== cmp ==="
@@ -225,7 +237,7 @@ bin_cmp:
 	$(foreach s,$(shell ls $(BIN_SRC)/cmp/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(BIN_SRC)/cmp && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/cmp/ && { mv $(s).root $(OBJ_BASE)/cmp/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/cmp/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/cmp && iix --gno link -P -o $(BIN_OUT)/cmp $$allobjs
+	 cd $(OBJ_BASE)/cmp && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/cmp $$allobjs
 
 bin_df:
 	@echo "=== df ==="
@@ -233,7 +245,7 @@ bin_df:
 	$(foreach s,$(shell ls $(BIN_SRC)/df/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(BIN_SRC)/df && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/df/ && { mv $(s).root $(OBJ_BASE)/df/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/df/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/df && iix --gno link -P -o $(BIN_OUT)/df $$allobjs
+	 cd $(OBJ_BASE)/df && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/df $$allobjs
 
 bin_ls:
 	@echo "=== ls ==="
@@ -241,7 +253,7 @@ bin_ls:
 	$(foreach s,$(shell ls $(BIN_SRC)/ls/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(BIN_SRC)/ls && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/ls/ && { mv $(s).root $(OBJ_BASE)/ls/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/ls/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/ls && iix --gno link -P -o $(BIN_OUT)/ls $$allobjs
+	 cd $(OBJ_BASE)/ls && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/ls $$allobjs
 
 bin_rm:
 	@echo "=== rm ==="
@@ -249,7 +261,7 @@ bin_rm:
 	$(foreach s,$(shell ls $(BIN_SRC)/rm/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(BIN_SRC)/rm && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/rm/ && { mv $(s).root $(OBJ_BASE)/rm/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/rm/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/rm && iix --gno link -P -o $(BIN_OUT)/rm $$allobjs
+	 cd $(OBJ_BASE)/rm && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/rm $$allobjs
 
 bin_tail:
 	@echo "=== tail ==="
@@ -257,7 +269,7 @@ bin_tail:
 	$(foreach s,$(shell ls $(BIN_SRC)/tail/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(BIN_SRC)/tail && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/tail/ && { mv $(s).root $(OBJ_BASE)/tail/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/tail/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/tail && iix --gno link -P -o $(BIN_OUT)/tail $$allobjs
+	 cd $(OBJ_BASE)/tail && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/tail $$allobjs
 
 bin_test:
 	@echo "=== test ==="
@@ -265,7 +277,7 @@ bin_test:
 	$(foreach s,$(shell ls $(BIN_SRC)/test/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(BIN_SRC)/test && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/test/ && { mv $(s).root $(OBJ_BASE)/test/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/test/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/test && iix --gno link -P -o $(BIN_OUT)/test $$allobjs
+	 cd $(OBJ_BASE)/test && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/test $$allobjs
 
 bin_more:
 	@echo "=== more ==="
@@ -299,7 +311,7 @@ bin_less:
 	$(foreach s,$(LESS_OBJS), \
 		cd $(BIN_SRC)/less && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/less/ && { mv $(s).root $(OBJ_BASE)/less/ 2>/dev/null || true; };)
 	rm -f $(BIN_OUT)/less
-	cd $(OBJ_BASE)/less && iix --gno link -P -o $(BIN_OUT)/less $(LESS_OBJS) $(LIBTERMCAP)
+	cd $(OBJ_BASE)/less && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/less $(LESS_OBJS) $(LIBTERMCAP)
 
 # vi: Stevie vi editor, GNO port (Jawaid Bayzar)
 # Source files with dots in the name (format.l.c, s.io.c) need explicit handling
@@ -317,7 +329,7 @@ bin_vi:
 	cd $(BIN_SRC)/vi && iix --gno compile -P "format.l.c" && mv "format.l.a" $(OBJ_BASE)/vi/ && { mv "format.l.root" $(OBJ_BASE)/vi/ 2>/dev/null || true; } && { rm -f "format.l.sym" 2>/dev/null || true; }
 	cd $(BIN_SRC)/vi && iix --gno compile -P "s.io.c" && mv "s.io.a" $(OBJ_BASE)/vi/ && { mv "s.io.root" $(OBJ_BASE)/vi/ 2>/dev/null || true; } && { rm -f "s.io.sym" 2>/dev/null || true; }
 	rm -f $(BIN_OUT)/vi
-	cd $(OBJ_BASE)/vi && iix --gno link -P -o $(BIN_OUT)/vi $(VI_LINK_ORDER) $(LIBTERMCAP)
+	cd $(OBJ_BASE)/vi && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/vi $(VI_LINK_ORDER) $(LIBTERMCAP)
 
 # echo: BSD echo with -n and -e; written from scratch for GNO
 bin_echo:
@@ -371,7 +383,7 @@ bin_tr:
 	$(foreach s,$(shell ls $(USRBIN_SRC)/tr/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(USRBIN_SRC)/tr && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/tr/ && { mv $(s).root $(OBJ_BASE)/tr/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/tr/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/tr && iix --gno link -P -o $(BIN_OUT)/tr $$allobjs
+	 cd $(OBJ_BASE)/tr && iix $(IIX_DFLAGS) --gno link -P -o $(BIN_OUT)/tr $$allobjs
 
 # ── usr.bin/ ──────────────────────────────────────────────────────────────────
 
@@ -422,7 +434,7 @@ usrbin_getvers:
 	iix chtyp -t obj $(USRBIN_SRC)/getvers/getvers.ROOT
 	mv $(USRBIN_SRC)/getvers/getvers.A $(OBJ_BASE)/getvers/getvers.a
 	mv $(USRBIN_SRC)/getvers/getvers.ROOT $(OBJ_BASE)/getvers/getvers.root.a
-	cd $(OBJ_BASE)/getvers && iix link -P -o $(USRBIN_OUT)/getvers getvers.root.a getvers.a
+	cd $(OBJ_BASE)/getvers && iix $(IIX_DFLAGS) link -P -o $(USRBIN_OUT)/getvers getvers.root.a getvers.a
 
 # printf uses floating-point format specifiers → needs SysFloat for ~DOUBLEPRECISION
 usrbin_printf:
@@ -474,13 +486,13 @@ usrbin_cksum:
 	@mkdir -p $(OBJ_BASE)/cksum $(USRBIN_OUT)
 	$(foreach s,cksum crc crc32 print sum1 sum2, \
 		cd $(USRBIN_SRC)/cksum && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/cksum/ && { mv $(s).root $(OBJ_BASE)/cksum/ 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/cksum && iix --gno link -P -o $(USRBIN_OUT)/cksum cksum crc crc32 print sum1 sum2
+	cd $(OBJ_BASE)/cksum && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/cksum cksum crc crc32 print sum1 sum2
 
 # sum: same objects as cksum; runtime detects argv[0] to select algorithm
 usrbin_sum: usrbin_cksum
 	@echo "=== sum ==="
 	@mkdir -p $(USRBIN_OUT)
-	cd $(OBJ_BASE)/cksum && iix --gno link -P -o $(USRBIN_OUT)/sum cksum crc crc32 print sum1 sum2
+	cd $(OBJ_BASE)/cksum && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/sum cksum crc crc32 print sum1 sum2
 
 usrbin_ctags:
 	@echo "=== ctags ==="
@@ -488,7 +500,7 @@ usrbin_ctags:
 	$(foreach s,$(shell ls $(USRBIN_SRC)/ctags/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(USRBIN_SRC)/ctags && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/ctags/ && { mv $(s).root $(OBJ_BASE)/ctags/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/ctags/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/ctags && iix --gno link -P -o $(USRBIN_OUT)/ctags $$allobjs
+	 cd $(OBJ_BASE)/ctags && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/ctags $$allobjs
 
 usrbin_fmt:
 	@echo "=== fmt ==="
@@ -496,7 +508,7 @@ usrbin_fmt:
 	$(foreach s,$(shell ls $(USRBIN_SRC)/fmt/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(USRBIN_SRC)/fmt && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/fmt/ && { mv $(s).root $(OBJ_BASE)/fmt/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/fmt/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/fmt && iix --gno link -P -o $(USRBIN_OUT)/fmt $$allobjs
+	 cd $(OBJ_BASE)/fmt && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/fmt $$allobjs
 
 usrbin_sed:
 	@echo "=== sed ==="
@@ -504,15 +516,15 @@ usrbin_sed:
 	$(foreach s,$(shell ls $(USRBIN_SRC)/sed/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(USRBIN_SRC)/sed && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/sed/ && { mv $(s).root $(OBJ_BASE)/sed/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/sed/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/sed && iix --gno link -P -o $(USRBIN_OUT)/sed $$allobjs
+	 cd $(OBJ_BASE)/sed && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/sed $$allobjs
 
 usrbin_sort:
 	@echo "=== sort (msort + dsort + /usr/bin/sort alias) ==="
 	@mkdir -p $(OBJ_BASE)/sort $(USRBIN_OUT)
 	$(foreach s,msort linecount loadarray sortarray disksort dsort initdisksort mergeone tempnam, \
 		cd $(USRBIN_SRC)/sort && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/sort/ && { mv $(s).root $(OBJ_BASE)/sort/ 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/sort && iix --gno link -P -o $(USRBIN_OUT)/msort msort linecount loadarray sortarray
-	cd $(OBJ_BASE)/sort && iix --gno link -P -o $(USRBIN_OUT)/dsort dsort disksort initdisksort mergeone tempnam sortarray
+	cd $(OBJ_BASE)/sort && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/msort msort linecount loadarray sortarray
+	cd $(OBJ_BASE)/sort && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/dsort dsort disksort initdisksort mergeone tempnam sortarray
 	# Install a /usr/bin/sort copy of msort so POSIX-style `sort file` and
 	# `cat file | sort` work at the shell.  The 1987 ORCA-shell SORT from
 	# /lang/orca/utilities still ships alongside for backward compat with
@@ -525,7 +537,7 @@ usrbin_wall:
 	$(foreach s,$(shell ls $(USRBIN_SRC)/wall/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(USRBIN_SRC)/wall && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/wall/ && { mv $(s).root $(OBJ_BASE)/wall/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/wall/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/wall && iix --gno link -P -o $(USRBIN_OUT)/wall $$allobjs
+	 cd $(OBJ_BASE)/wall && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/wall $$allobjs
 
 # awk: pre-generated ytab.c/proctab.c included; no yacc required
 usrbin_awk:
@@ -533,7 +545,7 @@ usrbin_awk:
 	@mkdir -p $(OBJ_BASE)/awk $(USRBIN_OUT)
 	$(foreach s,main run ytab b lib lex tran parse proctab, \
 		cd $(USRBIN_SRC)/awk && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/awk/ && { mv $(s).root $(OBJ_BASE)/awk/ 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/awk && iix --gno link -P -o $(USRBIN_OUT)/awk main run ytab b lib lex tran parse proctab
+	cd $(OBJ_BASE)/awk && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/awk main run ytab b lib lex tran parse proctab
 
 # cpp: ORCA/C segment pragmas handled via DO_SEGMENTS define
 usrbin_cpp:
@@ -541,7 +553,7 @@ usrbin_cpp:
 	@mkdir -p $(OBJ_BASE)/cpp $(USRBIN_OUT)
 	$(foreach s,cpp eval getopt hideset include lex macro nlist tokens unix, \
 		cd $(USRBIN_SRC)/cpp && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/cpp/ && { mv $(s).root $(OBJ_BASE)/cpp/ 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/cpp && iix --gno link -P -o $(USRBIN_OUT)/cpp cpp eval getopt hideset include lex macro nlist tokens unix
+	cd $(OBJ_BASE)/cpp && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/cpp cpp eval getopt hideset include lex macro nlist tokens unix
 
 # nroff: uses #ifdef __GNO__ for termcap/err includes; links libtermcap
 usrbin_nroff:
@@ -549,7 +561,7 @@ usrbin_nroff:
 	@mkdir -p $(OBJ_BASE)/nroff $(USRBIN_OUT)
 	$(foreach s,nroff command escape io low macros chars strings text, \
 		cd $(USRBIN_SRC)/nroff && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/nroff/ && { mv $(s).root $(OBJ_BASE)/nroff/ 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/nroff && iix --gno link -P -o $(USRBIN_OUT)/nroff nroff command escape io low macros chars strings text $(LIBTERMCAP)
+	cd $(OBJ_BASE)/nroff && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/nroff nroff command escape io low macros chars strings text $(LIBTERMCAP)
 
 # man suite: builds man, apropos, whatis (usr/bin) + catman, makewhatis (usr/sbin)
 # All share util.o, globals.o, common.o, apropos2.o; links libcontrib
@@ -558,11 +570,11 @@ usrbin_man_suite:
 	@mkdir -p $(OBJ_BASE)/man $(USRBIN_OUT) $(USRSBIN_OUT)
 	$(foreach s,man man2 apropos apropos2 util globals common fillbuffer process catman makewhatis whatis, \
 		cd $(USRBIN_SRC)/man && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/man/ && { mv $(s).root $(OBJ_BASE)/man/ 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/man && iix --gno link -P -o $(USRBIN_OUT)/man man man2 apropos2 util globals common $(LIBCONTRIB)
-	cd $(OBJ_BASE)/man && iix --gno link -P -o $(USRBIN_OUT)/apropos apropos apropos2 util globals $(LIBCONTRIB)
-	cd $(OBJ_BASE)/man && iix --gno link -P -o $(USRBIN_OUT)/whatis whatis apropos2 util globals $(LIBCONTRIB)
-	cd $(OBJ_BASE)/man && iix --gno link -P -o $(USRSBIN_OUT)/catman catman util globals common $(LIBCONTRIB)
-	cd $(OBJ_BASE)/man && iix --gno link -P -o $(USRSBIN_OUT)/makewhatis makewhatis fillbuffer process $(LIBCONTRIB)
+	cd $(OBJ_BASE)/man && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/man man man2 apropos2 util globals common $(LIBCONTRIB)
+	cd $(OBJ_BASE)/man && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/apropos apropos apropos2 util globals $(LIBCONTRIB)
+	cd $(OBJ_BASE)/man && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/whatis whatis apropos2 util globals $(LIBCONTRIB)
+	cd $(OBJ_BASE)/man && iix $(IIX_DFLAGS) --gno link -P -o $(USRSBIN_OUT)/catman catman util globals common $(LIBCONTRIB)
+	cd $(OBJ_BASE)/man && iix $(IIX_DFLAGS) --gno link -P -o $(USRSBIN_OUT)/makewhatis makewhatis fillbuffer process $(LIBCONTRIB)
 
 # describe/descc/descu: source in usr.orca.bin/describe; reference paths are
 #   describe → usr/bin/describe, descc → usr/sbin/descc, descu → usr/sbin/descu
@@ -571,9 +583,9 @@ usrbin_describe:
 	@mkdir -p $(OBJ_BASE)/describe $(USRBIN_OUT) $(USRSBIN_OUT)
 	$(foreach s,describe descc descu, \
 		cd $(USRORCA_SRC)/describe && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/describe/ && { mv $(s).root $(OBJ_BASE)/describe/ 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/describe && iix --gno link -P -o $(USRBIN_OUT)/describe describe
-	cd $(OBJ_BASE)/describe && iix --gno link -P -o $(USRSBIN_OUT)/descc descc
-	cd $(OBJ_BASE)/describe && iix --gno link -P -o $(USRSBIN_OUT)/descu descu
+	cd $(OBJ_BASE)/describe && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/describe describe
+	cd $(OBJ_BASE)/describe && iix $(IIX_DFLAGS) --gno link -P -o $(USRSBIN_OUT)/descc descc
+	cd $(OBJ_BASE)/describe && iix $(IIX_DFLAGS) --gno link -P -o $(USRSBIN_OUT)/descu descu
 
 # udl: source in usr.orca.bin/udl; reference path is usr/bin/udl
 usrbin_udl:
@@ -581,7 +593,7 @@ usrbin_udl:
 	@mkdir -p $(OBJ_BASE)/udl $(USRBIN_OUT)
 	$(foreach s,udlgs udluse common globals, \
 		cd $(USRORCA_SRC)/udl && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/udl/ && { mv $(s).root $(OBJ_BASE)/udl/ 2>/dev/null || true; };)
-	cd $(OBJ_BASE)/udl && iix --gno link -P -o $(USRBIN_OUT)/udl udlgs udluse common globals
+	cd $(OBJ_BASE)/udl && iix $(IIX_DFLAGS) --gno link -P -o $(USRBIN_OUT)/udl udlgs udluse common globals
 
 # ── usr.orca.bin/ ─────────────────────────────────────────────────────────────
 # describe and udl now build to their reference paths (usr/bin, usr/sbin) via
@@ -607,7 +619,7 @@ sbin_initd:
 	@echo "=== initd ==="
 	@mkdir -p $(OBJ_BASE)/initd $(SBIN_OUT) $(USRSBIN_OUT)
 	cd $(SBIN_SRC)/init && iix --gno compile -P initd.c && mv initd.a $(OBJ_BASE)/initd/ && { mv initd.root $(OBJ_BASE)/initd/ 2>/dev/null || true; } && { rm -f initd.sym 2>/dev/null || true; }
-	cd $(OBJ_BASE)/initd && iix --gno link -P -o $(USRSBIN_OUT)/initd initd.a $(GNO_OBJ)/usr/lib/libktrace
+	cd $(OBJ_BASE)/initd && iix $(IIX_DFLAGS) --gno link -P -o $(USRSBIN_OUT)/initd initd.a $(GNO_OBJ)/usr/lib/libktrace
 	cp $(USRSBIN_OUT)/initd $(SBIN_OUT)/initd
 
 $(SBIN_SIMPLE:%=sbin_%):
@@ -638,7 +650,7 @@ usrsbin_getty:
 	$(foreach s,$(shell ls $(USRSBIN_SRC)/getty/*.c | xargs -n1 basename | sed 's/\.c//'), \
 		cd $(USRSBIN_SRC)/getty && iix --gno compile -P $(s).c && mv $(s).a $(OBJ_BASE)/getty/ && { mv $(s).root $(OBJ_BASE)/getty/ 2>/dev/null || true; };)
 	@allobjs=$$(ls $(OBJ_BASE)/getty/*.a | xargs -n1 basename | sed 's/\.a//' | tr '\n' ' '); \
-	 cd $(OBJ_BASE)/getty && iix --gno link -P -o $(USRSBIN_OUT)/getty $$allobjs $(LIBUTIL)
+	 cd $(OBJ_BASE)/getty && iix $(IIX_DFLAGS) --gno link -P -o $(USRSBIN_OUT)/getty $$allobjs $(LIBUTIL)
 
 # login: uses libutil + libcrypt; note catman/makewhatis are built via usrbin_man_suite
 usrsbin_login:
